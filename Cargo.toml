@@ -1,0 +1,13 @@
+[workspace]
+members = [
+  "apps/desktop/src-tauri",
+  "crates/ownterm-domain",
+  "crates/ownterm-application",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.94"
+version = "0.1.0"
+license = "MIT"

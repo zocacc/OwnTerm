@@ -1,0 +1,19 @@
+[package]
+name = "ownterm-desktop"
+version.workspace = true
+description = "Desktop local-first para shells locais e SSH."
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "ownterm_desktop"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = "2.6.3"
+
+[dependencies]
+ownterm-application = { path = "../../../crates/ownterm-application" }
+serde = { version = "1.0.229", features = ["derive"] }
+tauri = "2.11.3"
