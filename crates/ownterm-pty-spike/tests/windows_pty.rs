@@ -2,7 +2,6 @@
 
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use std::io::{Read, Write};
-use std::sync::mpsc;
 use std::time::Duration;
 
 fn smoke(shell: &str, arguments: &[&str], input: &str, expect_ansi: bool) {
@@ -30,46 +29,26 @@ fn smoke(shell: &str, arguments: &[&str], input: &str, expect_ansi: bool) {
     let mut writer = pair.master.take_writer().unwrap();
     writer.write_all(input.as_bytes()).unwrap();
     writer.flush().unwrap();
-    let (sender, receiver) = mpsc::channel();
-    std::thread::spawn(move || {
-        let mut output = String::new();
-        let mut buffer = [0_u8; 1024];
-        loop {
-            match reader.read(&mut buffer) {
-                Ok(0) => break,
-                Ok(size) => {
-                    output.push_str(&String::from_utf8_lossy(&buffer[..size]));
-                    if output.contains("OWNTERM_PTY_OK") {
-                        break;
-                    }
-                }
-                Err(error) => {
-                    let _ = sender.send(Err(error.to_string()));
-                    return;
-                }
-            }
-        }
-        let _ = sender.send(Ok(output));
-    });
-    let output = match receiver.recv_timeout(Duration::from_secs(10)) {
-        Ok(result) => result.expect("could not read ConPTY output"),
-        Err(error) => {
-            let _ = child.kill();
-            panic!("ConPTY did not produce output within 10 seconds: {error}");
-        }
-    };
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     let status = loop {
         if let Some(status) = child.try_wait().unwrap() {
-            break status;
+            break Some(status);
         }
         if std::time::Instant::now() >= deadline {
             let _ = child.kill();
-            panic!("{shell} did not exit within 10 seconds");
+            let _ = child.wait();
+            break None;
         }
         std::thread::sleep(Duration::from_millis(25));
     };
     drop(writer);
+    drop(pair.master);
+
+    let mut output = String::new();
+    reader.read_to_string(&mut output).unwrap();
+    println!("{shell} output: {output:?}");
+
+    let status = status.unwrap_or_else(|| panic!("{shell} did not exit: {output:?}"));
     assert!(status.success(), "{output}");
     assert!(output.contains("OWNTERM_PTY_OK"), "{output}");
     if expect_ansi {
