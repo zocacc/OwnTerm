@@ -57,7 +57,9 @@ jobs:
           toolchain: 1.94.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ownterm/desktop tauri build --bundles nsis
-      - run: cargo test -p ownterm-desktop --test windows_pty
+      - name: Validate Windows ConPTY smoke
+        run: cargo test -p ownterm-desktop --test windows_pty
+        timeout-minutes: 2
       - uses: actions/upload-artifact@v4
         with:
           name: ownterm-windows-installer
