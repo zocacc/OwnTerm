@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::time::Duration;
 
-fn smoke(shell: &str, arguments: &[&str]) {
+fn smoke(shell: &str, arguments: &[&str], input: &str, expect_ansi: bool) {
     let pair = native_pty_system()
         .openpty(PtySize {
             rows: 24,
@@ -28,8 +28,8 @@ fn smoke(shell: &str, arguments: &[&str]) {
         .unwrap();
     let mut reader = pair.master.try_clone_reader().unwrap();
     let mut writer = pair.master.take_writer().unwrap();
-    writer.write_all(b"\r\n").unwrap();
-    drop(writer);
+    writer.write_all(input.as_bytes()).unwrap();
+    writer.flush().unwrap();
     let (sender, receiver) = mpsc::channel();
     std::thread::spawn(move || {
         let mut output = String::new();
@@ -51,23 +51,44 @@ fn smoke(shell: &str, arguments: &[&str]) {
         }
         let _ = sender.send(Ok(output));
     });
-    let output = receiver
-        .recv_timeout(Duration::from_secs(10))
-        .expect("ConPTY did not produce output within 10 seconds")
-        .expect("could not read ConPTY output");
-    assert!(child.wait().unwrap().success(), "{output}");
+    let output = match receiver.recv_timeout(Duration::from_secs(10)) {
+        Ok(result) => result.expect("could not read ConPTY output"),
+        Err(error) => {
+            let _ = child.kill();
+            panic!("ConPTY did not produce output within 10 seconds: {error}");
+        }
+    };
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            panic!("{shell} did not exit within 10 seconds");
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    };
+    drop(writer);
+    assert!(status.success(), "{output}");
     assert!(output.contains("OWNTERM_PTY_OK"), "{output}");
+    if expect_ansi {
+        assert!(output.contains("\u{1b}[32mANSI"), "{output:?}");
+    }
 }
 
 #[test]
 fn conpty_supports_powershell_cmd_io_resize_and_exit_code() {
     smoke(
         "powershell.exe",
-        &[
-            "-NoProfile",
-            "-Command",
-            "Write-Output OWNTERM_PTY_OK; Write-Output ([char]27 + '[32mANSI'); exit 0",
-        ],
+        &["-NoLogo", "-NoProfile"],
+        "Write-Output ('OWNTERM_' + 'PTY_OK'); Write-Output ([char]27 + '[32mANSI'); exit 0\r\n",
+        true,
     );
-    smoke("cmd.exe", &["/C", "echo OWNTERM_PTY_OK & exit /b 0"]);
+    smoke(
+        "cmd.exe",
+        &["/Q"],
+        "echo OWNTERM_^PTY_OK & exit /b 0\r\n",
+        false,
+    );
 }
