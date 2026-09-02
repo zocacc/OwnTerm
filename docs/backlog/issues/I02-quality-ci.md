@@ -1,6 +1,6 @@
 # I02 — Configurar qualidade e CI incremental
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I01
 
 ## Objetivo

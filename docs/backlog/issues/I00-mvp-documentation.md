@@ -1,6 +1,6 @@
 # I00 — Consolidar documentação do MVP
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** nenhuma
 
 ## Objetivo

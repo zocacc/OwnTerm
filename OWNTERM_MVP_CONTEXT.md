@@ -2,9 +2,9 @@
 
 > Documento de contexto para planejamento e implementação incremental com Codex.
 >
-> Status: proposta inicial do MVP  
-> Plataforma prioritária: Windows 11  
-> Estratégia: local-first, open source e preparada para evolução  
+> Status: proposta inicial do MVP
+> Plataforma prioritária: Windows 11
+> Estratégia: local-first, open source e preparada para evolução
 > Stack principal: Rust + Tauri 2 + React + TypeScript
 
 ---
@@ -1542,4 +1542,3 @@ execute as validações e entregue resumo de mudanças, testes e limitações.
 O OwnTerm MVP será uma aplicação desktop Windows-first construída com Rust, Tauri 2, React, TypeScript, Tailwind CSS 4, shadcn/ui e xterm.js. Funcionará sem conta, armazenará hosts em SQLite, protegerá credenciais no cofre do sistema, abrirá terminais locais e SSH e permitirá importar/exportar configurações sem segredos.
 
 A implementação deve avançar em fatias pequenas, com contratos claros, testes e validação nativa. O sucesso do MVP não será medido pela quantidade de recursos, mas pela capacidade de o usuário abrir o aplicativo, encontrar um host e iniciar uma sessão confiável em poucos segundos.
-

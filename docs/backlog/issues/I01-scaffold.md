@@ -1,6 +1,6 @@
 # I01 — Criar scaffold desktop e core mínimo
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I00
 
 ## Objetivo

@@ -1,6 +1,6 @@
 # I04 — Validar SSH interativo e trust
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I01
 
 ## Objetivo

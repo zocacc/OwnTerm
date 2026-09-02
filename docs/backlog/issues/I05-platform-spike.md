@@ -1,6 +1,6 @@
 # I05 — Validar cofre e efeitos de janela
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I01
 
 ## Objetivo

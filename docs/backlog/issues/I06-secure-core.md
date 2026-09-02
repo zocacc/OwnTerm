@@ -1,6 +1,6 @@
 # I06 — Implementar domínio, persistência e segurança
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I02, I03, I04, I05
 
 ## Objetivo

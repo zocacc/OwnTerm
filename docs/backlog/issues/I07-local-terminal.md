@@ -1,6 +1,6 @@
 # I07 — Entregar sessões locais em abas
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I06
 
 ## Objetivo

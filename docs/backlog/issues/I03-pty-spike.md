@@ -1,6 +1,6 @@
 # I03 — Validar PTY e shells Windows
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I01
 
 ## Objetivo

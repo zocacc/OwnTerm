@@ -1,6 +1,6 @@
 # I11 — Harden e empacotar o MVP
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I07, I08, I09, I10
 
 ## Objetivo

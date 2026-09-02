@@ -1,6 +1,6 @@
 # I10 — Entregar importação e exportação
 
-**Status:** planned  
+**Status:** planned
 **Dependências:** I06, I08
 
 ## Objetivo
