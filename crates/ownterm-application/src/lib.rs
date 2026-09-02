@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod ssh_trust;
 pub mod vault;
 
 use ownterm_domain::{OWNTERM, ProductIdentity};
