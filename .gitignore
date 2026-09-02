@@ -1,0 +1,16 @@
+# JavaScript
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Rust
+target/
+
+# Tauri
+apps/desktop/src-tauri/gen/
+
+# Local tooling
+.DS_Store
+.env
+.env.*

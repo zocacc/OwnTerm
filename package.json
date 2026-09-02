@@ -1,0 +1,24 @@
+{
+  "name": "ownterm",
+  "version": "0.1.0",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github-zocacc:zocacc/OwnTerm.git"
+  },
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "dev": "pnpm --filter @ownterm/desktop dev",
+    "build": "pnpm --filter @ownterm/desktop build",
+    "lint": "pnpm --filter @ownterm/desktop lint",
+    "typecheck": "pnpm --filter @ownterm/desktop typecheck",
+    "test": "pnpm --filter @ownterm/desktop test",
+    "format": "pnpm --filter @ownterm/desktop format",
+    "format:check": "pnpm --filter @ownterm/desktop format:check",
+    "tauri": "pnpm --filter @ownterm/desktop tauri"
+  }
+}
