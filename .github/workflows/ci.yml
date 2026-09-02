@@ -40,6 +40,18 @@ jobs:
       - run: cargo test --workspace
       - run: cargo check -p ownterm-desktop
 
+  windows-conpty:
+    name: Windows ConPTY smoke
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.94.1
+      - name: Validate PowerShell and CMD through ConPTY
+        run: cargo test -p ownterm-pty-spike --test windows_pty -- --nocapture
+        timeout-minutes: 2
+
   windows-build:
     name: Windows build
     runs-on: windows-latest
@@ -57,9 +69,6 @@ jobs:
           toolchain: 1.94.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ownterm/desktop tauri build --bundles nsis
-      - name: Validate Windows ConPTY smoke
-        run: cargo test -p ownterm-pty-spike --test windows_pty -- --nocapture
-        timeout-minutes: 2
       - uses: actions/upload-artifact@v4
         with:
           name: ownterm-windows-installer
