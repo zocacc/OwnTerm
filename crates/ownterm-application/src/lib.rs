@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+pub mod ssh_trust;
+pub mod vault;
+
 use ownterm_domain::{OWNTERM, ProductIdentity};
 
 /// Fachada inicial dos casos de uso compartilháveis por desktop e futura CLI.
