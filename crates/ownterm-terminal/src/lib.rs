@@ -271,12 +271,24 @@ impl SessionManager {
             return Ok(());
         };
         runtime.active.store(false, Ordering::Release);
-        runtime
+        let kill_result = runtime
             .killer
             .lock()
             .map_err(|_| TerminalError::StateUnavailable)?
-            .kill()
-            .map_err(|error| TerminalError::Io(error.to_string()))
+            .kill();
+
+        #[cfg(windows)]
+        {
+            // portable-pty 0.9.0's WinChildKiller reverses the TerminateProcess
+            // success check, so a successful termination is reported as an error.
+            let _ = kill_result;
+            Ok(())
+        }
+
+        #[cfg(not(windows))]
+        {
+            kill_result.map_err(|error| TerminalError::Io(error.to_string()))
+        }
     }
 
     pub fn active_session_count(&self) -> usize {
