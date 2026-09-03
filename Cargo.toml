@@ -4,6 +4,7 @@ members = [
   "crates/ownterm-domain",
   "crates/ownterm-application",
   "crates/ownterm-storage-sqlite",
+  "crates/ownterm-terminal",
   "crates/ownterm-pty-spike",
 ]
 resolver = "2"

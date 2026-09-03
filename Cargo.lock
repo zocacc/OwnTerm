@@ -2692,6 +2692,8 @@ version = "0.1.0"
 dependencies = [
  "keyring",
  "ownterm-application",
+ "ownterm-domain",
+ "ownterm-terminal",
  "serde",
  "tauri",
  "tauri-build",
@@ -2719,6 +2721,14 @@ dependencies = [
  "ownterm-domain",
  "rusqlite",
  "tempfile",
+]
+
+[[package]]
+name = "ownterm-terminal"
+version = "0.1.0"
+dependencies = [
+ "ownterm-domain",
+ "portable-pty",
 ]
 
 [[package]]
