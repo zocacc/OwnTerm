@@ -30,7 +30,7 @@ SQLite | Windows credential vault | portable-pty | russh
 
 ## Estrutura evolutiva
 
-O scaffold cria `apps/desktop` e módulos Rust de domínio/aplicação junto do adapter Tauri. E03 extraiu `ownterm-storage-sqlite` após os spikes confirmarem os limites de persistência e cofre; PTY, SSH e parser OpenSSH serão extraídos quando seus slices funcionais exigirem. Cada extração preserva os ports existentes e inclui testes de contrato.
+O scaffold cria `apps/desktop` e módulos Rust de domínio/aplicação junto do adapter Tauri. E03 extraiu `ownterm-storage-sqlite` após os spikes confirmarem os limites de persistência e cofre; E04 extraiu `ownterm-terminal` para descoberta, lifecycle e streaming PTY; SSH e parser OpenSSH serão extraídos quando seus slices funcionais exigirem. Cada extração preserva os ports existentes e inclui testes de contrato.
 
 ## Dependências de risco
 
