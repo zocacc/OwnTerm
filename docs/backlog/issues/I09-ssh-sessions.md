@@ -1,7 +1,7 @@
 # I09 — Entregar sessões SSH seguras
 
 **Status:** planned
-**Dependências:** I04, I06, I08
+**Dependências:** I04, I06, I08, I16
 
 ## Objetivo
 

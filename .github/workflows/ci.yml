@@ -52,8 +52,8 @@ jobs:
         run: cargo test -p ownterm-pty-spike --test windows_pty -- --nocapture
         timeout-minutes: 2
 
-      - name: Validate production local session manager
-        run: cargo test -p ownterm-terminal -- --nocapture
+      - name: Validate production local session manager and platform adapters
+        run: cargo test -p ownterm-terminal -p ownterm-platform -- --nocapture
         timeout-minutes: 2
 
   windows-build:

@@ -1,7 +1,7 @@
 # I08 — Entregar Hosts, Quick Connect e AppShell
 
 **Status:** planned
-**Dependências:** I06, I07
+**Dependências:** I06, I07, I16
 
 ## Objetivo
 

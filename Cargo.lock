@@ -2690,9 +2690,9 @@ dependencies = [
 name = "ownterm-desktop"
 version = "0.1.0"
 dependencies = [
- "keyring",
  "ownterm-application",
  "ownterm-domain",
+ "ownterm-platform",
  "ownterm-terminal",
  "serde",
  "tauri",
@@ -2704,6 +2704,14 @@ name = "ownterm-domain"
 version = "0.1.0"
 dependencies = [
  "uuid",
+]
+
+[[package]]
+name = "ownterm-platform"
+version = "0.1.0"
+dependencies = [
+ "keyring",
+ "ownterm-application",
 ]
 
 [[package]]
@@ -2727,6 +2735,7 @@ dependencies = [
 name = "ownterm-terminal"
 version = "0.1.0"
 dependencies = [
+ "ownterm-application",
  "ownterm-domain",
  "portable-pty",
 ]

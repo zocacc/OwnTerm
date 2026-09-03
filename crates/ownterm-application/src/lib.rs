@@ -1,8 +1,10 @@
 #![forbid(unsafe_code)]
 
 pub mod diagnostics;
+pub mod platform;
 pub mod repositories;
 pub mod ssh_trust;
+pub mod terminal;
 pub mod vault;
 
 use ownterm_domain::{OWNTERM, ProductIdentity};

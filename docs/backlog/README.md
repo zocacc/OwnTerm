@@ -16,8 +16,9 @@
 | 2 | E02 Spikes | I03–I05 | I01 |
 | 3 | E03 Core seguro | I06 | I02, I03–I05 |
 | 4 | E04 Terminal local | I07 | I06 |
-| 5 | E05 Hosts e interface | I08 | I06–I07 |
-| 6 | E06 SSH | I09 | I06, I04, I08 |
+| 4.5 | E09 Borda de plataforma | I12–I16 | I06–I07 |
+| 5 | E05 Hosts e interface | I08 | I06–I07, I16 |
+| 6 | E06 SSH | I09 | I06, I04, I08, I16 |
 | 7 | E07 Portabilidade | I10 | I06, I08 |
 | 8 | E08 Hardening/release | I11 | I07–I10 |
 
