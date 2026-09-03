@@ -24,7 +24,7 @@ struct AppInfo {
 #[tauri::command]
 fn vault_probe() -> Result<(), String> {
     vault::SystemVault
-        .read(&SecretRef::new("ownterm-probe"))
+        .read(&SecretRef::try_new("ownterm-probe").expect("static credential reference"))
         .map(|_| ())
         .map_err(|error| format!("{error:?}"))
 }
