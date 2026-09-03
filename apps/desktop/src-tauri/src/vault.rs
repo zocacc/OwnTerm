@@ -1,4 +1,4 @@
-use ownterm_application::vault::{SecretRef, SecretVault, VaultError};
+use ownterm_application::vault::{SecretRef, SecretValue, SecretVault, VaultError};
 
 pub struct SystemVault;
 
@@ -12,14 +12,15 @@ impl SystemVault {
 
 #[cfg(windows)]
 impl SecretVault for SystemVault {
-    fn store(&self, reference: &SecretRef, secret: &str) -> Result<(), VaultError> {
+    fn store(&self, reference: &SecretRef, secret: &SecretValue) -> Result<(), VaultError> {
         Self::entry(reference)?
-            .set_password(secret)
+            .set_password(secret.expose())
             .map_err(|error| VaultError::Platform(error.to_string()))
     }
-    fn read(&self, reference: &SecretRef) -> Result<String, VaultError> {
+    fn read(&self, reference: &SecretRef) -> Result<SecretValue, VaultError> {
         Self::entry(reference)?
             .get_password()
+            .map(SecretValue::new)
             .map_err(|error| match error {
                 keyring::Error::NoEntry => VaultError::NotFound,
                 other => VaultError::Platform(other.to_string()),
@@ -37,10 +38,10 @@ impl SecretVault for SystemVault {
 
 #[cfg(not(windows))]
 impl SecretVault for SystemVault {
-    fn store(&self, _: &SecretRef, _: &str) -> Result<(), VaultError> {
+    fn store(&self, _: &SecretRef, _: &SecretValue) -> Result<(), VaultError> {
         Err(VaultError::UnsupportedPlatform)
     }
-    fn read(&self, _: &SecretRef) -> Result<String, VaultError> {
+    fn read(&self, _: &SecretRef) -> Result<SecretValue, VaultError> {
         Err(VaultError::UnsupportedPlatform)
     }
     fn remove(&self, _: &SecretRef) -> Result<(), VaultError> {

@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod diagnostics;
+pub mod repositories;
 pub mod ssh_trust;
 pub mod vault;
 
