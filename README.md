@@ -5,10 +5,11 @@ Windows 11, Tauri 2, React, TypeScript e Rust.
 
 ## Estrutura
 
-- apps/desktop: frontend React/Vite e adapter Tauri.
+- apps/desktop: frontend React/xterm.js e adapter Tauri.
 - crates/ownterm-domain: linguagem e regras independentes de infraestrutura.
 - crates/ownterm-application: fachada de casos de uso compartilháveis.
 - crates/ownterm-storage-sqlite: migrations e repositories de configuração local.
+- crates/ownterm-terminal: descoberta de shells e session manager sobre portable-pty.
 - docs/: produto, arquitetura, segurança, specs, ADRs e backlog.
 
 ## Pré-requisitos
@@ -28,7 +29,7 @@ Windows 11, Tauri 2, React, TypeScript e Rust.
     pnpm format:check
     cargo check --workspace
 
-Para abrir o desktop Tauri:
+Para abrir o desktop Tauri com sessões locais reais:
 
     pnpm tauri dev
 
@@ -36,3 +37,9 @@ Para validar o core seguro e o adapter SQLite de E03:
 
     cargo test -p ownterm-domain -p ownterm-application -p ownterm-storage-sqlite
     cargo clippy -p ownterm-domain -p ownterm-application -p ownterm-storage-sqlite --all-targets -- -D warnings
+
+Para validar o terminal local de E04:
+
+    cargo test -p ownterm-terminal -- --nocapture
+    cargo clippy -p ownterm-terminal --all-targets -- -D warnings
+    pnpm test

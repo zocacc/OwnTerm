@@ -20,14 +20,16 @@ Permitir abrir e operar shells locais interativos em abas, com comportamento de 
 
 `list_shell_profiles` retorna somente perfis disponíveis. `start_local_session(shellProfileId)` retorna um Session Descriptor; `write_session`, `resize_session` e `close_session` exigem seu `sessionId`. Saída, estado e exit code chegam em eventos da Session.
 
+A saída usa chunks binários com fila limitada e batching curto; o evento de exit só é publicado após a drenagem do pump. A entrada digitada é agrupada antes do command IPC, colagens são enviadas sem interpretação e resize usa debounce. Fechamento é idempotente e a interface mantém tombstones para ignorar eventos atrasados.
+
 ## Critérios de aceite
 
-- [ ] PowerShell e CMD aparecem e podem abrir uma aba interativa no Windows 11.
-- [ ] WSL não disponível não é erro e não deixa item quebrado na interface.
-- [ ] Resize do painel redimensiona o PTY ativo.
-- [ ] Sequências ANSI e aplicações interativas básicas não são corrompidas pelo IPC.
-- [ ] Fechar aba encerra o processo e a interface recebe o estado final/exit code quando houver.
-- [ ] Copiar/colar funciona sem a interface tentar interpretar comandos ou saída.
+- [x] PowerShell e CMD aparecem e podem abrir uma aba interativa no Windows 11.
+- [x] WSL não disponível não é erro e não deixa item quebrado na interface.
+- [x] Resize do painel redimensiona o PTY ativo.
+- [x] Sequências ANSI e aplicações interativas básicas não são corrompidas pelo IPC.
+- [x] Fechar aba encerra o processo e a interface recebe o estado final/exit code quando houver.
+- [x] Copiar/colar funciona sem a interface tentar interpretar comandos ou saída.
 
 ## Testes
 
