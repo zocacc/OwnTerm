@@ -9,4 +9,3 @@ publish = false
 [dependencies]
 ownterm-domain = { path = "../ownterm-domain" }
 portable-pty = "0.9.0"
-
