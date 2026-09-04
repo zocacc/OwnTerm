@@ -1,0 +1,258 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap');
+      .ui-text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+      .code-text { font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace; }
+    </style>
+
+    <linearGradient id="windowBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#161322"/>
+      <stop offset="50%" stop-color="#110f1a"/>
+      <stop offset="100%" stop-color="#0d0b14"/>
+    </linearGradient>
+
+    <linearGradient id="glassHeader" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#241f35" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#1a1627" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <linearGradient id="activeTabBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c182b"/>
+      <stop offset="100%" stop-color="#111016"/>
+    </linearGradient>
+
+    <linearGradient id="primaryBtnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b9a7ff"/>
+      <stop offset="100%" stop-color="#9d7aff"/>
+    </linearGradient>
+
+    <linearGradient id="glowPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9d7aff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#9d7aff" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.75"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#9d7aff" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- ================= BACKGROUND WORKSPACE ================= -->
+  <rect width="1440" height="900" fill="#08070d"/>
+
+  <!-- Subtle Ambient Backdrop Lights -->
+  <circle cx="200" cy="150" r="300" fill="#9d7aff" fill-opacity="0.06" filter="blur(80px)"/>
+  <circle cx="1200" cy="700" r="400" fill="#38bdf8" fill-opacity="0.04" filter="blur(100px)"/>
+  <circle cx="800" cy="400" r="250" fill="#a855f7" fill-opacity="0.04" filter="blur(90px)"/>
+
+  <!-- ================= MAIN APP WINDOW FRAME ================= -->
+  <g id="app-window" transform="translate(60, 40)" filter="url(#cardShadow)">
+    <!-- Base Window Outer Shell -->
+    <rect width="1320" height="820" rx="16" fill="url(#windowBg)"/>
+    <rect x="0.5" y="0.5" width="1319" height="819" rx="15.5" stroke="#ffffff" stroke-opacity="0.1"/>
+
+    <!-- ================= 1. TITLEBAR & HEADER ================= -->
+    <g id="header" transform="translate(0, 0)">
+      <!-- Header Glass Background -->
+      <path d="M0 16C0 7.16 7.16 0 16 0H1304C1312.84 0 1320 7.16 1320 16V56H0V16Z" fill="url(#glassHeader)"/>
+      <line x1="0" y1="56" x2="1320" y2="56" stroke="#ffffff" stroke-opacity="0.08"/>
+
+      <!-- Window Traffic Lights (Left) -->
+      <g id="window-controls" transform="translate(20, 22)">
+        <circle cx="6" cy="6" r="6" fill="#ff5f56"/>
+        <circle cx="26" cy="6" r="6" fill="#ffbd2e"/>
+        <circle cx="46" cy="6" r="6" fill="#27c93f"/>
+      </g>
+
+      <!-- App Logo & Title Brand -->
+      <g id="brand" transform="translate(90, 14)">
+        <rect width="28" height="28" rx="7" fill="url(#primaryBtnGrad)"/>
+        <text x="14" y="19" font-family="'JetBrains Mono', monospace" font-size="14" font-weight="800" fill="#15111f" text-anchor="middle">O</text>
+
+        <text x="38" y="18" class="ui-text" font-size="14" font-weight="700" fill="#f4f2f8">OwnTerm</text>
+        <rect x="106" y="7" width="92" height="18" rx="4" fill="#ffffff" fill-opacity="0.06"/>
+        <text x="152" y="19" class="ui-text" font-size="9" font-weight="700" fill="#b9a7ff" letter-spacing="0.1em" text-anchor="middle">TERMINAL LOCAL</text>
+      </g>
+
+      <!-- Header Right Controls: Shell Selector & New Tab -->
+      <g id="header-actions" transform="translate(950, 12)">
+        <!-- Shell Selector Dropdown -->
+        <g id="shell-select-dropdown" transform="translate(0, 0)">
+          <rect width="220" height="32" rx="6" fill="#181524" stroke="#ffffff" stroke-opacity="0.12"/>
+          <text x="12" y="20" class="ui-text" font-size="12" font-weight="500" fill="#f4f2f8">PowerShell 7 (pwsh)</text>
+          <path d="M198 14L203 19L208 14" stroke="#8d8a9d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+
+        <!-- New Tab Button -->
+        <g id="btn-new-tab" transform="translate(232, 0)">
+          <rect width="118" height="32" rx="6" fill="url(#primaryBtnGrad)"/>
+          <path d="M18 16H26M22 12V20" stroke="#15111f" stroke-width="2" stroke-linecap="round"/>
+          <text x="34" y="20" class="ui-text" font-size="12" font-weight="700" fill="#15111f">Nova aba</text>
+          <text x="96" y="20" class="ui-text" font-size="10" font-weight="600" fill="#4c3875">^T</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- ================= 2. TAB BAR ================= -->
+    <g id="tab-bar" transform="translate(0, 56)">
+      <!-- Tab Bar Strip -->
+      <rect width="1320" height="40" fill="#14111f" fill-opacity="0.95"/>
+      <line x1="0" y1="40" x2="1320" y2="40" stroke="#ffffff" stroke-opacity="0.08"/>
+
+      <!-- Tab 1: Active Tab (PowerShell) -->
+      <g id="tab-1-active" transform="translate(8, 5)">
+        <!-- Active Tab Body -->
+        <path d="M0 6C0 2.68 2.68 0 6 0H186C189.32 0 192 2.68 192 6V35H0V6Z" fill="url(#activeTabBg)"/>
+        <path d="M0 6C0 2.68 2.68 0 6 0H186C189.32 0 192 2.68 192 6V35" stroke="#ffffff" stroke-opacity="0.12" fill="none"/>
+        <line x1="0" y1="0" x2="192" y2="0" stroke="#b9a7ff" stroke-width="2"/>
+
+        <!-- Status Dot (Connected - Green) -->
+        <circle cx="18" cy="18" r="4.5" fill="#34d399"/>
+        <circle cx="18" cy="18" r="7" stroke="#34d399" stroke-opacity="0.25" stroke-width="1"/>
+
+        <!-- Tab Title -->
+        <text x="32" y="22" class="ui-text" font-size="12" font-weight="600" fill="#f4f2f8">PowerShell 1</text>
+
+        <!-- Close Button (×) -->
+        <g transform="translate(164, 10)">
+          <rect width="16" height="16" rx="4" fill="#ffffff" fill-opacity="0.06"/>
+          <path d="M5 5L11 11M11 5L5 11" stroke="#a5a1b5" stroke-width="1.4" stroke-linecap="round"/>
+        </g>
+      </g>
+
+      <!-- Tab 2: Inactive Tab (WSL Ubuntu) -->
+      <g id="tab-2-inactive" transform="translate(204, 5)">
+        <rect width="192" height="35" rx="6" fill="transparent"/>
+        <circle cx="18" cy="18" r="4" fill="#34d399"/>
+        <text x="32" y="22" class="ui-text" font-size="12" font-weight="500" fill="#8d8a9d">WSL · Ubuntu 24.04</text>
+        <g transform="translate(164, 10)">
+          <path d="M5 5L11 11M11 5L5 11" stroke="#5a566a" stroke-width="1.4" stroke-linecap="round"/>
+        </g>
+      </g>
+
+      <!-- Tab 3: Inactive Tab (Command Prompt) -->
+      <g id="tab-3-inactive" transform="translate(400, 5)">
+        <rect width="180" height="35" rx="6" fill="transparent"/>
+        <circle cx="18" cy="18" r="4" fill="#8d8a9d"/>
+        <text x="32" y="22" class="ui-text" font-size="12" font-weight="500" fill="#8d8a9d">Command Prompt</text>
+        <g transform="translate(152, 10)">
+          <path d="M5 5L11 11M11 5L5 11" stroke="#5a566a" stroke-width="1.4" stroke-linecap="round"/>
+        </g>
+      </g>
+
+      <!-- Add Tab Quick Button in Tab bar -->
+      <g id="quick-add-tab" transform="translate(586, 11)">
+        <rect width="24" height="24" rx="4" fill="#ffffff" fill-opacity="0.04"/>
+        <path d="M12 7V17M7 12H17" stroke="#8d8a9d" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+    </g>
+
+    <!-- ================= 3. TERMINAL SURFACE ================= -->
+    <g id="terminal-canvas" transform="translate(0, 96)">
+      <!-- Terminal Background -->
+      <rect width="1320" height="684" fill="#111016"/>
+
+      <!-- Terminal Output Content (xterm.js surface simulation) -->
+      <g id="terminal-text-lines" transform="translate(24, 28)">
+        <!-- Line 1: Header / Banner -->
+        <text x="0" y="0" class="code-text" font-size="13" fill="#6750a4">
+          <tspan fill="#b9a7ff">OwnTerm</tspan> <tspan fill="#8d8a9d">v0.1.0-e04</tspan> · PTY Local Session Ready (Windows ConPTY / Native Shell)
+        </text>
+
+        <!-- Line 2: Blank / spacing -->
+
+        <!-- Line 3: Prompt & Git status command -->
+        <text x="0" y="32" class="code-text" font-size="13">
+          <tspan fill="#38bdf8">PS </tspan>
+          <tspan fill="#34d399">C:\Users\dev\projects\OwnTerm</tspan>
+          <tspan fill="#b9a7ff">&gt; </tspan>
+          <tspan fill="#f4f2f8">git status</tspan>
+        </text>
+
+        <!-- Line 4-6: Git status output -->
+        <text x="0" y="56" class="code-text" font-size="13" fill="#a5a1b5">On branch <tspan fill="#38bdf8">feat/e04-local-terminal</tspan></text>
+        <text x="0" y="76" class="code-text" font-size="13" fill="#8d8a9d">Your branch is up to date with 'origin/feat/e04-local-terminal'.</text>
+        <text x="0" y="96" class="code-text" font-size="13" fill="#34d399">nothing to commit, working tree clean</text>
+
+        <!-- Line 7: Prompt & Test execution -->
+        <text x="0" y="132" class="code-text" font-size="13">
+          <tspan fill="#38bdf8">PS </tspan>
+          <tspan fill="#34d399">C:\Users\dev\projects\OwnTerm</tspan>
+          <tspan fill="#b9a7ff">&gt; </tspan>
+          <tspan fill="#f4f2f8">pnpm test</tspan>
+        </text>
+
+        <!-- Line 8-15: Test output results with ANSI color badges -->
+        <text x="0" y="160" class="code-text" font-size="13" fill="#a5a1b5">
+          <tspan fill="#34d399">✓</tspan> src/terminal/TerminalSurface.test.tsx <tspan fill="#8d8a9d">(1 test) 186ms</tspan>
+        </text>
+        <text x="0" y="180" class="code-text" font-size="13" fill="#a5a1b5">
+          <tspan fill="#34d399">✓</tspan> src/App.test.tsx <tspan fill="#8d8a9d">(4 tests) 626ms</tspan>
+        </text>
+        <text x="0" y="208" class="code-text" font-size="13">
+          <tspan fill="#8d8a9d">Test Files  </tspan><tspan fill="#34d399" font-weight="bold">2 passed</tspan><tspan fill="#8d8a9d"> (2)</tspan>
+        </text>
+        <text x="0" y="228" class="code-text" font-size="13">
+          <tspan fill="#8d8a9d">Tests       </tspan><tspan fill="#34d399" font-weight="bold">5 passed</tspan><tspan fill="#8d8a9d"> (5)</tspan>
+        </text>
+        <text x="0" y="248" class="code-text" font-size="13" fill="#8d8a9d">
+          Duration    5.12s (tests 812ms, environment 4.18s)
+        </text>
+
+        <!-- Line 16: Active prompt & blinking cursor -->
+        <text x="0" y="292" class="code-text" font-size="13">
+          <tspan fill="#38bdf8">PS </tspan>
+          <tspan fill="#34d399">C:\Users\dev\projects\OwnTerm</tspan>
+          <tspan fill="#b9a7ff">&gt; </tspan>
+          <tspan fill="#f4f2f8">cargo test -p ownterm-terminal</tspan>
+        </text>
+
+        <!-- Cursor Bar with glow -->
+        <g transform="translate(488, 280)">
+          <rect width="8" height="17" rx="1.5" fill="#b9a7ff"/>
+          <rect width="8" height="17" rx="1.5" stroke="#ffffff" stroke-opacity="0.4" stroke-width="1"/>
+        </g>
+      </g>
+
+      <!-- Terminal Scrollbar -->
+      <g id="terminal-scrollbar" transform="translate(1312, 10)">
+        <rect width="4" height="240" rx="2" fill="#b9a7ff" fill-opacity="0.3"/>
+      </g>
+    </g>
+
+    <!-- ================= 4. FOOTER & STATUS BAR ================= -->
+    <g id="footer-status-bar" transform="translate(0, 780)">
+      <!-- Footer Glass Base -->
+      <path d="M0 0H1320V24C1320 32.84 1312.84 40 1304 40H16C7.16 40 0 32.84 0 24V0Z" fill="#181524"/>
+      <line x1="0" y1="0" x2="1320" y2="0" stroke="#ffffff" stroke-opacity="0.08"/>
+
+      <!-- Left Status Info -->
+      <g id="status-info" transform="translate(16, 12)">
+        <text x="0" y="12" class="ui-text" font-size="11" font-weight="600" fill="#8d8a9d">OwnTerm 0.1.0</text>
+        <circle cx="88" cy="8" r="3" fill="#34d399"/>
+        <text x="96" y="12" class="ui-text" font-size="11" font-weight="500" fill="#34d399">Conectado</text>
+        <text x="162" y="12" class="ui-text" font-size="11" fill="#5a566a">·</text>
+        <text x="174" y="12" class="ui-text" font-size="11" fill="#8d8a9d">PTY Local (PowerShell 7) · 120×40 cols</text>
+      </g>
+
+      <!-- Right Action Buttons & Shortcuts -->
+      <g id="status-actions" transform="translate(980, 7)">
+        <!-- Copy Button -->
+        <g id="btn-copy" transform="translate(0, 0)">
+          <rect width="64" height="26" rx="4" fill="#ffffff" fill-opacity="0.04"/>
+          <text x="32" y="17" class="ui-text" font-size="11" font-weight="500" fill="#a5a1b5" text-anchor="middle">Copiar</text>
+        </g>
+
+        <!-- Paste Button -->
+        <g id="btn-paste" transform="translate(70, 0)">
+          <rect width="60" height="26" rx="4" fill="#ffffff" fill-opacity="0.04"/>
+          <text x="30" y="17" class="ui-text" font-size="11" font-weight="500" fill="#a5a1b5" text-anchor="middle">Colar</text>
+        </g>
+
+        <!-- Shortcut Indicator -->
+        <text x="144" y="17" class="ui-text" font-size="11" fill="#6c677e">Ctrl+Tab alterna abas</text>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -17,6 +17,8 @@ tauri-build = "2.6.3"
 ownterm-application = { path = "../../../crates/ownterm-application" }
 ownterm-domain = { path = "../../../crates/ownterm-domain" }
 ownterm-platform = { path = "../../../crates/ownterm-platform" }
+ownterm-storage-sqlite = { path = "../../../crates/ownterm-storage-sqlite" }
 ownterm-terminal = { path = "../../../crates/ownterm-terminal" }
 serde = { version = "1.0.229", features = ["derive"] }
 tauri = "2.11.3"
+uuid = { version = "1.26.0", features = ["v4"] }
