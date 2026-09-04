@@ -46,4 +46,14 @@ export const tauriBackend: Backend = {
     listen<SessionExitEvent>(terminalEvents.exit, (event) =>
       handler(event.payload),
     ),
+  listHosts: (search) => invoke("list_hosts", { search: search || null }),
+  listHostGroups: () => invoke("list_host_groups"),
+  listRecentHosts: (limit) =>
+    invoke("list_recent_hosts", { limit: limit ?? null }),
+  saveHost: (request) => invoke("save_host", { request }),
+  deleteHost: (id) => invoke("delete_host", { id }),
+  saveHostGroup: (request) => invoke("save_host_group", { request }),
+  deleteHostGroup: (id, moveHostsToUngrouped) =>
+    invoke("delete_host_group", { request: { id, moveHostsToUngrouped } }),
+  recordRecentHost: (id) => invoke("record_recent_host", { id }),
 };
