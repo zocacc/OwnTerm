@@ -100,6 +100,7 @@ describe("TerminalSurface", () => {
     );
 
     expect(handle).toBeDefined();
+    expect(terminalMocks.terminal.focus).toHaveBeenCalledTimes(1);
     act(() => {
       terminalMocks.state.input?.("d");
       terminalMocks.state.input?.("ir\r");

@@ -39,6 +39,7 @@ function App({ backend = defaultBackend }: AppProps) {
   const [activeSessionId, setActiveSessionId] = useState<string>();
   const [error, setError] = useState<string>();
   const [opening, setOpening] = useState(false);
+  const [terminalEventsReady, setTerminalEventsReady] = useState(false);
   const terminals = useRef(new Map<string, TerminalHandle>());
   const pendingOutput = useRef(new Map<string, number[][]>());
   const closedSessions = useRef(new Set<string>());
@@ -78,70 +79,70 @@ function App({ backend = defaultBackend }: AppProps) {
       }
     };
 
-    void backend
-      .onSessionOutput((event) => {
+    const outputSubscription = backend.onSessionOutput((event) => {
+      if (event.version !== 1 || closedSessions.current.has(event.sessionId)) {
+        return;
+      }
+      const terminal = terminals.current.get(event.sessionId);
+      if (terminal) {
+        terminal.write(event.data);
+      } else {
+        const chunks = pendingOutput.current.get(event.sessionId) ?? [];
         if (
-          event.version !== 1 ||
-          closedSessions.current.has(event.sessionId)
+          chunks.length < 64 &&
+          (pendingOutput.current.has(event.sessionId) ||
+            pendingOutput.current.size < 8)
         ) {
-          return;
+          chunks.push(event.data);
+          pendingOutput.current.set(event.sessionId, chunks);
         }
-        const terminal = terminals.current.get(event.sessionId);
-        if (terminal) {
-          terminal.write(event.data);
-        } else {
-          const chunks = pendingOutput.current.get(event.sessionId) ?? [];
-          if (
-            chunks.length < 64 &&
-            (pendingOutput.current.has(event.sessionId) ||
-              pendingOutput.current.size < 8)
-          ) {
-            chunks.push(event.data);
-            pendingOutput.current.set(event.sessionId, chunks);
-          }
-        }
-      })
-      .then(keep);
+      }
+    });
 
-    void backend
-      .onSessionStatus((event) => {
-        if (
-          event.version !== 1 ||
-          closedSessions.current.has(event.sessionId)
-        ) {
-          return;
-        }
-        setSessions((current) =>
-          current.map((session) =>
-            session.id === event.sessionId
-              ? { ...session, status: event.status, reason: event.reason }
-              : session,
-          ),
-        );
-      })
-      .then(keep);
+    const statusSubscription = backend.onSessionStatus((event) => {
+      if (event.version !== 1 || closedSessions.current.has(event.sessionId)) {
+        return;
+      }
+      setSessions((current) =>
+        current.map((session) =>
+          session.id === event.sessionId
+            ? { ...session, status: event.status, reason: event.reason }
+            : session,
+        ),
+      );
+    });
 
-    void backend
-      .onSessionExit((event) => {
-        if (
-          event.version !== 1 ||
-          closedSessions.current.has(event.sessionId)
-        ) {
-          return;
+    const exitSubscription = backend.onSessionExit((event) => {
+      if (event.version !== 1 || closedSessions.current.has(event.sessionId)) {
+        return;
+      }
+      setSessions((current) =>
+        current.map((session) =>
+          session.id === event.sessionId
+            ? {
+                ...session,
+                status: "disconnected",
+                exitCode: event.exitCode,
+              }
+            : session,
+        ),
+      );
+    });
+
+    void Promise.all([outputSubscription, statusSubscription, exitSubscription])
+      .then(([output, status, exit]) => {
+        keep(output);
+        keep(status);
+        keep(exit);
+        if (mounted) {
+          setTerminalEventsReady(true);
         }
-        setSessions((current) =>
-          current.map((session) =>
-            session.id === event.sessionId
-              ? {
-                  ...session,
-                  status: "disconnected",
-                  exitCode: event.exitCode,
-                }
-              : session,
-          ),
-        );
       })
-      .then(keep);
+      .catch(() => {
+        if (mounted) {
+          setError("Não foi possível preparar os eventos do terminal.");
+        }
+      });
 
     return () => {
       mounted = false;
@@ -180,7 +181,7 @@ function App({ backend = defaultBackend }: AppProps) {
   );
 
   const openSession = useCallback(async () => {
-    if (!selectedProfileId || opening) {
+    if (!selectedProfileId || opening || !terminalEventsReady) {
       return;
     }
     setOpening(true);
@@ -199,7 +200,7 @@ function App({ backend = defaultBackend }: AppProps) {
     } finally {
       setOpening(false);
     }
-  }, [backend, opening, selectedProfileId]);
+  }, [backend, opening, selectedProfileId, terminalEventsReady]);
 
   const closeSession = useCallback(
     (sessionId: string) => {
@@ -301,10 +302,14 @@ function App({ backend = defaultBackend }: AppProps) {
           </select>
           <Button
             className="h-8 py-1 text-xs"
-            disabled={!selectedProfileId || opening}
+            disabled={!selectedProfileId || opening || !terminalEventsReady}
             onClick={() => void openSession()}
           >
-            {opening ? "Abrindo…" : "Nova aba"}
+            {opening
+              ? "Abrindo…"
+              : terminalEventsReady
+                ? "Nova aba"
+                : "Preparando terminal…"}
           </Button>
         </div>
       </header>
