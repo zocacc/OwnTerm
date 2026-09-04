@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissões mínimas do desktop OwnTerm.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:event:default"]
+  "permissions": ["core:default"]
 }

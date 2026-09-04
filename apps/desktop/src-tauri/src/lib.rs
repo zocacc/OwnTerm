@@ -34,7 +34,7 @@ impl TerminalEventSink for TauriEventSink {
         match event {
             TerminalEvent::Output { session_id, data } => {
                 let _ = self.0.emit(
-                    "session.output.v1",
+                    "session-output-v1",
                     SessionOutputEvent {
                         version: 1,
                         session_id: session_id.to_string(),
@@ -48,7 +48,7 @@ impl TerminalEventSink for TauriEventSink {
                 reason,
             } => {
                 let _ = self.0.emit(
-                    "session.status.v1",
+                    "session-status-v1",
                     SessionStatusEvent {
                         version: 1,
                         session_id: session_id.to_string(),
@@ -62,7 +62,7 @@ impl TerminalEventSink for TauriEventSink {
                 exit_code,
             } => {
                 let _ = self.0.emit(
-                    "session.exit.v1",
+                    "session-exit-v1",
                     SessionExitEvent {
                         version: 1,
                         session_id: session_id.to_string(),

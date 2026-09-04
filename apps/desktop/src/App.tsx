@@ -129,18 +129,39 @@ function App({ backend = defaultBackend }: AppProps) {
       );
     });
 
-    void Promise.all([outputSubscription, statusSubscription, exitSubscription])
+    void Promise.allSettled([
+      outputSubscription,
+      statusSubscription,
+      exitSubscription,
+    ])
       .then(([output, status, exit]) => {
-        keep(output);
-        keep(status);
-        keep(exit);
+        const subscriptions = [output, status, exit];
+        const failure = subscriptions.find(
+          (subscription) => subscription.status === "rejected",
+        );
+        if (failure) {
+          for (const subscription of subscriptions) {
+            if (subscription.status === "fulfilled") {
+              subscription.value();
+            }
+          }
+          throw failure.reason;
+        }
+        for (const subscription of subscriptions) {
+          if (subscription.status === "fulfilled") {
+            keep(subscription.value);
+          }
+        }
         if (mounted) {
           setTerminalEventsReady(true);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (mounted) {
-          setError("Não foi possível preparar os eventos do terminal.");
+          setError(
+            "Não foi possível preparar os eventos do terminal: " +
+              String(error),
+          );
         }
       });
 

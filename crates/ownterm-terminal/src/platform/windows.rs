@@ -1,7 +1,12 @@
 use super::super::decode_wsl_output;
 use ownterm_application::terminal::TerminalError;
 use ownterm_domain::ShellProfile;
+use std::ffi::OsStr;
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub(super) fn detect_shell_profiles() -> Vec<ShellProfile> {
     let mut profiles = Vec::new();
@@ -19,7 +24,7 @@ pub(super) fn detect_shell_profiles() -> Vec<ShellProfile> {
     );
 
     if command_available(Path::new("wsl.exe")) {
-        if let Ok(output) = std::process::Command::new("wsl.exe")
+        if let Ok(output) = hidden_command("wsl.exe")
             .args(["--list", "--quiet"])
             .output()
         {
@@ -57,8 +62,14 @@ fn add_profile_if_available(
     }
 }
 
+fn hidden_command(program: impl AsRef<OsStr>) -> Command {
+    let mut command = Command::new(program);
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
+}
+
 fn command_available(program: &Path) -> bool {
-    std::process::Command::new("where.exe")
+    hidden_command("where.exe")
         .arg(program)
         .output()
         .is_ok_and(|output| output.status.success())
