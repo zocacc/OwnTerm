@@ -13,6 +13,12 @@ import type {
 export const isTauriEnvironment =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+export const terminalEvents = {
+  output: "session-output-v1",
+  status: "session-status-v1",
+  exit: "session-exit-v1",
+} as const;
+
 export const tauriBackend: Backend = {
   appInfo: () => invoke<AppInfo>("app_info"),
   listShellProfiles: () => invoke<ShellProfile[]>("list_shell_profiles"),
@@ -29,15 +35,15 @@ export const tauriBackend: Backend = {
   closeSession: (sessionId) =>
     invoke<void>("close_session", { request: { sessionId } }),
   onSessionOutput: (handler) =>
-    listen<SessionOutputEvent>("session.output.v1", (event) =>
+    listen<SessionOutputEvent>(terminalEvents.output, (event) =>
       handler(event.payload),
     ),
   onSessionStatus: (handler) =>
-    listen<SessionStatusEvent>("session.status.v1", (event) =>
+    listen<SessionStatusEvent>(terminalEvents.status, (event) =>
       handler(event.payload),
     ),
   onSessionExit: (handler) =>
-    listen<SessionExitEvent>("session.exit.v1", (event) =>
+    listen<SessionExitEvent>(terminalEvents.exit, (event) =>
       handler(event.payload),
     ),
 };

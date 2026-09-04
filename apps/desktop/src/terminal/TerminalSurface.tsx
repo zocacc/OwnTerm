@@ -27,6 +27,7 @@ export function TerminalSurface({
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef(active);
   const fitRef = useRef<() => void>(() => undefined);
+  const focusRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -54,6 +55,7 @@ export function TerminalSurface({
       }
     };
     fitRef.current = fitAndResize;
+    focusRef.current = () => terminal.focus();
 
     const flushInput = () => {
       inputTimer = undefined;
@@ -114,6 +116,7 @@ export function TerminalSurface({
     activeRef.current = active;
     if (active) {
       fitRef.current();
+      focusRef.current();
     }
   }, [active]);
 
