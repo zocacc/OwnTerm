@@ -39,10 +39,10 @@ Commands de sessão retornam um `SessionDescriptor` ou erro tipado. Commands de 
 
 Eventos são identificados por `sessionId` e possuem versão de payload:
 
-- `session.output.v1`: bytes/texto de saída do terminal.
-- `session.status.v1`: novo estado e razão segura quando aplicável.
+- `session.output.v1`: `{ version: 1, sessionId, data: number[] }`, preservando bytes sem assumir fronteiras UTF-8.
+- `session.status.v1`: `{ version: 1, sessionId, status, reason? }`.
 - `session.trust-required.v1`: destino e fingerprint inédita, sem segredo.
 - `session.credential-required.v1`: referência da necessidade de autenticação, sem solicitar valor por evento.
-- `session.exit.v1`: exit code opcional e fim da sessão.
+- `session.exit.v1`: `{ version: 1, sessionId, exitCode? }`, publicado após drenar a saída pendente.
 
-Eventos atrasados de uma Session encerrada são ignorados pela interface. A saída não é persistida pelo MVP.
+Eventos atrasados de uma Session encerrada são ignorados pela interface. A saída não é persistida pelo MVP. O transporte local aplica fila limitada e batching conforme ADR 0009.

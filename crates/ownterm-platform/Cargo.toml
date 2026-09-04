@@ -1,0 +1,13 @@
+[package]
+name = "ownterm-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ownterm-application = { path = "../ownterm-application" }
+
+[target."cfg(windows)".dependencies]
+keyring = "4.2.0"

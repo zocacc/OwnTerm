@@ -13,10 +13,12 @@ Application services
    ├── Domain
    ├── Host/known-host repository ports
    ├── Secrets port
-   ├── PTY port
+   ├── Terminal port
+   ├── Secrets port
+   ├── App directories port
    └── SSH port
         │
-SQLite | Windows credential vault | portable-pty | russh
+SQLite | ownterm-platform | ownterm-terminal | russh
 ```
 
 ## Regras de fronteira
@@ -30,7 +32,7 @@ SQLite | Windows credential vault | portable-pty | russh
 
 ## Estrutura evolutiva
 
-O scaffold cria `apps/desktop` e módulos Rust de domínio/aplicação junto do adapter Tauri. Extrações esperadas após os spikes são storage SQLite, secrets, PTY, SSH e parser OpenSSH; cada extração deve preservar os ports existentes e vir acompanhada de testes de contrato.
+O scaffold cria `apps/desktop` e módulos Rust de domínio/aplicação junto do adapter Tauri. E03 extraiu `ownterm-storage-sqlite` após os spikes confirmarem os limites de persistência e cofre; E04 extraiu `ownterm-terminal` para descoberta, lifecycle e streaming PTY; E09 fez os ports pertencerem à application e isolou adapters Windows/Unix em `ownterm-terminal` e `ownterm-platform`; SSH e parser OpenSSH serão extraídos quando seus slices funcionais exigirem. Cada extração preserva os ports existentes e inclui testes de contrato.
 
 ## Dependências de risco
 

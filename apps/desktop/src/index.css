@@ -1,11 +1,15 @@
 @import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
 
 :root {
   --background: oklch(0.13 0.01 270);
   --surface: oklch(0.18 0.015 270 / 72%);
+  --surface-solid: oklch(0.18 0.015 270);
+  --terminal: #111016;
   --foreground: oklch(0.96 0.005 270);
   --muted-foreground: oklch(0.68 0.02 270);
   --primary: oklch(0.68 0.18 285);
+  --danger: oklch(0.7 0.18 25);
   --border: oklch(1 0 0 / 8%);
   color: var(--foreground);
   background: var(--background);
@@ -29,4 +33,41 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+.status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--muted-foreground);
+}
+
+.status-connected {
+  background: oklch(0.75 0.17 150);
+}
+
+.status-starting,
+.status-awaiting_trust,
+.status-awaiting_credential {
+  background: oklch(0.8 0.16 85);
+}
+
+.status-failed {
+  background: var(--danger);
+}
+
+.xterm {
+  height: 100%;
+}
+
+.xterm .xterm-viewport {
+  scrollbar-color: color-mix(in oklch, var(--primary) 30%, transparent)
+    transparent;
+}
+
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
