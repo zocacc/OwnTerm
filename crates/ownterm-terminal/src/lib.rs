@@ -2,6 +2,11 @@
 
 //! Adapter produtivo para descoberta de shells e sessões locais via PTY.
 
+mod platform;
+
+use ownterm_application::terminal::{
+    TerminalBackend, TerminalError, TerminalEvent, TerminalEventSink,
+};
 use ownterm_domain::{
     SessionDescriptor, SessionId, SessionKind, SessionStatus, ShellProfile, ShellProfileId,
 };
@@ -9,10 +14,6 @@ use portable_pty::{ChildKiller, CommandBuilder, MasterPty, PtySize, native_pty_s
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{Read, Write};
-#[cfg(windows)]
-use std::path::Path;
-use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
@@ -22,62 +23,20 @@ const DEFAULT_ROWS: u16 = 24;
 const DEFAULT_COLUMNS: u16 = 80;
 const MAX_DIMENSION: u16 = 1_000;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SessionEvent {
-    Output {
-        session_id: SessionId,
-        data: Vec<u8>,
-    },
-    Status {
-        session_id: SessionId,
-        status: SessionStatus,
-        reason: Option<String>,
-    },
-    Exit {
-        session_id: SessionId,
-        exit_code: Option<u32>,
-    },
-}
-
-pub trait SessionEventSink: Send + Sync + 'static {
-    fn emit(&self, event: SessionEvent);
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TerminalError {
-    InvalidSize,
-    ProfileNotFound,
-    SessionNotFound,
-    Pty(String),
-    Io(String),
-    StateUnavailable,
-}
-
-impl fmt::Display for TerminalError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidSize => formatter.write_str("terminal dimensions are invalid"),
-            Self::ProfileNotFound => formatter.write_str("shell profile was not found"),
-            Self::SessionNotFound => formatter.write_str("terminal session was not found"),
-            Self::Pty(message) => write!(formatter, "PTY operation failed: {message}"),
-            Self::Io(message) => write!(formatter, "terminal I/O failed: {message}"),
-            Self::StateUnavailable => formatter.write_str("terminal state is unavailable"),
-        }
-    }
-}
-
-impl std::error::Error for TerminalError {}
-
 #[derive(Debug, Clone)]
-pub struct ShellCatalog {
+struct ShellCatalog {
     profiles: Vec<ShellProfile>,
 }
 
 impl ShellCatalog {
     pub fn detect() -> Self {
         Self {
-            profiles: detect_shell_profiles(),
+            profiles: platform::detect_shell_profiles(),
         }
+    }
+
+    fn from_profiles(profiles: Vec<ShellProfile>) -> Self {
+        Self { profiles }
     }
 
     pub fn profiles(&self) -> &[ShellProfile] {
@@ -111,7 +70,7 @@ struct SessionRegistry {
 }
 
 #[derive(Clone, Default)]
-pub struct SessionManager {
+struct SessionManager {
     registry: Arc<SessionRegistry>,
 }
 
@@ -124,35 +83,92 @@ impl fmt::Debug for SessionManager {
     }
 }
 
+#[derive(Debug)]
+pub struct NativeTerminalBackend {
+    shells: ShellCatalog,
+    sessions: SessionManager,
+}
+
+impl NativeTerminalBackend {
+    pub fn detect() -> Self {
+        Self {
+            shells: ShellCatalog::detect(),
+            sessions: SessionManager::default(),
+        }
+    }
+
+    pub fn with_profiles(profiles: Vec<ShellProfile>) -> Self {
+        Self {
+            shells: ShellCatalog::from_profiles(profiles),
+            sessions: SessionManager::default(),
+        }
+    }
+}
+
+impl Default for NativeTerminalBackend {
+    fn default() -> Self {
+        Self::detect()
+    }
+}
+
+impl TerminalBackend for NativeTerminalBackend {
+    fn shell_profiles(&self) -> Vec<ShellProfile> {
+        self.shells.profiles().to_vec()
+    }
+
+    fn start(
+        &self,
+        shell_profile_id: ShellProfileId,
+        rows: u16,
+        columns: u16,
+        sink: Arc<dyn TerminalEventSink>,
+    ) -> Result<SessionDescriptor, TerminalError> {
+        let profile = self.shells.find(shell_profile_id)?;
+        self.sessions.start(profile, rows, columns, sink)
+    }
+
+    fn write(&self, session_id: SessionId, data: &[u8]) -> Result<(), TerminalError> {
+        self.sessions.write(session_id, data)
+    }
+
+    fn resize(&self, session_id: SessionId, rows: u16, columns: u16) -> Result<(), TerminalError> {
+        self.sessions.resize(session_id, rows, columns)
+    }
+
+    fn close(&self, session_id: SessionId) -> Result<(), TerminalError> {
+        self.sessions.close(session_id)
+    }
+}
+
 impl SessionManager {
     pub fn start(
         &self,
         profile: &ShellProfile,
         rows: u16,
         columns: u16,
-        sink: Arc<dyn SessionEventSink>,
+        sink: Arc<dyn TerminalEventSink>,
     ) -> Result<SessionDescriptor, TerminalError> {
         let size = validated_size(rows, columns)?;
         let pair = native_pty_system()
             .openpty(size)
-            .map_err(|error| TerminalError::Pty(error.to_string()))?;
+            .map_err(|error| TerminalError::Platform(error.to_string()))?;
 
         let mut command = CommandBuilder::new(&profile.program);
         command.args(&profile.arguments);
         let mut child = pair
             .slave
             .spawn_command(command)
-            .map_err(|error| TerminalError::Pty(error.to_string()))?;
+            .map_err(|error| TerminalError::Platform(error.to_string()))?;
         drop(pair.slave);
 
         let reader = pair
             .master
             .try_clone_reader()
-            .map_err(|error| TerminalError::Pty(error.to_string()))?;
+            .map_err(|error| TerminalError::Platform(error.to_string()))?;
         let writer = pair
             .master
             .take_writer()
-            .map_err(|error| TerminalError::Pty(error.to_string()))?;
+            .map_err(|error| TerminalError::Platform(error.to_string()))?;
         let killer = child.clone_killer();
         let descriptor = SessionDescriptor::new(
             SessionKind::Local {
@@ -161,7 +177,7 @@ impl SessionManager {
             &profile.name,
             SessionStatus::Connected,
         )
-        .map_err(|error| TerminalError::Pty(error.to_string()))?;
+        .map_err(|error| TerminalError::Platform(error.to_string()))?;
         let session_id = descriptor.id;
         let active = Arc::new(AtomicBool::new(true));
 
@@ -199,17 +215,17 @@ impl SessionManager {
             if was_active {
                 match result {
                     Ok(status) => {
-                        sink.emit(SessionEvent::Exit {
+                        sink.emit(TerminalEvent::Exit {
                             session_id,
                             exit_code: Some(status.exit_code()),
                         });
-                        sink.emit(SessionEvent::Status {
+                        sink.emit(TerminalEvent::Status {
                             session_id,
                             status: SessionStatus::Disconnected,
                             reason: None,
                         });
                     }
-                    Err(error) => sink.emit(SessionEvent::Status {
+                    Err(error) => sink.emit(TerminalEvent::Status {
                         session_id,
                         status: SessionStatus::Failed,
                         reason: Some(error.to_string()),
@@ -257,7 +273,7 @@ impl SessionManager {
             .ok_or(TerminalError::SessionNotFound)?
             .master
             .resize(size)
-            .map_err(|error| TerminalError::Pty(error.to_string()))
+            .map_err(|error| TerminalError::Platform(error.to_string()))
     }
 
     pub fn close(&self, session_id: SessionId) -> Result<(), TerminalError> {
@@ -277,18 +293,7 @@ impl SessionManager {
             .map_err(|_| TerminalError::StateUnavailable)?
             .kill();
 
-        #[cfg(windows)]
-        {
-            // portable-pty 0.9.0's WinChildKiller reverses the TerminateProcess
-            // success check, so a successful termination is reported as an error.
-            let _ = kill_result;
-            Ok(())
-        }
-
-        #[cfg(not(windows))]
-        {
-            kill_result.map_err(|error| TerminalError::Io(error.to_string()))
-        }
+        platform::finish_close(kill_result)
     }
 
     pub fn active_session_count(&self) -> usize {
@@ -304,7 +309,7 @@ fn spawn_output_pump(
     session_id: SessionId,
     mut reader: Box<dyn Read + Send>,
     active: Arc<AtomicBool>,
-    sink: Arc<dyn SessionEventSink>,
+    sink: Arc<dyn TerminalEventSink>,
 ) -> thread::JoinHandle<()> {
     let (sender, receiver) = mpsc::sync_channel::<Result<Vec<u8>, String>>(32);
     let reader_thread = thread::spawn(move || {
@@ -340,7 +345,7 @@ fn spawn_output_pump(
                             Ok(Ok(chunk)) => batch.extend(chunk),
                             Ok(Err(error)) => {
                                 if active.load(Ordering::Acquire) {
-                                    sink.emit(SessionEvent::Status {
+                                    sink.emit(TerminalEvent::Status {
                                         session_id,
                                         status: SessionStatus::Failed,
                                         reason: Some(error),
@@ -357,7 +362,7 @@ fn spawn_output_pump(
                         }
                     }
                     if active.load(Ordering::Acquire) {
-                        sink.emit(SessionEvent::Output {
+                        sink.emit(TerminalEvent::Output {
                             session_id,
                             data: batch,
                         });
@@ -365,7 +370,7 @@ fn spawn_output_pump(
                 }
                 Err(error) => {
                     if active.load(Ordering::Acquire) {
-                        sink.emit(SessionEvent::Status {
+                        sink.emit(TerminalEvent::Status {
                             session_id,
                             status: SessionStatus::Failed,
                             reason: Some(error),
@@ -394,80 +399,6 @@ fn validated_size(rows: u16, columns: u16) -> Result<PtySize, TerminalError> {
         pixel_height: 0,
     })
 }
-
-#[cfg(windows)]
-fn detect_shell_profiles() -> Vec<ShellProfile> {
-    let mut profiles = Vec::new();
-    add_profile_if_available(
-        &mut profiles,
-        "PowerShell",
-        PathBuf::from("powershell.exe"),
-        vec!["-NoLogo".into()],
-    );
-    add_profile_if_available(
-        &mut profiles,
-        "Command Prompt",
-        PathBuf::from("cmd.exe"),
-        Vec::new(),
-    );
-
-    if command_available(Path::new("wsl.exe")) {
-        if let Ok(output) = std::process::Command::new("wsl.exe")
-            .args(["--list", "--quiet"])
-            .output()
-        {
-            for distribution in decode_wsl_output(&output.stdout) {
-                if let Ok(profile) = ShellProfile::new(
-                    format!("WSL · {distribution}"),
-                    PathBuf::from("wsl.exe"),
-                    vec!["--distribution".into(), distribution],
-                ) {
-                    profiles.push(profile);
-                }
-            }
-        }
-    }
-    profiles
-}
-
-#[cfg(windows)]
-fn add_profile_if_available(
-    profiles: &mut Vec<ShellProfile>,
-    name: &str,
-    program: PathBuf,
-    arguments: Vec<String>,
-) {
-    if command_available(&program)
-        && let Ok(profile) = ShellProfile::new(name, program, arguments)
-    {
-        profiles.push(profile);
-    }
-}
-
-#[cfg(windows)]
-fn command_available(program: &Path) -> bool {
-    std::process::Command::new("where.exe")
-        .arg(program)
-        .output()
-        .is_ok_and(|output| output.status.success())
-}
-
-#[cfg(not(windows))]
-fn detect_shell_profiles() -> Vec<ShellProfile> {
-    let configured = std::env::var_os("SHELL").map(PathBuf::from);
-    let program = configured
-        .filter(|path| path.is_file())
-        .unwrap_or_else(|| PathBuf::from("/bin/sh"));
-    let name = program
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("Shell")
-        .to_owned();
-    ShellProfile::new(name, program, Vec::new())
-        .into_iter()
-        .collect()
-}
-
 #[cfg(any(test, windows))]
 fn decode_wsl_output(bytes: &[u8]) -> Vec<String> {
     let decoded = if bytes
@@ -493,14 +424,6 @@ fn decode_wsl_output(bytes: &[u8]) -> Vec<String> {
         .filter(|line| !line.is_empty())
         .map(str::to_owned)
         .collect()
-}
-
-pub fn parse_session_id(value: &str) -> Result<SessionId, TerminalError> {
-    SessionId::from_str(value).map_err(|_| TerminalError::SessionNotFound)
-}
-
-pub fn parse_shell_profile_id(value: &str) -> Result<ShellProfileId, TerminalError> {
-    ShellProfileId::from_str(value).map_err(|_| TerminalError::ProfileNotFound)
 }
 
 pub const fn default_rows() -> u16 {

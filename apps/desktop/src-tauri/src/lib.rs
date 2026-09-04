@@ -1,28 +1,27 @@
 #![forbid(unsafe_code)]
 
 use ownterm_application::OwnTermApplication;
+use ownterm_application::terminal::{
+    TerminalBackend, TerminalEvent, TerminalEventSink, parse_session_id, parse_shell_profile_id,
+};
 use ownterm_application::vault::{SecretRef, SecretVault};
 use ownterm_domain::{SessionDescriptor, SessionKind, SessionStatus, ShellProfile};
-use ownterm_terminal::{
-    SessionEvent, SessionEventSink, SessionManager, ShellCatalog, parse_session_id,
-    parse_shell_profile_id,
-};
+use ownterm_platform::SystemVault;
+use ownterm_terminal::NativeTerminalBackend;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
-mod vault;
-
 struct DesktopState {
-    shells: ShellCatalog,
-    sessions: SessionManager,
+    terminal: NativeTerminalBackend,
+    vault: SystemVault,
 }
 
 impl Default for DesktopState {
     fn default() -> Self {
         Self {
-            shells: ShellCatalog::detect(),
-            sessions: SessionManager::default(),
+            terminal: NativeTerminalBackend::default(),
+            vault: SystemVault,
         }
     }
 }
@@ -30,10 +29,10 @@ impl Default for DesktopState {
 #[derive(Clone)]
 struct TauriEventSink(AppHandle);
 
-impl SessionEventSink for TauriEventSink {
-    fn emit(&self, event: SessionEvent) {
+impl TerminalEventSink for TauriEventSink {
+    fn emit(&self, event: TerminalEvent) {
         match event {
-            SessionEvent::Output { session_id, data } => {
+            TerminalEvent::Output { session_id, data } => {
                 let _ = self.0.emit(
                     "session.output.v1",
                     SessionOutputEvent {
@@ -43,7 +42,7 @@ impl SessionEventSink for TauriEventSink {
                     },
                 );
             }
-            SessionEvent::Status {
+            TerminalEvent::Status {
                 session_id,
                 status,
                 reason,
@@ -58,7 +57,7 @@ impl SessionEventSink for TauriEventSink {
                     },
                 );
             }
-            SessionEvent::Exit {
+            TerminalEvent::Exit {
                 session_id,
                 exit_code,
             } => {
@@ -207,7 +206,12 @@ fn app_info() -> AppInfo {
 
 #[tauri::command]
 fn list_shell_profiles(state: State<'_, DesktopState>) -> Vec<ShellProfileDto> {
-    state.shells.profiles().iter().map(Into::into).collect()
+    state
+        .terminal
+        .shell_profiles()
+        .iter()
+        .map(Into::into)
+        .collect()
 }
 
 #[tauri::command]
@@ -218,14 +222,10 @@ fn start_local_session(
 ) -> Result<SessionDescriptorDto, String> {
     let profile_id =
         parse_shell_profile_id(&request.shell_profile_id).map_err(|error| error.to_string())?;
-    let profile = state
-        .shells
-        .find(profile_id)
-        .map_err(|error| error.to_string())?;
     state
-        .sessions
+        .terminal
         .start(
-            profile,
+            profile_id,
             request.rows,
             request.columns,
             Arc::new(TauriEventSink(app)),
@@ -241,7 +241,7 @@ fn write_session(
 ) -> Result<(), String> {
     let session_id = parse_session_id(&request.session_id).map_err(|error| error.to_string())?;
     state
-        .sessions
+        .terminal
         .write(session_id, &request.data)
         .map_err(|error| error.to_string())
 }
@@ -253,7 +253,7 @@ fn resize_session(
 ) -> Result<(), String> {
     let session_id = parse_session_id(&request.session_id).map_err(|error| error.to_string())?;
     state
-        .sessions
+        .terminal
         .resize(session_id, request.rows, request.columns)
         .map_err(|error| error.to_string())
 }
@@ -265,14 +265,15 @@ fn close_session(
 ) -> Result<(), String> {
     let session_id = parse_session_id(&request.session_id).map_err(|error| error.to_string())?;
     state
-        .sessions
+        .terminal
         .close(session_id)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-fn vault_probe() -> Result<(), String> {
-    vault::SystemVault
+fn vault_probe(state: State<'_, DesktopState>) -> Result<(), String> {
+    state
+        .vault
         .read(&SecretRef::try_new("ownterm-probe").expect("static credential reference"))
         .map(|_| ())
         .map_err(|error| format!("{error:?}"))
