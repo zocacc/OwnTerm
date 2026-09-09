@@ -3119,6 +3119,8 @@ name = "ownterm-application"
 version = "0.1.0"
 dependencies = [
  "ownterm-domain",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3134,6 +3136,7 @@ dependencies = [
  "serde",
  "tauri",
  "tauri-build",
+ "time",
  "uuid",
 ]
 

@@ -32,14 +32,14 @@ IDs, campos obrigatórios, validação e estratégia de conflito são definidos 
 
 ## Critérios de aceite
 
-- [ ] Uma prévia informa entradas reconhecidas, conflitos e diretivas ignoradas antes de gravar.
-- [ ] A seleção por entrada respeita criar, atualizar e ignorar em uma transação.
-- [ ] Exportação é validável por versão e pode ser reimportada.
-- [ ] Nenhuma exportação contém segredos, referências de cofre ou Known Hosts.
-- [ ] Falha de parser ou persistência produz relatório acionável sem modificar o workspace.
+- [x] Uma prévia informa entradas reconhecidas, conflitos e diretivas ignoradas antes de gravar.
+- [x] A seleção por entrada respeita criar, atualizar e ignorar em uma transação.
+- [x] Exportação é validável por versão e pode ser reimportada.
+- [x] Nenhuma exportação contém segredos, referências de cofre ou Known Hosts.
+- [x] Falha de parser ou persistência produz relatório acionável sem modificar o workspace.
 
 ## Testes
 
-- Fixtures para aliases, campos válidos, padrões, diretivas ignoradas, portas inválidas e IdentityFile.
-- Integração para preview, conflitos, rollback transacional, exportação e reimportação.
-- Teste de propriedade/inspeção para ausência de nomes/campos de segredo no JSON gerado.
+- [x] Fixtures para aliases, campos válidos, padrões, diretivas ignoradas, portas inválidas e IdentityFile.
+- [x] Integração para preview, conflitos, rollback transacional, exportação e reimportação.
+- [x] Teste de propriedade/inspeção para ausência de nomes/campos de segredo no JSON gerado.

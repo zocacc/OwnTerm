@@ -81,6 +81,30 @@ export type SaveHostRequest = Omit<Host, "id" | "authKind"> & {
   privateKeyPath?: string;
   passphrase?: string;
 };
+export type ImportAction = "create" | "update" | "skip";
+export type PortableHost = {
+  name: string;
+  address: string;
+  port: number;
+  username?: string;
+  group?: string;
+  tags: string[];
+  favorite: boolean;
+  authKind: "password" | "private_key" | "agent" | "none";
+  privateKeyPath?: string;
+  credentialRequired: boolean;
+};
+export type PortableGroup = { name: string; sortOrder: number };
+export type ImportPreview = {
+  groups: PortableGroup[];
+  entries: Array<{
+    host: PortableHost;
+    conflict: boolean;
+    defaultAction: ImportAction;
+  }>;
+  ignored: Array<{ line: number; directive: string; reason: string }>;
+};
+export type ImportResult = { applied: number; credentialsToConfigure: number };
 export type SaveGroupRequest = { id?: string; name: string; sortOrder: number };
 
 export type Unsubscribe = () => void;
@@ -128,6 +152,15 @@ export interface Backend {
   saveHostGroup?(request: SaveGroupRequest): Promise<HostGroup>;
   deleteHostGroup?(id: string, moveHostsToUngrouped: boolean): Promise<void>;
   recordRecentHost?(id: string): Promise<void>;
+  previewImport?(
+    source: "openssh" | "workspace",
+    content: string,
+  ): Promise<ImportPreview>;
+  applyImport?(
+    groups: PortableGroup[],
+    entries: Array<{ host: PortableHost; action: ImportAction }>,
+  ): Promise<ImportResult>;
+  exportWorkspace?(): Promise<string>;
 }
 
 export const defaultBackend = isTauriEnvironment ? tauriBackend : mockBackend;
