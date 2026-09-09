@@ -2693,10 +2693,12 @@ dependencies = [
  "ownterm-application",
  "ownterm-domain",
  "ownterm-platform",
+ "ownterm-storage-sqlite",
  "ownterm-terminal",
  "serde",
  "tauri",
  "tauri-build",
+ "uuid",
 ]
 
 [[package]]

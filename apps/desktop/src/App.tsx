@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./components/ui/button";
+import { HostsWorkspace } from "./components/HostsWorkspace";
+import ownTermLogo from "./assets/svg/ownterm-logo.svg";
 import {
   defaultBackend,
   type AppInfo,
@@ -286,13 +288,19 @@ function App({ backend = defaultBackend }: AppProps) {
     );
   };
 
+  const requestHostConnection = useCallback(
+    (target: { hostId?: string; destination?: string }) => {
+      const label = target.destination ?? "Host salvo";
+      setError(label + ": conexão SSH será habilitada pela E06.");
+    },
+    [],
+  );
+
   return (
     <main className="flex h-screen min-h-[480px] flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4">
         <div className="flex items-center gap-3">
-          <span className="grid size-7 place-items-center rounded-md bg-[var(--primary)] font-mono text-sm font-bold text-[#15111f]">
-            O
-          </span>
+          <img alt="" className="size-7 rounded-md" src={ownTermLogo} />
           <div>
             <h1 className="text-sm font-semibold leading-none">OwnTerm</h1>
             <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
@@ -335,70 +343,81 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
       </header>
 
-      <nav
-        aria-label="Sessões locais"
-        className="flex h-10 shrink-0 items-end gap-1 overflow-x-auto border-b border-[var(--border)] bg-black/10 px-2 pt-1"
-      >
-        {sessions.map((session) => (
-          <div
-            className={
-              session.id === activeSessionId
-                ? "flex h-9 min-w-40 items-center gap-2 rounded-t-md border border-b-0 border-[var(--border)] bg-[var(--terminal)] px-3"
-                : "flex h-9 min-w-40 items-center gap-2 rounded-t-md px-3 text-[var(--muted-foreground)] hover:bg-white/5"
-            }
-            key={session.id}
+      <div className="flex min-h-0 flex-1">
+        <HostsWorkspace
+          backend={backend}
+          onOpenLocal={() => void openSession()}
+          onRequestConnection={requestHostConnection}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <nav
+            aria-label="Sessões locais"
+            className="flex h-10 shrink-0 items-end gap-1 overflow-x-auto border-b border-[var(--border)] bg-black/10 px-2 pt-1"
           >
-            <button
-              aria-current={session.id === activeSessionId ? "page" : undefined}
-              className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
-              onClick={() => {
-                setActiveSessionId(session.id);
-                terminals.current.get(session.id)?.focus();
-              }}
-              type="button"
-            >
-              <span
-                className={`status-dot status-${session.status}`}
-                title={statusLabels[session.status]}
-              />
-              <span className="truncate">{session.title}</span>
-            </button>
-            <button
-              aria-label={`Fechar ${session.title}`}
-              className="rounded px-1 text-base leading-none hover:bg-white/10 hover:text-white"
-              onClick={() => closeSession(session.id)}
-              type="button"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </nav>
+            {sessions.map((session) => (
+              <div
+                className={
+                  session.id === activeSessionId
+                    ? "flex h-9 min-w-40 items-center gap-2 rounded-t-md border border-b-0 border-[var(--border)] bg-[var(--terminal)] px-3"
+                    : "flex h-9 min-w-40 items-center gap-2 rounded-t-md px-3 text-[var(--muted-foreground)] hover:bg-white/5"
+                }
+                key={session.id}
+              >
+                <button
+                  aria-current={
+                    session.id === activeSessionId ? "page" : undefined
+                  }
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
+                  onClick={() => {
+                    setActiveSessionId(session.id);
+                    terminals.current.get(session.id)?.focus();
+                  }}
+                  type="button"
+                >
+                  <span
+                    className={`status-dot status-${session.status}`}
+                    title={statusLabels[session.status]}
+                  />
+                  <span className="truncate">{session.title}</span>
+                </button>
+                <button
+                  aria-label={`Fechar ${session.title}`}
+                  className="rounded px-1 text-base leading-none hover:bg-white/10 hover:text-white"
+                  onClick={() => closeSession(session.id)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </nav>
 
-      <section className="relative min-h-0 flex-1 bg-[var(--terminal)]">
-        {sessions.length === 0 ? (
-          <div className="grid h-full place-items-center p-8 text-center">
-            <div>
-              <p className="font-mono text-sm text-[var(--primary)]">
-                Nenhuma sessão aberta
-              </p>
-              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                Escolha um shell e abra uma aba. Atalho: Ctrl+Shift+T.
-              </p>
-            </div>
-          </div>
-        ) : null}
-        {sessions.map((session) => (
-          <TerminalSurface
-            active={session.id === activeSessionId}
-            backend={backend}
-            key={session.id}
-            onError={reportError}
-            onReady={registerTerminal}
-            sessionId={session.id}
-          />
-        ))}
-      </section>
+          <section className="relative min-h-0 flex-1 bg-[var(--terminal)]">
+            {sessions.length === 0 ? (
+              <div className="grid h-full place-items-center p-8 text-center">
+                <div>
+                  <p className="font-mono text-sm text-[var(--primary)]">
+                    Nenhuma sessão aberta
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                    Escolha um shell e abra uma aba. Atalho: Ctrl+Shift+T.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+            {sessions.map((session) => (
+              <TerminalSurface
+                active={session.id === activeSessionId}
+                backend={backend}
+                key={session.id}
+                onError={reportError}
+                onReady={registerTerminal}
+                sessionId={session.id}
+              />
+            ))}
+          </section>
+        </div>
+      </div>
 
       <footer className="flex min-h-8 shrink-0 items-center justify-between gap-4 border-t border-[var(--border)] bg-[var(--surface-solid)] px-3 text-[11px]">
         <div className="flex min-w-0 items-center gap-3">

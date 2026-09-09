@@ -1,0 +1,256 @@
+<svg width="960" height="640" viewBox="0 0 960 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .icon-label { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 11px; fill: #8d8a9d; font-weight: 500; }
+      .section-title { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; fill: #f4f2f8; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    </style>
+    <linearGradient id="iconAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d6cbff"/>
+      <stop offset="100%" stop-color="#9d7aff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Canvas Frame for Figma Kit -->
+  <rect width="960" height="640" rx="16" fill="#111016"/>
+  <rect x="0.5" y="0.5" width="959" height="639" rx="15.5" stroke="#ffffff" stroke-opacity="0.08"/>
+
+  <!-- Header -->
+  <text x="40" y="48" class="section-title">OwnTerm &amp; Glass Terminal UI Icon System (Figma Components)</text>
+
+  <!-- Row 1: Shell & Terminal Icons -->
+  <g id="row-shells" transform="translate(40, 80)">
+    <!-- Terminal Shell -->
+    <g id="icon-terminal" transform="translate(0, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M16 18L22 24L16 30" stroke="#b9a7ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M26 30H32" stroke="#f4f2f8" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Terminal</text>
+    </g>
+
+    <!-- PowerShell -->
+    <g id="icon-powershell" transform="translate(100, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M15 17L23 24L15 31" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M25 31H33" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">PowerShell</text>
+    </g>
+
+    <!-- Command Prompt -->
+    <g id="icon-cmd" transform="translate(200, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="14" y="27" font-family="monospace" font-size="11" font-weight="bold" fill="#e2e8f0">C:\</text>
+      <path d="M26 31H34" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">CMD</text>
+    </g>
+
+    <!-- WSL / Linux -->
+    <g id="icon-wsl" transform="translate(300, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M24 14C20.5 14 19 17 19 21C19 23.5 17.5 25.5 16 27C15.5 27.5 15.5 28.5 16.5 29C18 29.5 20.5 29 21.5 28C22.5 31 20 33 18 34H30C28 33 25.5 31 26.5 28C27.5 29 30 29.5 31.5 29C32.5 28.5 32.5 27.5 32 27C30.5 25.5 29 23.5 29 21C29 17 27.5 14 24 14Z" stroke="#facc15" stroke-width="1.8" stroke-linejoin="round"/>
+      <circle cx="22" cy="19" r="1" fill="#facc15"/>
+      <circle cx="26" cy="19" r="1" fill="#facc15"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">WSL</text>
+    </g>
+
+    <!-- SSH Host / Server -->
+    <g id="icon-ssh" transform="translate(400, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <rect x="15" y="15" width="18" height="8" rx="2" stroke="#a78bfa" stroke-width="1.8"/>
+      <rect x="15" y="25" width="18" height="8" rx="2" stroke="#a78bfa" stroke-width="1.8"/>
+      <circle cx="18" cy="19" r="1" fill="#34d399"/>
+      <circle cx="18" cy="29" r="1" fill="#34d399"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">SSH Host</text>
+    </g>
+
+    <!-- Vault / Security -->
+    <g id="icon-vault" transform="translate(500, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M24 14L32 17.5V23.5C32 28.5 28.5 33 24 34.5C19.5 33 16 28.5 16 23.5V17.5L24 14Z" stroke="#34d399" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M22 24L24 26L27 22" stroke="#34d399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Vault Lock</text>
+    </g>
+
+    <!-- Settings / Config -->
+    <g id="icon-settings" transform="translate(600, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <circle cx="24" cy="24" r="4" stroke="#f4f2f8" stroke-width="1.8"/>
+      <path d="M24 14V17M24 31V34M14 24H17M31 24H34M17 17L19.2 19.2M28.8 28.8L31 31M17 31L19.2 28.8M28.8 19.2L31 17" stroke="#f4f2f8" stroke-width="1.8" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Config</text>
+    </g>
+
+    <!-- Split Pane -->
+    <g id="icon-split-pane" transform="translate(700, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <rect x="15" y="15" width="18" height="18" rx="3" stroke="#f4f2f8" stroke-width="1.8"/>
+      <path d="M24 15V33" stroke="#f4f2f8" stroke-width="1.8"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Split Pane</text>
+    </g>
+  </g>
+
+  <!-- Row 2: Action & Workspace Control Icons -->
+  <g id="row-actions" transform="translate(40, 200)">
+    <!-- Add / New Tab -->
+    <g id="icon-add-tab" transform="translate(0, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M24 16V32M16 24H32" stroke="#b9a7ff" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Nova Aba (+)</text>
+    </g>
+
+    <!-- Close Tab (×) -->
+    <g id="icon-close-tab" transform="translate(100, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M18 18L30 30M30 18L18 30" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Fechar (×)</text>
+    </g>
+
+    <!-- Copy -->
+    <g id="icon-copy" transform="translate(200, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <rect x="20" y="16" width="14" height="14" rx="2" stroke="#f4f2f8" stroke-width="1.8"/>
+      <path d="M15 20V32C15 33.1 15.9 34 17 34H27" stroke="#8d8a9d" stroke-width="1.8" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Copiar</text>
+    </g>
+
+    <!-- Paste -->
+    <g id="icon-paste" transform="translate(300, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M20 17H16C14.9 17 14 17.9 14 19V32C14 33.1 14.9 34 16 34H26C27.1 34 28 33.1 28 32V29" stroke="#f4f2f8" stroke-width="1.8"/>
+      <rect x="20" y="14" width="8" height="5" rx="1" stroke="#b9a7ff" stroke-width="1.5"/>
+      <rect x="22" y="21" width="12" height="11" rx="2" fill="#181524" stroke="#b9a7ff" stroke-width="1.8"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Colar</text>
+    </g>
+
+    <!-- Search / Filter -->
+    <g id="icon-search" transform="translate(400, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <circle cx="22" cy="22" r="6" stroke="#f4f2f8" stroke-width="1.8"/>
+      <path d="M27 27L33 33" stroke="#f4f2f8" stroke-width="1.8" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Buscar</text>
+    </g>
+
+    <!-- Chevron Down -->
+    <g id="icon-chevron-down" transform="translate(500, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M18 21L24 27L30 21" stroke="#f4f2f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Dropdown</text>
+    </g>
+
+    <!-- Refresh / Reconnect -->
+    <g id="icon-refresh" transform="translate(600, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <path d="M31 21C29.8 17.5 26.2 15 22 15C16.5 15 12 19.5 12 25C12 30.5 16.5 35 22 35C26.5 35 30.3 32 31.6 28" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M32 15V21H26" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Reconectar</text>
+    </g>
+
+    <!-- Keybinding Badge -->
+    <g id="icon-keyboard" transform="translate(700, 0)">
+      <rect width="48" height="48" rx="10" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <rect x="14" y="17" width="20" height="14" rx="3" stroke="#8d8a9d" stroke-width="1.6"/>
+      <path d="M18 21H19M23 21H25M29 21H30M18 25H21M24 25H30" stroke="#8d8a9d" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="24" y="68" text-anchor="middle" class="icon-label">Atalhos</text>
+    </g>
+  </g>
+
+  <!-- Row 3: Status Dots & Indicators -->
+  <g id="row-status-indicators" transform="translate(40, 320)">
+    <text x="0" y="0" class="section-title" font-size="12">Status &amp; State Badges</text>
+
+    <!-- Connected State -->
+    <g id="status-connected" transform="translate(0, 24)">
+      <rect width="130" height="36" rx="8" fill="#181524" stroke="#34d399" stroke-opacity="0.2"/>
+      <circle cx="20" cy="18" r="4.5" fill="#34d399"/>
+      <circle cx="20" cy="18" r="7" stroke="#34d399" stroke-opacity="0.3" stroke-width="1"/>
+      <text x="34" y="22" font-family="Inter, sans-serif" font-size="12" fill="#34d399" font-weight="500">Connected</text>
+    </g>
+
+    <!-- Starting / Awaiting State -->
+    <g id="status-starting" transform="translate(150, 24)">
+      <rect width="130" height="36" rx="8" fill="#181524" stroke="#fbbf24" stroke-opacity="0.2"/>
+      <circle cx="20" cy="18" r="4.5" fill="#fbbf24"/>
+      <text x="34" y="22" font-family="Inter, sans-serif" font-size="12" fill="#fbbf24" font-weight="500">Starting…</text>
+    </g>
+
+    <!-- Disconnected State -->
+    <g id="status-disconnected" transform="translate(300, 24)">
+      <rect width="130" height="36" rx="8" fill="#181524" stroke="#8d8a9d" stroke-opacity="0.2"/>
+      <circle cx="20" cy="18" r="4.5" fill="#8d8a9d"/>
+      <text x="34" y="22" font-family="Inter, sans-serif" font-size="12" fill="#8d8a9d" font-weight="500">Disconnected</text>
+    </g>
+
+    <!-- Failed State -->
+    <g id="status-failed" transform="translate(450, 24)">
+      <rect width="130" height="36" rx="8" fill="#181524" stroke="#ef4444" stroke-opacity="0.2"/>
+      <circle cx="20" cy="18" r="4.5" fill="#ef4444"/>
+      <circle cx="20" cy="18" r="7" stroke="#ef4444" stroke-opacity="0.3" stroke-width="1"/>
+      <text x="34" y="22" font-family="Inter, sans-serif" font-size="12" fill="#ef4444" font-weight="500">Failed</text>
+    </g>
+
+    <!-- Awaiting Trust -->
+    <g id="status-awaiting-trust" transform="translate(600, 24)">
+      <rect width="140" height="36" rx="8" fill="#181524" stroke="#a855f7" stroke-opacity="0.2"/>
+      <circle cx="20" cy="18" r="4.5" fill="#a855f7"/>
+      <text x="34" y="22" font-family="Inter, sans-serif" font-size="12" fill="#d8b4fe" font-weight="500">Awaiting Trust</text>
+    </g>
+  </g>
+
+  <!-- Row 4: Window Control Buttons -->
+  <g id="row-window-controls" transform="translate(40, 440)">
+    <text x="0" y="0" class="section-title" font-size="12">Window Controls (Mac / Windows Style)</text>
+
+    <!-- Mac Traffic Lights -->
+    <g id="mac-controls" transform="translate(0, 20)">
+      <rect width="90" height="32" rx="8" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <circle cx="22" cy="16" r="6" fill="#ff5f56"/>
+      <circle cx="44" cy="16" r="6" fill="#ffbd2e"/>
+      <circle cx="66" cy="16" r="6" fill="#27c93f"/>
+    </g>
+
+    <!-- Windows Window Actions -->
+    <g id="win-controls" transform="translate(120, 20)">
+      <rect width="140" height="32" rx="8" fill="#181524" stroke="#ffffff" stroke-opacity="0.08"/>
+      <!-- Minimize -->
+      <path d="M30 16H42" stroke="#8d8a9d" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- Maximize -->
+      <rect x="70" y="11" width="10" height="10" stroke="#8d8a9d" stroke-width="1.5" fill="none" rx="1"/>
+      <!-- Close -->
+      <path d="M110 11L120 21M120 11L110 21" stroke="#8d8a9d" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- Row 5: Palette Swatches -->
+  <g id="row-palette" transform="translate(40, 540)">
+    <g id="swatch-bg" transform="translate(0, 0)">
+      <rect width="56" height="24" rx="6" fill="#111016" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="0" y="38" class="icon-label">#111016</text>
+    </g>
+    <g id="swatch-surface" transform="translate(80, 0)">
+      <rect width="56" height="24" rx="6" fill="#181524" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="0" y="38" class="icon-label">#181524</text>
+    </g>
+    <g id="swatch-primary" transform="translate(160, 0)">
+      <rect width="56" height="24" rx="6" fill="#9d7aff"/>
+      <text x="0" y="38" class="icon-label">#9D7AFF</text>
+    </g>
+    <g id="swatch-accent" transform="translate(240, 0)">
+      <rect width="56" height="24" rx="6" fill="#b9a7ff"/>
+      <text x="0" y="38" class="icon-label">#B9A7FF</text>
+    </g>
+    <g id="swatch-success" transform="translate(320, 0)">
+      <rect width="56" height="24" rx="6" fill="#34d399"/>
+      <text x="0" y="38" class="icon-label">#34D399</text>
+    </g>
+    <g id="swatch-warning" transform="translate(400, 0)">
+      <rect width="56" height="24" rx="6" fill="#fbbf24"/>
+      <text x="0" y="38" class="icon-label">#FBBF24</text>
+    </g>
+    <g id="swatch-danger" transform="translate(480, 0)">
+      <rect width="56" height="24" rx="6" fill="#ef4444"/>
+      <text x="0" y="38" class="icon-label">#EF4444</text>
+    </g>
+    <g id="swatch-text" transform="translate(560, 0)">
+      <rect width="56" height="24" rx="6" fill="#f4f2f8"/>
+      <text x="0" y="38" class="icon-label">#F4F2F8</text>
+    </g>
+  </g>
+</svg>

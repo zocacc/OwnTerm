@@ -45,6 +45,24 @@ export type SessionExitEvent = {
   exitCode?: number;
 };
 
+export type Host = {
+  id: string;
+  name: string;
+  address: string;
+  port: number;
+  username?: string;
+  groupId?: string;
+  tags: string[];
+  favorite: boolean;
+  authKind: "password" | "private_key" | "agent" | "none";
+};
+export type HostGroup = { id: string; name: string; sortOrder: number };
+export type SaveHostRequest = Omit<Host, "id" | "authKind"> & {
+  id?: string;
+  password?: string;
+};
+export type SaveGroupRequest = { id?: string; name: string; sortOrder: number };
+
 export type Unsubscribe = () => void;
 export type EventSubscription<T> = (
   handler: (event: T) => void,
@@ -68,6 +86,14 @@ export interface Backend {
   onSessionOutput: EventSubscription<SessionOutputEvent>;
   onSessionStatus: EventSubscription<SessionStatusEvent>;
   onSessionExit: EventSubscription<SessionExitEvent>;
+  listHosts?(search?: string): Promise<Host[]>;
+  listHostGroups?(): Promise<HostGroup[]>;
+  listRecentHosts?(limit?: number): Promise<Host[]>;
+  saveHost?(request: SaveHostRequest): Promise<Host>;
+  deleteHost?(id: string): Promise<void>;
+  saveHostGroup?(request: SaveGroupRequest): Promise<HostGroup>;
+  deleteHostGroup?(id: string, moveHostsToUngrouped: boolean): Promise<void>;
+  recordRecentHost?(id: string): Promise<void>;
 }
 
 export const defaultBackend = isTauriEnvironment ? tauriBackend : mockBackend;
