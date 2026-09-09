@@ -21,7 +21,8 @@ export type SessionStatus =
 
 export type SessionDescriptor = {
   id: string;
-  kind: { type: "local"; shellProfileId: string };
+  kind:
+    { type: "local"; shellProfileId: string } | { type: "ssh"; hostId: string };
   title: string;
   status: SessionStatus;
 };
@@ -45,6 +46,21 @@ export type SessionExitEvent = {
   exitCode?: number;
 };
 
+export type SessionTrustRequiredEvent = {
+  version: 1;
+  sessionId: string;
+  destination: string;
+  port: number;
+  algorithm: string;
+  fingerprint: string;
+};
+
+export type SessionCredentialRequiredEvent = {
+  version: 1;
+  sessionId: string;
+  kind: "password" | "passphrase";
+};
+
 export type Host = {
   id: string;
   name: string;
@@ -55,11 +71,15 @@ export type Host = {
   tags: string[];
   favorite: boolean;
   authKind: "password" | "private_key" | "agent" | "none";
+  privateKeyPath?: string;
 };
 export type HostGroup = { id: string; name: string; sortOrder: number };
 export type SaveHostRequest = Omit<Host, "id" | "authKind"> & {
   id?: string;
+  authKind?: "password" | "private_key" | "none";
   password?: string;
+  privateKeyPath?: string;
+  passphrase?: string;
 };
 export type SaveGroupRequest = { id?: string; name: string; sortOrder: number };
 
@@ -76,6 +96,18 @@ export interface Backend {
     rows: number,
     columns: number,
   ): Promise<SessionDescriptor>;
+  startSshSession(
+    hostId: string,
+    rows: number,
+    columns: number,
+  ): Promise<SessionDescriptor>;
+  startQuickConnect(
+    destination: string,
+    rows: number,
+    columns: number,
+  ): Promise<SessionDescriptor>;
+  confirmSshTrust(sessionId: string, accept: boolean): Promise<void>;
+  provideSshCredential(sessionId: string, secret?: string): Promise<void>;
   writeSession(sessionId: string, data: number[]): Promise<void>;
   resizeSession(
     sessionId: string,
@@ -86,6 +118,8 @@ export interface Backend {
   onSessionOutput: EventSubscription<SessionOutputEvent>;
   onSessionStatus: EventSubscription<SessionStatusEvent>;
   onSessionExit: EventSubscription<SessionExitEvent>;
+  onSessionTrustRequired: EventSubscription<SessionTrustRequiredEvent>;
+  onSessionCredentialRequired: EventSubscription<SessionCredentialRequiredEvent>;
   listHosts?(search?: string): Promise<Host[]>;
   listHostGroups?(): Promise<HostGroup[]>;
   listRecentHosts?(limit?: number): Promise<Host[]>;

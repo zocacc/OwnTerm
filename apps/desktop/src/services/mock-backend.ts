@@ -1,13 +1,19 @@
 import type {
   Backend,
+  SessionCredentialRequiredEvent,
   SessionExitEvent,
   SessionOutputEvent,
   SessionStatusEvent,
+  SessionTrustRequiredEvent,
 } from "./backend";
 
 const outputHandlers = new Set<(event: SessionOutputEvent) => void>();
 const statusHandlers = new Set<(event: SessionStatusEvent) => void>();
 const exitHandlers = new Set<(event: SessionExitEvent) => void>();
+const trustHandlers = new Set<(event: SessionTrustRequiredEvent) => void>();
+const credentialHandlers = new Set<
+  (event: SessionCredentialRequiredEvent) => void
+>();
 let nextSession = 1;
 let nextHost = 1;
 let nextGroup = 1;
@@ -34,24 +40,95 @@ export const mockBackend: Backend = {
     title: "Shell de demonstração",
     status: "connected",
   }),
+  startSshSession: async (hostId) => {
+    const host = mockHosts.find((item) => item.id === hostId);
+    if (!host) throw new Error("host not found");
+    const sessionId = `mock-ssh-${nextSession++}`;
+    queueMicrotask(() => {
+      for (const handler of trustHandlers) {
+        handler({
+          version: 1,
+          sessionId,
+          destination: host.address,
+          port: host.port,
+          algorithm: "ssh-ed25519",
+          fingerprint: "SHA256:mock-fingerprint",
+        });
+      }
+    });
+    return {
+      id: sessionId,
+      kind: { type: "ssh", hostId },
+      title: host.name,
+      status: "starting",
+    };
+  },
+  startQuickConnect: async (destination) => {
+    const sessionId = `mock-ssh-${nextSession++}`;
+    queueMicrotask(() => {
+      for (const handler of trustHandlers) {
+        handler({
+          version: 1,
+          sessionId,
+          destination,
+          port: 22,
+          algorithm: "ssh-ed25519",
+          fingerprint: "SHA256:mock-fingerprint",
+        });
+      }
+    });
+    return {
+      id: sessionId,
+      kind: { type: "ssh", hostId: `quick-${sessionId}` },
+      title: destination,
+      status: "starting",
+    };
+  },
+  confirmSshTrust: async (sessionId, accept) => {
+    queueMicrotask(() => {
+      if (!accept) {
+        for (const handler of statusHandlers)
+          handler({
+            version: 1,
+            sessionId,
+            status: "failed",
+            reason: "Host não confiável",
+          });
+        return;
+      }
+      for (const handler of credentialHandlers)
+        handler({ version: 1, sessionId, kind: "password" });
+    });
+  },
+  provideSshCredential: async (sessionId, secret) => {
+    queueMicrotask(() => {
+      for (const handler of statusHandlers)
+        handler({
+          version: 1,
+          sessionId,
+          status: secret ? "connected" : "failed",
+          reason: secret ? undefined : "Credencial cancelada",
+        });
+    });
+  },
   writeSession: async (sessionId, data) => {
     queueMicrotask(() => {
-      for (const handler of outputHandlers) {
+      for (const handler of outputHandlers)
         handler({ version: 1, sessionId, data });
-      }
     });
   },
   resizeSession: async () => undefined,
   closeSession: async (sessionId) => {
     queueMicrotask(() => {
-      for (const handler of exitHandlers) {
-        handler({ version: 1, sessionId });
-      }
+      for (const handler of exitHandlers) handler({ version: 1, sessionId });
     });
   },
   onSessionOutput: (handler) => subscribe(outputHandlers, handler),
   onSessionStatus: (handler) => subscribe(statusHandlers, handler),
   onSessionExit: (handler) => subscribe(exitHandlers, handler),
+  onSessionTrustRequired: (handler) => subscribe(trustHandlers, handler),
+  onSessionCredentialRequired: (handler) =>
+    subscribe(credentialHandlers, handler),
   listHosts: async (search) => {
     const value = search?.trim().toLowerCase();
     return mockHosts.filter(
@@ -80,7 +157,9 @@ export const mockBackend: Backend = {
     const host = {
       ...request,
       id: request.id ?? "mock-host-" + nextHost++,
-      authKind: request.password ? "password" : (current?.authKind ?? "none"),
+      authKind:
+        request.authKind ??
+        (request.password ? "password" : (current?.authKind ?? "none")),
     } as import("./backend").Host;
     mockHosts = current
       ? mockHosts.map((item) => (item.id === host.id ? host : item))

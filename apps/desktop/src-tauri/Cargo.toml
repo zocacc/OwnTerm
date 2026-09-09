@@ -18,6 +18,7 @@ ownterm-application = { path = "../../../crates/ownterm-application" }
 ownterm-domain = { path = "../../../crates/ownterm-domain" }
 ownterm-platform = { path = "../../../crates/ownterm-platform" }
 ownterm-storage-sqlite = { path = "../../../crates/ownterm-storage-sqlite" }
+ownterm-ssh = { path = "../../../crates/ownterm-ssh" }
 ownterm-terminal = { path = "../../../crates/ownterm-terminal" }
 serde = { version = "1.0.229", features = ["derive"] }
 tauri = "2.11.3"

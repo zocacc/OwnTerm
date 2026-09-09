@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type {
   Backend,
+  SessionCredentialRequiredEvent,
   SessionExitEvent,
   SessionOutputEvent,
   SessionStatusEvent,
+  SessionTrustRequiredEvent,
 } from "./services/backend";
 
 vi.mock("./terminal/TerminalSurface", () => ({
@@ -28,6 +30,14 @@ class TestBackend implements Backend {
     (event: SessionStatusEvent) => void
   >();
   private readonly exitHandlers = new Set<(event: SessionExitEvent) => void>();
+  private readonly trustHandlers = new Set<
+    (event: SessionTrustRequiredEvent) => void
+  >();
+  private readonly credentialHandlers = new Set<
+    (event: SessionCredentialRequiredEvent) => void
+  >();
+  readonly trustResponses: Array<[string, boolean]> = [];
+  readonly credentialResponses: Array<[string, string | undefined]> = [];
   readonly closedSessions: string[] = [];
 
   async appInfo() {
@@ -48,6 +58,32 @@ class TestBackend implements Backend {
     };
   }
 
+  async startSshSession(hostId: string) {
+    return {
+      id: `ssh-${this.nextSession++}`,
+      kind: { type: "ssh" as const, hostId },
+      title: "Servidor SSH",
+      status: "starting" as const,
+    };
+  }
+
+  async startQuickConnect(destination: string) {
+    return {
+      id: `ssh-${this.nextSession++}`,
+      kind: { type: "ssh" as const, hostId: "quick" },
+      title: destination,
+      status: "starting" as const,
+    };
+  }
+
+  async confirmSshTrust(sessionId: string, accept: boolean) {
+    this.trustResponses.push([sessionId, accept]);
+  }
+
+  async provideSshCredential(sessionId: string, secret?: string) {
+    this.credentialResponses.push([sessionId, secret]);
+  }
+
   async writeSession() {
     return undefined;
   }
@@ -65,6 +101,20 @@ class TestBackend implements Backend {
     return () => this.outputHandlers.delete(handler);
   };
 
+  onSessionTrustRequired = async (
+    handler: (event: SessionTrustRequiredEvent) => void,
+  ) => {
+    this.trustHandlers.add(handler);
+    return () => this.trustHandlers.delete(handler);
+  };
+
+  onSessionCredentialRequired = async (
+    handler: (event: SessionCredentialRequiredEvent) => void,
+  ) => {
+    this.credentialHandlers.add(handler);
+    return () => this.credentialHandlers.delete(handler);
+  };
+
   onSessionStatus = async (handler: (event: SessionStatusEvent) => void) => {
     this.statusHandlers.add(handler);
     return () => this.statusHandlers.delete(handler);
@@ -74,6 +124,14 @@ class TestBackend implements Backend {
     this.exitHandlers.add(handler);
     return () => this.exitHandlers.delete(handler);
   };
+
+  emitTrust(event: SessionTrustRequiredEvent) {
+    for (const handler of this.trustHandlers) handler(event);
+  }
+
+  emitCredential(event: SessionCredentialRequiredEvent) {
+    for (const handler of this.credentialHandlers) handler(event);
+  }
 
   emitStatus(event: SessionStatusEvent) {
     for (const handler of this.statusHandlers) {
@@ -177,5 +235,89 @@ describe("local terminal workspace", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText("Nenhuma sessão aberta")).toBeInTheDocument();
     expect(screen.queryByText(/late event/)).not.toBeInTheDocument();
+  });
+
+  it("handles TOFU and an ephemeral SSH credential", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    await screen.findByRole("button", { name: "Nova aba" });
+    await user.type(
+      screen.getByLabelText("Quick Connect"),
+      "alice@example.test:2222",
+    );
+    await user.click(screen.getByRole("button", { name: "Conectar" }));
+    expect(
+      await screen.findByRole("button", { name: "alice@example.test:2222" }),
+    ).toBeInTheDocument();
+
+    act(() =>
+      backend.emitTrust({
+        version: 1,
+        sessionId: "ssh-1",
+        destination: "example.test",
+        port: 2222,
+        algorithm: "ssh-ed25519",
+        fingerprint: "SHA256:test-fingerprint",
+      }),
+    );
+    expect(screen.getByText("SHA256:test-fingerprint")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Confiar e conectar" }),
+    );
+    expect(backend.trustResponses).toEqual([["ssh-1", true]]);
+
+    act(() =>
+      backend.emitCredential({
+        version: 1,
+        sessionId: "ssh-1",
+        kind: "password",
+      }),
+    );
+    const credential = screen.getByLabelText("Credencial SSH");
+    await user.type(credential, "one-use-secret");
+    await user.click(
+      screen.getByRole("dialog").querySelector("button[type=submit]")!,
+    );
+    expect(backend.credentialResponses).toEqual([["ssh-1", "one-use-secret"]]);
+    expect(
+      screen.queryByDisplayValue("one-use-secret"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejects trust and reconnects with a fresh SSH session", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    await screen.findByRole("button", { name: "Nova aba" });
+    await user.type(
+      screen.getByLabelText("Quick Connect"),
+      "alice@changed.test",
+    );
+    await user.click(screen.getByRole("button", { name: "Conectar" }));
+    act(() =>
+      backend.emitTrust({
+        version: 1,
+        sessionId: "ssh-1",
+        destination: "changed.test",
+        port: 22,
+        algorithm: "ssh-ed25519",
+        fingerprint: "SHA256:changed",
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Rejeitar" }));
+    expect(backend.trustResponses).toEqual([["ssh-1", false]]);
+    act(() =>
+      backend.emitStatus({
+        version: 1,
+        sessionId: "ssh-1",
+        status: "failed",
+        reason: "SSH host identity was rejected",
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Reconectar" }));
+    expect(
+      screen.getAllByRole("button", { name: "alice@changed.test" }),
+    ).toHaveLength(2);
   });
 });

@@ -3,6 +3,7 @@
 pub mod diagnostics;
 pub mod platform;
 pub mod repositories;
+pub mod ssh;
 pub mod ssh_trust;
 pub mod terminal;
 pub mod vault;

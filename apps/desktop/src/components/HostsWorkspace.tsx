@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 type Props = {
   backend: Backend;
   onOpenLocal: () => void;
+  refreshToken?: number;
   onRequestConnection: (target: {
     hostId?: string;
     destination?: string;
@@ -24,12 +25,14 @@ const emptyDraft: SaveHostRequest = {
   groupId: undefined,
   tags: [],
   favorite: false,
+  authKind: "password",
 };
 
 export function HostsWorkspace({
   backend,
   onOpenLocal,
   onRequestConnection,
+  refreshToken,
 }: Props) {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [groups, setGroups] = useState<HostGroup[]>([]);
@@ -41,6 +44,7 @@ export function HostsWorkspace({
   const [newGroup, setNewGroup] = useState("");
   const [error, setError] = useState<string>();
   const passwordInput = useRef<HTMLInputElement>(null);
+  const passphraseInput = useRef<HTMLInputElement>(null);
 
   const reload = useCallback(async () => {
     if (!backend.listHosts || !backend.listHostGroups) return;
@@ -62,7 +66,7 @@ export function HostsWorkspace({
   useEffect(() => {
     const timer = window.setTimeout(() => void reload(), 120);
     return () => window.clearTimeout(timer);
-  }, [reload]);
+  }, [reload, refreshToken]);
 
   const visibleHosts = useMemo(
     () => hosts.filter((host) => !favoritesOnly || host.favorite),
@@ -73,7 +77,12 @@ export function HostsWorkspace({
     if (!draft || !backend.saveHost) return;
     try {
       const password = passwordInput.current?.value;
-      await backend.saveHost({ ...draft, password: password || undefined });
+      const passphrase = passphraseInput.current?.value;
+      await backend.saveHost({
+        ...draft,
+        password: password || undefined,
+        passphrase: passphrase || undefined,
+      });
       setDraft(undefined);
       await reload();
     } catch (reason) {
@@ -145,6 +154,8 @@ export function HostsWorkspace({
       groupId: host.groupId,
       tags: host.tags,
       favorite: host.favorite,
+      authKind: host.authKind === "agent" ? "none" : host.authKind,
+      privateKeyPath: host.privateKeyPath,
     });
 
   const rows = (items: Host[]) =>
@@ -419,15 +430,60 @@ export function HostsWorkspace({
               />
             </label>
             <label>
-              Senha{draft.id ? " (deixe vazia para manter)" : ""}
-              <input
-                autoComplete="new-password"
+              Autenticação
+              <select
                 className="field"
-                type="password"
-                defaultValue=""
-                ref={passwordInput}
-              />
+                value={draft.authKind ?? "password"}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    authKind: event.target.value as
+                      "password" | "private_key" | "none",
+                  })
+                }
+              >
+                <option value="password">Senha</option>
+                <option value="private_key">Chave privada</option>
+                <option value="none">Sem credencial</option>
+              </select>
             </label>
+            {(draft.authKind ?? "password") === "password" ? (
+              <label>
+                Senha{draft.id ? " (deixe vazia para manter)" : ""}
+                <input
+                  autoComplete="new-password"
+                  className="field"
+                  type="password"
+                  defaultValue=""
+                  ref={passwordInput}
+                />
+              </label>
+            ) : null}
+            {draft.authKind === "private_key" ? (
+              <>
+                <label>
+                  Caminho da chave privada
+                  <input
+                    className="field"
+                    required
+                    value={draft.privateKeyPath ?? ""}
+                    onChange={(event) =>
+                      setDraft({ ...draft, privateKeyPath: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  Frase secreta{draft.id ? " (deixe vazia para manter)" : ""}
+                  <input
+                    autoComplete="new-password"
+                    className="field"
+                    type="password"
+                    defaultValue=""
+                    ref={passphraseInput}
+                  />
+                </label>
+              </>
+            ) : null}
             <label className="flex-row items-center">
               <input
                 checked={draft.favorite}

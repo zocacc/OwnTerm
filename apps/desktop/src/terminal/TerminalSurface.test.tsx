@@ -49,12 +49,18 @@ function testBackend(): Backend {
     appInfo: vi.fn(async () => ({ name: "OwnTerm", version: "test" })),
     listShellProfiles: vi.fn(async () => []),
     startLocalSession: vi.fn(),
+    startSshSession: vi.fn(),
+    startQuickConnect: vi.fn(),
+    confirmSshTrust: vi.fn(async () => undefined),
+    provideSshCredential: vi.fn(async () => undefined),
     writeSession: vi.fn(async () => undefined),
     resizeSession: vi.fn(async () => undefined),
     closeSession: vi.fn(async () => undefined),
     onSessionOutput: vi.fn(async () => () => undefined),
     onSessionStatus: vi.fn(async () => () => undefined),
     onSessionExit: vi.fn(async () => () => undefined),
+    onSessionTrustRequired: vi.fn(async () => () => undefined),
+    onSessionCredentialRequired: vi.fn(async () => () => undefined),
   };
 }
 
