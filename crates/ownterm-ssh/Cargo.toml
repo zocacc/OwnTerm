@@ -1,0 +1,18 @@
+[package]
+name = "ownterm-ssh"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ownterm-application = { path = "../ownterm-application" }
+ownterm-domain = { path = "../ownterm-domain" }
+russh = { version = "0.63.2", default-features = false, features = ["ring", "rsa"] }
+tokio = { version = "1.53.1", features = ["rt", "sync", "time"] }
+
+[dev-dependencies]
+rand = "0.10.0"
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["macros", "net", "rt-multi-thread"] }

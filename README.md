@@ -10,6 +10,7 @@ Windows 11, Tauri 2, React, TypeScript e Rust.
 - crates/ownterm-application: fachada de casos de uso compartilháveis.
 - crates/ownterm-storage-sqlite: migrations e repositories de configuração local.
 - crates/ownterm-terminal: descoberta de shells e session manager sobre portable-pty.
+- crates/ownterm-ssh: sessões interativas sobre russh, TOFU estrito e autenticação por senha ou chave.
 - docs/: produto, arquitetura, segurança, specs, ADRs e backlog.
 
 ## Pré-requisitos
@@ -43,3 +44,9 @@ Para validar o terminal local de E04:
     cargo test -p ownterm-terminal -- --nocapture
     cargo clippy -p ownterm-terminal --all-targets -- -D warnings
     pnpm test
+
+Para validar sessões SSH da E06 contra a fixture local em processo:
+
+    cargo test -p ownterm-ssh
+    cargo clippy -p ownterm-ssh --all-targets -- -D warnings
+    pnpm --filter @ownterm/desktop test

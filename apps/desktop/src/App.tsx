@@ -7,7 +7,10 @@ import {
   type AppInfo,
   type Backend,
   type SessionDescriptor,
+  type SessionCredentialRequiredEvent,
   type SessionStatus,
+  type SessionStatusEvent,
+  type SessionTrustRequiredEvent,
   type ShellProfile,
 } from "./services/backend";
 import {
@@ -23,6 +26,8 @@ type OpenSession = SessionDescriptor & {
   exitCode?: number;
   reason?: string;
 };
+
+type SshTarget = { hostId?: string; destination?: string };
 
 const statusLabels: Record<SessionStatus, string> = {
   starting: "Iniciando",
@@ -42,8 +47,15 @@ function App({ backend = defaultBackend }: AppProps) {
   const [error, setError] = useState<string>();
   const [opening, setOpening] = useState(false);
   const [terminalEventsReady, setTerminalEventsReady] = useState(false);
+  const [hostsRefreshToken, setHostsRefreshToken] = useState(0);
+  const [trustPrompt, setTrustPrompt] = useState<SessionTrustRequiredEvent>();
+  const [credentialPrompt, setCredentialPrompt] =
+    useState<SessionCredentialRequiredEvent>();
+  const credentialInput = useRef<HTMLInputElement>(null);
+  const sshTargets = useRef(new Map<string, SshTarget>());
   const terminals = useRef(new Map<string, TerminalHandle>());
   const pendingOutput = useRef(new Map<string, number[][]>());
+  const pendingStatus = useRef(new Map<string, SessionStatusEvent>());
   const closedSessions = useRef(new Set<string>());
 
   const reportError = useCallback((message: string) => setError(message), []);
@@ -105,13 +117,23 @@ function App({ backend = defaultBackend }: AppProps) {
       if (event.version !== 1 || closedSessions.current.has(event.sessionId)) {
         return;
       }
-      setSessions((current) =>
-        current.map((session) =>
+      setSessions((current) => {
+        if (!current.some((session) => session.id === event.sessionId)) {
+          pendingStatus.current.set(event.sessionId, event);
+          return current;
+        }
+        if (
+          event.status === "connected" &&
+          sshTargets.current.get(event.sessionId)?.hostId
+        ) {
+          setHostsRefreshToken((value) => value + 1);
+        }
+        return current.map((session) =>
           session.id === event.sessionId
             ? { ...session, status: event.status, reason: event.reason }
             : session,
-        ),
-      );
+        );
+      });
     });
 
     const exitSubscription = backend.onSessionExit((event) => {
@@ -131,13 +153,33 @@ function App({ backend = defaultBackend }: AppProps) {
       );
     });
 
+    const trustSubscription = backend.onSessionTrustRequired((event) => {
+      if (event.version === 1 && !closedSessions.current.has(event.sessionId)) {
+        setTrustPrompt(event);
+        setActiveSessionId(event.sessionId);
+      }
+    });
+
+    const credentialSubscription = backend.onSessionCredentialRequired(
+      (event) => {
+        if (
+          event.version === 1 &&
+          !closedSessions.current.has(event.sessionId)
+        ) {
+          setCredentialPrompt(event);
+          setActiveSessionId(event.sessionId);
+        }
+      },
+    );
+
     void Promise.allSettled([
       outputSubscription,
       statusSubscription,
       exitSubscription,
+      trustSubscription,
+      credentialSubscription,
     ])
-      .then(([output, status, exit]) => {
-        const subscriptions = [output, status, exit];
+      .then((subscriptions) => {
         const failure = subscriptions.find(
           (subscription) => subscription.status === "rejected",
         );
@@ -216,7 +258,14 @@ function App({ backend = defaultBackend }: AppProps) {
         80,
       );
       closedSessions.current.delete(descriptor.id);
-      setSessions((current) => [...current, descriptor]);
+      const pending = pendingStatus.current.get(descriptor.id);
+      pendingStatus.current.delete(descriptor.id);
+      setSessions((current) => [
+        ...current,
+        pending
+          ? { ...descriptor, status: pending.status, reason: pending.reason }
+          : descriptor,
+      ]);
       setActiveSessionId(descriptor.id);
     } catch {
       setError("Não foi possível abrir o shell selecionado.");
@@ -228,8 +277,16 @@ function App({ backend = defaultBackend }: AppProps) {
   const closeSession = useCallback(
     (sessionId: string) => {
       closedSessions.current.add(sessionId);
+      sshTargets.current.delete(sessionId);
+      setTrustPrompt((current) =>
+        current?.sessionId === sessionId ? undefined : current,
+      );
+      setCredentialPrompt((current) =>
+        current?.sessionId === sessionId ? undefined : current,
+      );
       pendingOutput.current.delete(sessionId);
       terminals.current.delete(sessionId);
+      pendingStatus.current.delete(sessionId);
 
       const index = sessions.findIndex((session) => session.id === sessionId);
       const remaining = sessions.filter((session) => session.id !== sessionId);
@@ -289,11 +346,67 @@ function App({ backend = defaultBackend }: AppProps) {
   };
 
   const requestHostConnection = useCallback(
-    (target: { hostId?: string; destination?: string }) => {
-      const label = target.destination ?? "Host salvo";
-      setError(label + ": conexão SSH será habilitada pela E06.");
+    async (target: SshTarget) => {
+      if (opening || !terminalEventsReady) return;
+      setOpening(true);
+      setError(undefined);
+      try {
+        const descriptor = target.hostId
+          ? await backend.startSshSession(target.hostId, 24, 80)
+          : await backend.startQuickConnect(target.destination ?? "", 24, 80);
+        closedSessions.current.delete(descriptor.id);
+        sshTargets.current.set(descriptor.id, target);
+        const pending = pendingStatus.current.get(descriptor.id);
+        pendingStatus.current.delete(descriptor.id);
+        setSessions((current) => [
+          ...current,
+          pending
+            ? { ...descriptor, status: pending.status, reason: pending.reason }
+            : descriptor,
+        ]);
+        if (pending?.status === "connected" && target.hostId) {
+          setHostsRefreshToken((value) => value + 1);
+        }
+        setActiveSessionId(descriptor.id);
+      } catch (reason) {
+        setError("Não foi possível iniciar a conexão SSH: " + String(reason));
+      } finally {
+        setOpening(false);
+      }
     },
-    [],
+    [backend, opening, terminalEventsReady],
+  );
+
+  const respondToTrust = useCallback(
+    async (accept: boolean) => {
+      if (!trustPrompt) return;
+      const sessionId = trustPrompt.sessionId;
+      setTrustPrompt(undefined);
+      try {
+        await backend.confirmSshTrust(sessionId, accept);
+      } catch (reason) {
+        setError(
+          "Não foi possível confirmar a identidade do Host: " + String(reason),
+        );
+      }
+    },
+    [backend, trustPrompt],
+  );
+
+  const provideCredential = useCallback(
+    async (submit: boolean) => {
+      if (!credentialPrompt) return;
+      const sessionId = credentialPrompt.sessionId;
+      const secret = submit ? credentialInput.current?.value : undefined;
+      if (credentialInput.current) credentialInput.current.value = "";
+      setCredentialPrompt(undefined);
+      try {
+        await backend.provideSshCredential(sessionId, secret);
+      } catch (reason) {
+        setError("Não foi possível enviar a credencial: " + String(reason));
+      }
+    },
+    [backend, credentialPrompt],
   );
 
   return (
@@ -347,6 +460,7 @@ function App({ backend = defaultBackend }: AppProps) {
         <HostsWorkspace
           backend={backend}
           onOpenLocal={() => void openSession()}
+          refreshToken={hostsRefreshToken}
           onRequestConnection={requestHostConnection}
         />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -438,6 +552,20 @@ function App({ backend = defaultBackend }: AppProps) {
           ) : null}
         </div>
         <div className="flex items-center gap-1">
+          {activeSession?.kind.type === "ssh" &&
+          (activeSession.status === "failed" ||
+            activeSession.status === "disconnected") ? (
+            <button
+              className="rounded px-2 py-1 text-[var(--primary)] hover:bg-white/5"
+              onClick={() => {
+                const target = sshTargets.current.get(activeSession.id);
+                if (target) void requestHostConnection(target);
+              }}
+              type="button"
+            >
+              Reconectar
+            </button>
+          ) : null}
           <button
             className="rounded px-2 py-1 text-[var(--muted-foreground)] hover:bg-white/5 hover:text-white disabled:opacity-40"
             disabled={!activeSession}
@@ -459,6 +587,84 @@ function App({ backend = defaultBackend }: AppProps) {
           </span>
         </div>
       </footer>
+
+      {trustPrompt ? (
+        <div className="dialog-backdrop" role="presentation">
+          <section
+            aria-labelledby="ssh-trust-title"
+            aria-modal="true"
+            className="dialog"
+            role="dialog"
+          >
+            <h2 className="font-semibold" id="ssh-trust-title">
+              Confirmar identidade do Host
+            </h2>
+            <p className="mt-3 text-sm text-[var(--muted-foreground)]">
+              Primeiro acesso a {trustPrompt.destination}:{trustPrompt.port}.
+              Confirme a impressão digital por um canal confiável.
+            </p>
+            <dl className="mt-3 rounded border border-[var(--border)] bg-black/20 p-3 font-mono text-xs">
+              <dt className="text-[var(--muted-foreground)]">Algoritmo</dt>
+              <dd>{trustPrompt.algorithm}</dd>
+              <dt className="mt-2 text-[var(--muted-foreground)]">
+                Fingerprint
+              </dt>
+              <dd className="break-all">{trustPrompt.fingerprint}</dd>
+            </dl>
+            <div className="mt-4 flex justify-end gap-3">
+              <button onClick={() => void respondToTrust(false)} type="button">
+                Rejeitar
+              </button>
+              <Button onClick={() => void respondToTrust(true)} type="button">
+                Confiar e conectar
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {credentialPrompt ? (
+        <div className="dialog-backdrop" role="presentation">
+          <form
+            aria-labelledby="ssh-credential-title"
+            aria-modal="true"
+            className="dialog"
+            role="dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void provideCredential(true);
+            }}
+          >
+            <h2 className="font-semibold" id="ssh-credential-title">
+              {credentialPrompt.kind === "password"
+                ? "Senha SSH"
+                : "Frase secreta da chave"}
+            </h2>
+            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+              A credencial será usada somente nesta tentativa e não será mantida
+              no estado da interface.
+            </p>
+            <input
+              aria-label="Credencial SSH"
+              autoComplete="current-password"
+              autoFocus
+              className="field mt-4"
+              ref={credentialInput}
+              required
+              type="password"
+            />
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => void provideCredential(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <Button type="submit">Conectar</Button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 }
