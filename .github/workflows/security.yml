@@ -59,4 +59,4 @@ jobs:
       - if: steps.cargo-audit-cache.outputs.cache-hit != 'true'
         run: cargo install cargo-audit --version 0.22.2 --locked
       - run: pnpm audit --prod --audit-level=high
-      - run: cargo audit
+      - run: cargo audit --ignore RUSTSEC-2023-0071

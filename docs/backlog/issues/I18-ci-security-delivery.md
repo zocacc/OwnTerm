@@ -21,7 +21,7 @@ Assinatura, publicação, varredura de infraestrutura e E2E nativo da interface.
 ## Critérios de aceite
 
 - [ ] Workflow inválido, segredo detectado e dependência vulnerável falham no PR.
-- [ ] Auditoria de dependências roda em `develop`, `main`, agenda e sob demanda.
+- [ ] Auditoria de dependências roda em `develop`, `main`, agenda e sob demanda; exceções temporárias são documentadas e rastreadas.
 - [ ] Executável ausente ou que encerra antes do timeout falha no smoke NSIS.
 
 ## Testes
