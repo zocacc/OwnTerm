@@ -9,6 +9,15 @@ import type {
 } from "../services/backend";
 import { Button } from "./ui/button";
 
+type PortabilityDialogState = {
+  mode: "import" | "export";
+  source: "openssh" | "workspace";
+  content: string;
+  preview?: ImportPreview;
+  actions: ImportAction[];
+  result?: string;
+};
+
 type Props = {
   backend: Backend;
   onOpenLocal: () => void;
@@ -45,13 +54,7 @@ export function HostsWorkspace({
   const [draft, setDraft] = useState<SaveHostRequest>();
   const [newGroup, setNewGroup] = useState("");
   const [error, setError] = useState<string>();
-  const [portability, setPortability] = useState<{
-    source: "openssh" | "workspace";
-    content: string;
-    preview?: ImportPreview;
-    actions: ImportAction[];
-    result?: string;
-  }>();
+  const [portability, setPortability] = useState<PortabilityDialogState>();
   const passwordInput = useRef<HTMLInputElement>(null);
   const passphraseInput = useRef<HTMLInputElement>(null);
 
@@ -191,6 +194,7 @@ export function HostsWorkspace({
     try {
       const result = await backend.applyImport(
         portability.preview.groups,
+        portability.preview.settings,
         portability.preview.entries.map((entry, index) => ({
           host: entry.host,
           action: portability.actions[index] ?? entry.defaultAction,
@@ -211,6 +215,7 @@ export function HostsWorkspace({
     try {
       const content = await backend.exportWorkspace();
       setPortability({
+        mode: "export",
         source: "workspace",
         content,
         actions: [],
@@ -279,7 +284,12 @@ export function HostsWorkspace({
             <button
               className="px-1 text-xs text-[var(--muted-foreground)]"
               onClick={() =>
-                setPortability({ source: "openssh", content: "", actions: [] })
+                setPortability({
+                  mode: "import",
+                  source: "openssh",
+                  content: "",
+                  actions: [],
+                })
               }
               type="button"
             >
@@ -592,7 +602,7 @@ export function HostsWorkspace({
               Formato
               <select
                 className="field"
-                disabled={Boolean(portability.result?.startsWith("Exportação"))}
+                disabled={portability.mode === "export"}
                 onChange={(event) =>
                   setPortability({
                     ...portability,
@@ -621,7 +631,7 @@ export function HostsWorkspace({
                     result: undefined,
                   })
                 }
-                readOnly={Boolean(portability.result?.startsWith("Exportação"))}
+                readOnly={portability.mode === "export"}
                 value={portability.content}
               />
             </label>
@@ -667,7 +677,7 @@ export function HostsWorkspace({
               <button onClick={() => setPortability(undefined)} type="button">
                 Fechar
               </button>
-              {!portability.result?.startsWith("Exportação") ? (
+              {portability.mode === "import" ? (
                 <>
                   <button
                     onClick={() => void previewPortability()}

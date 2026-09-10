@@ -97,6 +97,7 @@ export type PortableHost = {
 export type PortableGroup = { name: string; sortOrder: number };
 export type ImportPreview = {
   groups: PortableGroup[];
+  settings: Record<string, string>;
   entries: Array<{
     host: PortableHost;
     conflict: boolean;
@@ -158,6 +159,7 @@ export interface Backend {
   ): Promise<ImportPreview>;
   applyImport?(
     groups: PortableGroup[],
+    settings: Record<string, string>,
     entries: Array<{ host: PortableHost; action: ImportAction }>,
   ): Promise<ImportResult>;
   exportWorkspace?(): Promise<string>;

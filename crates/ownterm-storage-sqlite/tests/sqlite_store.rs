@@ -12,6 +12,7 @@ use ownterm_application::vault::{
 };
 use ownterm_domain::{AuthMethod, CredentialRef, Host, HostDraft, HostGroup, Timestamp};
 use ownterm_storage_sqlite::SqliteStore;
+use std::collections::BTreeMap;
 
 fn timestamp(value: i64) -> Timestamp {
     Timestamp::from_unix_millis(value)
@@ -327,6 +328,7 @@ fn portability_import_is_atomic_and_creates_exported_groups() {
         store
             .apply_portability_import(
                 &groups,
+                &BTreeMap::new(),
                 &[
                     (host.clone(), ImportAction::Create),
                     (invalid, ImportAction::Create)
@@ -339,10 +341,44 @@ fn portability_import_is_atomic_and_creates_exported_groups() {
     assert!(store.list_groups().unwrap().is_empty());
     assert_eq!(
         store
-            .apply_portability_import(&groups, &[(host, ImportAction::Create)], timestamp(100))
+            .apply_portability_import(
+                &groups,
+                &BTreeMap::from([("theme".into(), "dark".into())]),
+                &[(host, ImportAction::Create)],
+                timestamp(100)
+            )
             .unwrap(),
         1
     );
     assert_eq!(store.list_groups().unwrap().len(), 2);
     assert_eq!(store.list_hosts(&HostQuery::default()).unwrap().len(), 1);
+    assert_eq!(store.get_setting("theme").unwrap().unwrap().value, "dark");
+}
+#[test]
+fn portability_import_preserves_agent_authentication() {
+    let store = SqliteStore::open_in_memory().unwrap();
+    let agent = PortableHost {
+        name: "agent-host".into(),
+        address: "agent.example".into(),
+        port: 22,
+        username: Some("ops".into()),
+        group: None,
+        tags: vec![],
+        favorite: false,
+        auth_kind: PortableAuthKind::Agent,
+        private_key_path: None,
+        credential_required: false,
+    };
+    store
+        .apply_portability_import(
+            &[],
+            &BTreeMap::new(),
+            &[(agent, ImportAction::Create)],
+            timestamp(1),
+        )
+        .unwrap();
+    assert!(matches!(
+        store.list_hosts(&HostQuery::default()).unwrap()[0].auth,
+        AuthMethod::Agent
+    ));
 }

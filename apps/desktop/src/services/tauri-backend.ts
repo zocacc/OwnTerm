@@ -85,6 +85,7 @@ export const tauriBackend: Backend = {
   recordRecentHost: (id) => invoke("record_recent_host", { id }),
   previewImport: (source, content) =>
     invoke("preview_import", { request: { source, content } }),
-  applyImport: (entries) => invoke("apply_import", { request: { entries } }),
+  applyImport: (groups, settings, entries) =>
+    invoke("apply_import", { request: { groups, settings, entries } }),
   exportWorkspace: () => invoke("export_workspace"),
 };

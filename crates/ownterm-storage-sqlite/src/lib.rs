@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use ownterm_application::portability::{
-    ImportAction, PortableAuthKind, PortableGroup, PortableHost,
+    ImportAction, PortableAuthKind, PortableGroup, PortableHost, portable_settings,
 };
 use ownterm_application::repositories::{
     CredentialCleanupRepository, GroupRemoval, GroupRepository, HostQuery, HostRepository,
@@ -13,6 +13,7 @@ use ownterm_domain::{
     Timestamp,
 };
 use rusqlite::{Connection, ErrorCode, OptionalExtension, Transaction, params};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Mutex, MutexGuard};
@@ -813,11 +814,15 @@ impl SqliteStore {
     pub fn apply_portability_import(
         &self,
         groups: &[PortableGroup],
+        settings: &BTreeMap<String, String>,
         entries: &[(PortableHost, ImportAction)],
         now: Timestamp,
     ) -> Result<usize, RepositoryError> {
         let mut connection = self.connection()?;
         let transaction = connection.transaction().map_err(map_sqlite)?;
+        if portable_settings(settings.clone()) != *settings {
+            return Err(RepositoryError::InvalidData);
+        }
         let mut applied = 0;
         for group in groups {
             let exists = transaction
@@ -883,9 +888,8 @@ impl SqliteStore {
                     ),
                     passphrase_ref: None,
                 },
-                PortableAuthKind::Password | PortableAuthKind::Agent | PortableAuthKind::None => {
-                    AuthMethod::None
-                }
+                PortableAuthKind::Agent => AuthMethod::Agent,
+                PortableAuthKind::Password | PortableAuthKind::None => AuthMethod::None,
             };
             let draft = HostDraft {
                 name: portable.name.clone(),
@@ -940,6 +944,12 @@ impl SqliteStore {
                 }
                 (ImportAction::Skip, _) => unreachable!(),
             }
+        }
+        for (key, value) in settings {
+            transaction.execute(
+                "INSERT INTO settings(key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            ).map_err(map_sqlite)?;
         }
         transaction.commit().map_err(map_sqlite)?;
         Ok(applied)

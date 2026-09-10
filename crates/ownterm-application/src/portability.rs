@@ -75,6 +75,7 @@ pub struct ImportPreviewEntry {
 #[serde(rename_all = "camelCase")]
 pub struct ImportPreview {
     pub groups: Vec<PortableGroup>,
+    pub settings: BTreeMap<String, String>,
     pub entries: Vec<ImportPreviewEntry>,
     pub ignored: Vec<IgnoredDirective>,
 }
@@ -118,18 +119,7 @@ pub fn parse_openssh_config(content: &str, existing: &[Host]) -> ImportPreview {
                 if host.address.is_empty() {
                     host.address = alias;
                 }
-                let conflict = existing
-                    .iter()
-                    .any(|item| item.name.eq_ignore_ascii_case(&host.name));
-                entries.push(ImportPreviewEntry {
-                    host,
-                    conflict,
-                    default_action: if conflict {
-                        ImportAction::Skip
-                    } else {
-                        ImportAction::Create
-                    },
-                });
+                entries.push(preview_entry(host, existing));
             }
         }
     };
@@ -212,6 +202,7 @@ pub fn parse_openssh_config(content: &str, existing: &[Host]) -> ImportPreview {
     flush(&mut current, &mut entries, &mut ignored);
     ImportPreview {
         groups: Vec::new(),
+        settings: BTreeMap::new(),
         entries,
         ignored,
     }
@@ -266,7 +257,7 @@ pub fn encode_workspace(
         exported_at,
         groups,
         hosts,
-        settings,
+        settings: portable_settings(settings),
     })
     .map_err(|_| PortabilityError::InvalidFormat)
 }
@@ -282,26 +273,36 @@ pub fn decode_workspace(
     }
     Ok(ImportPreview {
         groups: export.groups,
+        settings: portable_settings(export.settings),
         entries: export
             .hosts
             .into_iter()
-            .map(|host| {
-                let conflict = existing
-                    .iter()
-                    .any(|item| item.name.eq_ignore_ascii_case(&host.name));
-                ImportPreviewEntry {
-                    host,
-                    conflict,
-                    default_action: if conflict {
-                        ImportAction::Skip
-                    } else {
-                        ImportAction::Create
-                    },
-                }
-            })
+            .map(|host| preview_entry(host, existing))
             .collect(),
         ignored: Vec::new(),
     })
+}
+
+pub fn portable_settings(settings: BTreeMap<String, String>) -> BTreeMap<String, String> {
+    settings
+        .into_iter()
+        .filter(|(key, _)| key == "theme")
+        .collect()
+}
+
+fn preview_entry(host: PortableHost, existing: &[Host]) -> ImportPreviewEntry {
+    let conflict = existing
+        .iter()
+        .any(|item| item.name.eq_ignore_ascii_case(&host.name));
+    ImportPreviewEntry {
+        host,
+        conflict,
+        default_action: if conflict {
+            ImportAction::Skip
+        } else {
+            ImportAction::Create
+        },
+    }
 }
 
 fn concrete_alias(alias: &str) -> bool {
@@ -345,15 +346,21 @@ mod tests {
             Timestamp::from_unix_millis(1),
         )
         .unwrap();
-        let json =
-            encode_workspace(&[], &[host], BTreeMap::new(), "2026-01-01T00:00:00Z".into()).unwrap();
+        let settings = BTreeMap::from([
+            ("theme".into(), "dark".into()),
+            ("apiKey".into(), "must-not-export".into()),
+            ("knownHosts".into(), "must-not-export".into()),
+        ]);
+        let json = encode_workspace(&[], &[host], settings, "2026-01-01T00:00:00Z".into()).unwrap();
         assert!(!json.contains("secret-reference"));
         assert!(!json.contains("credentialRef"));
+        assert!(!json.contains("must-not-export"));
+        assert!(json.contains("\"theme\""));
     }
 
     #[test]
     fn workspace_round_trip_preserves_groups_and_credential_requirement() {
-        let content = r#"{"schemaVersion":1,"exportedAt":"2026-09-02T12:00:00Z","groups":[{"name":"Empty","sortOrder":3}],"hosts":[{"name":"edge","address":"edge.example","port":22,"tags":[],"favorite":false,"authKind":"password","credentialRequired":true}],"settings":{}}"#;
+        let content = r#"{"schemaVersion":1,"exportedAt":"2026-09-02T12:00:00Z","groups":[{"name":"Empty","sortOrder":3}],"hosts":[{"name":"edge","address":"edge.example","port":22,"tags":[],"favorite":false,"authKind":"password","credentialRequired":true}],"settings":{"theme":"dark","apiKey":"must-not-import"}}"#;
         let preview = decode_workspace(content, &[]).unwrap();
         assert_eq!(
             preview.groups,
@@ -363,5 +370,9 @@ mod tests {
             }]
         );
         assert!(preview.entries[0].host.credential_required);
+        assert_eq!(
+            preview.settings,
+            BTreeMap::from([("theme".into(), "dark".into())])
+        );
     }
 }

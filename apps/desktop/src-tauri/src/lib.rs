@@ -27,6 +27,7 @@ use ownterm_ssh::{
 use ownterm_storage_sqlite::SqliteStore;
 use ownterm_terminal::NativeTerminalBackend;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -1007,25 +1008,35 @@ fn provide_ssh_credential(
         )
         .map_err(|error| error.to_string())
 }
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ImportSource {
+    Openssh,
+    Workspace,
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PreviewImportRequest {
-    source: String,
+    source: ImportSource,
     content: String,
 }
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ImportSelection {
     host: PortableHost,
     action: ImportAction,
 }
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ApplyImportRequest {
     groups: Vec<PortableGroup>,
+    settings: BTreeMap<String, String>,
     entries: Vec<ImportSelection>,
 }
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ImportResult {
@@ -1042,12 +1053,11 @@ fn preview_import(
         .store
         .list_hosts(&HostQuery::default())
         .map_err(repository_error)?;
-    match request.source.as_str() {
-        "openssh" => Ok(parse_openssh_config(&request.content, &existing)),
-        "workspace" => {
+    match request.source {
+        ImportSource::Openssh => Ok(parse_openssh_config(&request.content, &existing)),
+        ImportSource::Workspace => {
             decode_workspace(&request.content, &existing).map_err(|error| error.to_string())
         }
-        _ => Err("unsupported import source".into()),
     }
 }
 
@@ -1059,7 +1069,15 @@ fn apply_import(
     let credentials_to_configure = request
         .entries
         .iter()
-        .filter(|entry| entry.action != ImportAction::Skip && entry.host.credential_required)
+        .filter(|entry| {
+            entry.action != ImportAction::Skip
+                && matches!(
+                    entry.host.auth_kind,
+                    ownterm_application::portability::PortableAuthKind::Password
+                        | ownterm_application::portability::PortableAuthKind::PrivateKey
+                )
+                && entry.host.credential_required
+        })
         .count();
     let entries = request
         .entries
@@ -1068,7 +1086,7 @@ fn apply_import(
         .collect::<Vec<_>>();
     let applied = state
         .store
-        .apply_portability_import(&request.groups, &entries, now())
+        .apply_portability_import(&request.groups, &request.settings, &entries, now())
         .map_err(repository_error)?;
     let _ = SecretService::new(&state.vault, state.store.as_ref()).cleanup_pending();
     Ok(ImportResult {
@@ -1089,7 +1107,6 @@ fn export_workspace(state: State<'_, DesktopState>) -> Result<String, String> {
         .list_settings()
         .map_err(repository_error)?
         .into_iter()
-        .filter(|setting| !sensitive_setting_key(&setting.key))
         .map(|setting| (setting.key, setting.value))
         .collect();
     encode_workspace(
@@ -1101,18 +1118,4 @@ fn export_workspace(state: State<'_, DesktopState>) -> Result<String, String> {
             .map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())
-}
-
-fn sensitive_setting_key(key: &str) -> bool {
-    let key = key.to_ascii_lowercase();
-    [
-        "password",
-        "passphrase",
-        "secret",
-        "token",
-        "credential",
-        "private_key",
-    ]
-    .iter()
-    .any(|needle| key.contains(needle))
 }

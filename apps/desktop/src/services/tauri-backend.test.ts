@@ -1,13 +1,43 @@
-import { describe, expect, it } from "vitest";
-import { terminalEvents } from "./tauri-backend";
+import { describe, expect, it, vi } from "vitest";
+import type { ImportAction, PortableGroup, PortableHost } from "./backend";
+
+const invoke = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/api/core", () => ({ invoke }));
+
+import { tauriBackend, terminalEvents } from "./tauri-backend";
 
 describe("terminal event names", () => {
   it("uses only characters accepted by Tauri", () => {
-    const validName = /^[A-Za-z0-9_\-/:]+$/;
-
+    const validName = /^[A-Za-z0-9_/:-]+$/;
     for (const name of Object.values(terminalEvents)) {
       expect(name).toMatch(validName);
       expect(name).not.toContain(".");
     }
+  });
+});
+
+describe("portability commands", () => {
+  it("sends groups, safe settings and selected entries to Tauri", async () => {
+    const groups: PortableGroup[] = [{ name: "Production", sortOrder: 0 }];
+    const host: PortableHost = {
+      name: "edge",
+      address: "edge.example",
+      port: 22,
+      tags: [],
+      favorite: false,
+      authKind: "none",
+      credentialRequired: false,
+    };
+    const action: ImportAction = "create";
+    await tauriBackend.applyImport?.(groups, { theme: "dark" }, [
+      { host, action },
+    ]);
+    expect(invoke).toHaveBeenCalledWith("apply_import", {
+      request: {
+        groups,
+        settings: { theme: "dark" },
+        entries: [{ host, action }],
+      },
+    });
   });
 });
