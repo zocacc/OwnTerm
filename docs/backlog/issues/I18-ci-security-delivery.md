@@ -1,6 +1,7 @@
 # I18 — Validar segurança e entrega
 
 **Status:** planned
+**GitHub:** [#41](https://github.com/zocacc/OwnTerm/issues/41)
 **Dependências:** I11
 
 ## Objetivo

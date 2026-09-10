@@ -1,6 +1,7 @@
 # I19 — Aplicar governança e evidência de integração
 
 **Status:** planned
+**GitHub:** [#42](https://github.com/zocacc/OwnTerm/issues/42)
 **Dependências:** I17, I18
 
 ## Objetivo

@@ -1,6 +1,7 @@
 # I17 — Paralelizar e acelerar os PR Gates
 
 **Status:** planned
+**GitHub:** [#40](https://github.com/zocacc/OwnTerm/issues/40)
 **Dependências:** I11
 
 ## Objetivo

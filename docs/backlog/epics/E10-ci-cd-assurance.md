@@ -1,5 +1,7 @@
 # E10 — Garantia de CI/CD
 
+**GitHub:** [#39](https://github.com/zocacc/OwnTerm/issues/39)
+
 Otimiza feedback e torna a integração Windows e a cadeia de dependências verificáveis, sem publicar releases do MVP.
 
 - [I17 — Paralelizar e acelerar os PR Gates](../issues/I17-ci-pipeline.md)
