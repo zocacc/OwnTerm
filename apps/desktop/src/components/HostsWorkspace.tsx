@@ -8,6 +8,7 @@ import type {
   ImportAction,
 } from "../services/backend";
 import { Button } from "./ui/button";
+import { useDialogFocus } from "./useDialogFocus";
 
 type PortabilityDialogState = {
   mode: "import" | "export";
@@ -57,6 +58,14 @@ export function HostsWorkspace({
   const [portability, setPortability] = useState<PortabilityDialogState>();
   const searchInput = useRef<HTMLInputElement>(null);
   const quickConnectInput = useRef<HTMLInputElement>(null);
+  const hostDialogRef = useDialogFocus<HTMLFormElement>(
+    Boolean(draft),
+    searchInput,
+  );
+  const portabilityDialogRef = useDialogFocus<HTMLElement>(
+    Boolean(portability),
+    searchInput,
+  );
   const passwordInput = useRef<HTMLInputElement>(null);
   const passphraseInput = useRef<HTMLInputElement>(null);
 
@@ -445,6 +454,7 @@ export function HostsWorkspace({
         <div className="dialog-backdrop" role="presentation">
           <form
             aria-label="Formulário de Host"
+            ref={hostDialogRef}
             aria-modal="true"
             className="dialog"
             role="dialog"
@@ -620,6 +630,7 @@ export function HostsWorkspace({
         <div className="dialog-backdrop" role="presentation">
           <section
             aria-label="Importar ou exportar Hosts"
+            ref={portabilityDialogRef}
             aria-modal="true"
             className="dialog"
             role="dialog"
@@ -648,6 +659,7 @@ export function HostsWorkspace({
             <label>
               Conteúdo
               <textarea
+                data-dialog-initial
                 autoFocus={portability.mode === "import"}
                 className="field min-h-36 font-mono text-xs"
                 onChange={(event) =>

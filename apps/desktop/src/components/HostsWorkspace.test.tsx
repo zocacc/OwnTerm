@@ -220,4 +220,23 @@ describe("Hosts workspace", () => {
     fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "c" });
     expect(screen.getByLabelText("Quick Connect")).toHaveFocus();
   });
+
+  it("moves focus into dialogs and restores it when they close", async () => {
+    const user = userEvent.setup();
+    const { backend } = backendFixture();
+    render(
+      <HostsWorkspace
+        backend={backend}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
+    const newHost = await screen.findByRole("button", { name: "Novo" });
+    await user.click(newHost);
+    expect(screen.getByLabelText("Nome")).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.getByLabelText("Buscar Hosts")).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Importar" }));
+    expect(screen.getByLabelText("Conteúdo")).toHaveFocus();
+  });
 });

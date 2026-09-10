@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./components/ui/button";
+import { useDialogFocus } from "./components/useDialogFocus";
 import { HostsWorkspace } from "./components/HostsWorkspace";
 import ownTermLogo from "./assets/svg/ownterm-logo.svg";
 import {
@@ -51,6 +52,10 @@ function App({ backend = defaultBackend }: AppProps) {
   const [trustPrompt, setTrustPrompt] = useState<SessionTrustRequiredEvent>();
   const [credentialPrompt, setCredentialPrompt] =
     useState<SessionCredentialRequiredEvent>();
+  const trustDialogRef = useDialogFocus<HTMLElement>(Boolean(trustPrompt));
+  const credentialDialogRef = useDialogFocus<HTMLFormElement>(
+    Boolean(credentialPrompt),
+  );
   const credentialInput = useRef<HTMLInputElement>(null);
   const sshTargets = useRef(new Map<string, SshTarget>());
   const terminals = useRef(new Map<string, TerminalHandle>());
@@ -592,6 +597,7 @@ function App({ backend = defaultBackend }: AppProps) {
         <div className="dialog-backdrop" role="presentation">
           <section
             aria-labelledby="ssh-trust-title"
+            ref={trustDialogRef}
             aria-modal="true"
             className="dialog"
             role="dialog"
@@ -631,6 +637,7 @@ function App({ backend = defaultBackend }: AppProps) {
         <div className="dialog-backdrop" role="presentation">
           <form
             aria-labelledby="ssh-credential-title"
+            ref={credentialDialogRef}
             aria-modal="true"
             className="dialog"
             role="dialog"

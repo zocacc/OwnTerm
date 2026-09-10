@@ -26,5 +26,5 @@ Assinatura, publicação, suporte oficial multi-plataforma e telemetria.
 
 ## Testes
 
-- [x] E2E de primeira execução, Host/Quick Connect, trust SSH e import/export.
-- [x] Smoke Windows de instalação, shell local e SSH de fixture.
+- [ ] E2E de primeira execução, Host/Quick Connect, trust SSH e import/export.
+- [ ] Smoke Windows de instalação, shell local e SSH de fixture.
