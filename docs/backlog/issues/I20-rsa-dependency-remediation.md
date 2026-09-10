@@ -1,6 +1,7 @@
 # I20 — Remediar dependência RSA auditada
 
 **Status:** ready
+**GitHub:** [#44](https://github.com/zocacc/OwnTerm/issues/44)
 **Dependências:** I18
 
 ## Objetivo
