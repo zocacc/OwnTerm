@@ -26,13 +26,13 @@ Abrir terminal SSH interativo e seguro a partir de um Host, deixando visíveis o
 
 ## Critérios de aceite
 
-- [ ] Conexão por senha e por chave privada funciona contra o servidor de teste.
-- [ ] Nova fingerprint não abre sessão antes de confirmação explícita.
-- [ ] Fingerprint alterada é bloqueada e informa ação de revisão segura.
-- [ ] Resize, entrada e saída interativa funcionam em sessão conectada.
-- [ ] Cancelamento durante handshake encerra recursos e não deixa Session conectada.
-- [ ] Reconexão manual cria ciclo novo, sem reutilizar handle encerrado.
-- [ ] Falhas não expõem senha, passphrase, chave ou payload de terminal em logs/eventos.
+- [x] Conexão por senha e por chave privada funciona contra o servidor de teste.
+- [x] Nova fingerprint não abre sessão antes de confirmação explícita.
+- [x] Fingerprint alterada é bloqueada e informa ação de revisão segura.
+- [x] Resize, entrada e saída interativa funcionam em sessão conectada.
+- [x] Cancelamento durante handshake encerra recursos e não deixa Session conectada.
+- [x] Reconexão manual cria ciclo novo, sem reutilizar handle encerrado.
+- [x] Falhas não expõem senha, passphrase, chave ou payload de terminal em logs/eventos.
 
 ## Testes
 

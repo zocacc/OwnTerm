@@ -4,6 +4,7 @@ members = [
   "crates/ownterm-domain",
   "crates/ownterm-application",
   "crates/ownterm-storage-sqlite",
+  "crates/ownterm-ssh",
   "crates/ownterm-terminal",
   "crates/ownterm-platform",
   "crates/ownterm-pty-spike",

@@ -86,8 +86,9 @@ pnpm tauri build --bundles nsis
 O arquivo gerado fica em `target/release/bundle/nsis/`. A pipeline também o
 publica como o artefato `ownterm-windows-installer` no job **Windows build**.
 
-## Limitação atual após E04
+## Estado atual após E05
 
 As sessões locais não persistem saída nem sobrevivem ao fechamento do
-aplicativo. O desktop ainda não expõe CRUD de Hosts nem sessões SSH; o workspace
-de Hosts entra em E05 e a conexão SSH em E06.
+aplicativo. O desktop expõe o workspace persistente de Hosts, grupos, busca,
+favoritos, recentes, Quick Connect e onboarding. A conexão SSH real continua
+reservada à E06.

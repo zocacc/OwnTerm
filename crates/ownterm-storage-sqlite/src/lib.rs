@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+use ownterm_application::portability::{
+    ImportAction, PortableAuthKind, PortableGroup, PortableHost, portable_settings,
+};
 use ownterm_application::repositories::{
     CredentialCleanupRepository, GroupRemoval, GroupRepository, HostQuery, HostRepository,
     KnownHostRepository, RecentHost, RecentHostRepository, RepositoryError, Setting,
@@ -10,6 +13,7 @@ use ownterm_domain::{
     Timestamp,
 };
 use rusqlite::{Connection, ErrorCode, OptionalExtension, Transaction, params};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Mutex, MutexGuard};
@@ -802,5 +806,152 @@ fn map_sqlite(error: rusqlite::Error) -> RepositoryError {
             RepositoryError::Conflict
         }
         _ => RepositoryError::Storage(error.to_string()),
+    }
+}
+
+impl SqliteStore {
+    /// Aplica decisões de importação em uma única transação. Nunca recebe segredos ou referências de cofre.
+    pub fn apply_portability_import(
+        &self,
+        groups: &[PortableGroup],
+        settings: &BTreeMap<String, String>,
+        entries: &[(PortableHost, ImportAction)],
+        now: Timestamp,
+    ) -> Result<usize, RepositoryError> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction().map_err(map_sqlite)?;
+        if portable_settings(settings.clone()) != *settings {
+            return Err(RepositoryError::InvalidData);
+        }
+        let mut applied = 0;
+        for group in groups {
+            let exists = transaction
+                .query_row(
+                    "SELECT 1 FROM host_groups WHERE name = ?1 COLLATE NOCASE",
+                    [&group.name],
+                    |_| Ok(()),
+                )
+                .optional()
+                .map_err(map_sqlite)?;
+            if exists.is_none() {
+                let created = HostGroup::new(&group.name, group.sort_order)
+                    .map_err(|_| RepositoryError::InvalidData)?;
+                transaction
+                    .execute(
+                        "INSERT INTO host_groups(id, name, sort_order) VALUES (?1, ?2, ?3)",
+                        params![created.id.to_string(), created.name, created.sort_order],
+                    )
+                    .map_err(map_sqlite)?;
+            }
+        }
+        for (portable, action) in entries {
+            if *action == ImportAction::Skip {
+                continue;
+            }
+            let group_id = if let Some(name) = portable
+                .group
+                .as_ref()
+                .filter(|name| !name.trim().is_empty())
+            {
+                let existing_group = transaction
+                    .query_row(
+                        "SELECT id FROM host_groups WHERE name = ?1 COLLATE NOCASE",
+                        [name],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .optional()
+                    .map_err(map_sqlite)?;
+                match existing_group {
+                    Some(id) => Some(parse_id(&id)?),
+                    None => {
+                        let group =
+                            HostGroup::new(name, 0).map_err(|_| RepositoryError::InvalidData)?;
+                        transaction
+                            .execute(
+                                "INSERT INTO host_groups(id, name, sort_order) VALUES (?1, ?2, ?3)",
+                                params![group.id.to_string(), group.name, group.sort_order],
+                            )
+                            .map_err(map_sqlite)?;
+                        Some(group.id)
+                    }
+                }
+            } else {
+                None
+            };
+            let auth = match portable.auth_kind {
+                PortableAuthKind::PrivateKey => AuthMethod::PrivateKey {
+                    path: PathBuf::from(
+                        portable
+                            .private_key_path
+                            .as_deref()
+                            .ok_or(RepositoryError::InvalidData)?,
+                    ),
+                    passphrase_ref: None,
+                },
+                PortableAuthKind::Agent => AuthMethod::Agent,
+                PortableAuthKind::Password | PortableAuthKind::None => AuthMethod::None,
+            };
+            let draft = HostDraft {
+                name: portable.name.clone(),
+                address: portable.address.clone(),
+                port: portable.port,
+                username: portable.username.clone(),
+                group_id,
+                tags: portable.tags.clone(),
+                auth,
+                favorite: portable.favorite,
+            };
+            let previous = transaction
+                .query_row(
+                    "SELECT id, created_at FROM hosts WHERE name = ?1 COLLATE NOCASE",
+                    [&portable.name],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+                )
+                .optional()
+                .map_err(map_sqlite)?;
+            match (*action, previous) {
+                (ImportAction::Create, None) => {
+                    let host = Host::new(draft, now).map_err(|_| RepositoryError::InvalidData)?;
+                    insert_host(&transaction, &host)?;
+                    insert_tags(&transaction, &host)?;
+                    applied += 1;
+                }
+                (ImportAction::Update, Some((id, created_at))) => {
+                    let id = parse_id(&id)?;
+                    let old_refs = credential_refs_for_host(&transaction, id)?;
+                    let host =
+                        Host::rehydrate(id, draft, Timestamp::from_unix_millis(created_at), now)
+                            .map_err(|_| RepositoryError::InvalidData)?;
+                    let (auth_kind, credential_ref, private_key_path, passphrase_ref) =
+                        encode_auth(&host.auth)?;
+                    transaction.execute("UPDATE hosts SET name=?2,address=?3,port=?4,username=?5,group_id=?6,auth_kind=?7,credential_ref=?8,private_key_path=?9,passphrase_ref=?10,favorite=?11,updated_at=?12 WHERE id=?1", params![host.id.to_string(),host.name,host.address,i64::from(host.port),host.username,host.group_id.map(|id| id.to_string()),auth_kind,credential_ref,private_key_path,passphrase_ref,host.favorite,host.updated_at.as_unix_millis()]).map_err(map_sqlite)?;
+                    transaction
+                        .execute(
+                            "DELETE FROM host_tags WHERE host_id=?1",
+                            [host.id.to_string()],
+                        )
+                        .map_err(map_sqlite)?;
+                    insert_tags(&transaction, &host)?;
+                    for reference in old_refs {
+                        if !credential_is_referenced(&transaction, &reference)? {
+                            queue_cleanup(&transaction, &reference)?;
+                        }
+                    }
+                    applied += 1;
+                }
+                (ImportAction::Create, Some(_)) | (ImportAction::Update, None) => {
+                    return Err(RepositoryError::Conflict);
+                }
+                (ImportAction::Skip, _) => unreachable!(),
+            }
+        }
+        for (key, value) in settings {
+            transaction.execute(
+                "INSERT INTO settings(key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            ).map_err(map_sqlite)?;
+        }
+        transaction.commit().map_err(map_sqlite)?;
+        Ok(applied)
     }
 }

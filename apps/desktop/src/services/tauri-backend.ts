@@ -4,9 +4,11 @@ import type {
   AppInfo,
   Backend,
   SessionDescriptor,
+  SessionCredentialRequiredEvent,
   SessionExitEvent,
   SessionOutputEvent,
   SessionStatusEvent,
+  SessionTrustRequiredEvent,
   ShellProfile,
 } from "./backend";
 
@@ -17,6 +19,8 @@ export const terminalEvents = {
   output: "session-output-v1",
   status: "session-status-v1",
   exit: "session-exit-v1",
+  trustRequired: "session-trust-required-v1",
+  credentialRequired: "session-credential-required-v1",
 } as const;
 
 export const tauriBackend: Backend = {
@@ -25,6 +29,20 @@ export const tauriBackend: Backend = {
   startLocalSession: (shellProfileId, rows, columns) =>
     invoke<SessionDescriptor>("start_local_session", {
       request: { shellProfileId, rows, columns },
+    }),
+  startSshSession: (hostId, rows, columns) =>
+    invoke<SessionDescriptor>("start_ssh_session", {
+      request: { hostId, rows, columns },
+    }),
+  startQuickConnect: (destination, rows, columns) =>
+    invoke<SessionDescriptor>("start_quick_connect", {
+      request: { destination, rows, columns },
+    }),
+  confirmSshTrust: (sessionId, accept) =>
+    invoke<void>("confirm_ssh_trust", { request: { sessionId, accept } }),
+  provideSshCredential: (sessionId, secret) =>
+    invoke<void>("provide_ssh_credential", {
+      request: { sessionId, secret: secret || null },
     }),
   writeSession: (sessionId, data) =>
     invoke<void>("write_session", { request: { sessionId, data } }),
@@ -46,4 +64,28 @@ export const tauriBackend: Backend = {
     listen<SessionExitEvent>(terminalEvents.exit, (event) =>
       handler(event.payload),
     ),
+  onSessionTrustRequired: (handler) =>
+    listen<SessionTrustRequiredEvent>(terminalEvents.trustRequired, (event) =>
+      handler(event.payload),
+    ),
+  onSessionCredentialRequired: (handler) =>
+    listen<SessionCredentialRequiredEvent>(
+      terminalEvents.credentialRequired,
+      (event) => handler(event.payload),
+    ),
+  listHosts: (search) => invoke("list_hosts", { search: search || null }),
+  listHostGroups: () => invoke("list_host_groups"),
+  listRecentHosts: (limit) =>
+    invoke("list_recent_hosts", { limit: limit ?? null }),
+  saveHost: (request) => invoke("save_host", { request }),
+  deleteHost: (id) => invoke("delete_host", { id }),
+  saveHostGroup: (request) => invoke("save_host_group", { request }),
+  deleteHostGroup: (id, moveHostsToUngrouped) =>
+    invoke("delete_host_group", { request: { id, moveHostsToUngrouped } }),
+  recordRecentHost: (id) => invoke("record_recent_host", { id }),
+  previewImport: (source, content) =>
+    invoke("preview_import", { request: { source, content } }),
+  applyImport: (groups, settings, entries) =>
+    invoke("apply_import", { request: { groups, settings, entries } }),
+  exportWorkspace: () => invoke("export_workspace"),
 };
