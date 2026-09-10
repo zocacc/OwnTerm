@@ -11,7 +11,7 @@ Bloquear mudanças inseguras e provar que o instalador Windows pode ser instalad
 ## Escopo
 
 - Validar sintaxe de workflows e segredos versionados.
-- Bloquear novas dependências de severidade alta em PRs e auditar dependências integradas em agenda/manual.
+- Auditar dependências de severidade alta em PRs, integrações, agenda e execução manual.
 - Gerar NSIS, instalar silenciosamente, localizar o executável, iniciá-lo e encerrá-lo no smoke Windows.
 
 ## Fora do escopo
@@ -20,7 +20,7 @@ Assinatura, publicação, varredura de infraestrutura e E2E nativo da interface.
 
 ## Critérios de aceite
 
-- [ ] Workflow inválido, segredo detectado e dependência nova vulnerável falham no PR.
+- [ ] Workflow inválido, segredo detectado e dependência vulnerável falham no PR.
 - [ ] Auditoria de dependências roda em `develop`, `main`, agenda e sob demanda.
 - [ ] Executável ausente ou que encerra antes do timeout falha no smoke NSIS.
 

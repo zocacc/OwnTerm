@@ -23,8 +23,7 @@ Entregar feedback rápido e confiável para mudanças do OwnTerm, sem reduzir a 
 | Windows build | PR, `develop`, `main` | NSIS gerado, instalado e iniciado |
 | Workflow lint | PR, `develop`, `main` | sintaxe dos workflows |
 | Secret scan | PR, `develop`, `main` | ausência de segredos versionados |
-| Dependency review | PR | nenhuma dependência nova de severidade alta |
-| Dependency audit | `develop`, `main`, agenda e manual | auditoria de dependências já integradas |
+| Dependency audit | PR, `develop`, `main`, agenda e manual | nenhuma vulnerabilidade de severidade alta nas dependências |
 
 ## Governança
 
