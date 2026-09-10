@@ -8,6 +8,7 @@ import type {
   ImportAction,
 } from "../services/backend";
 import { Button } from "./ui/button";
+import { useDialogFocus } from "./useDialogFocus";
 
 type PortabilityDialogState = {
   mode: "import" | "export";
@@ -55,6 +56,16 @@ export function HostsWorkspace({
   const [newGroup, setNewGroup] = useState("");
   const [error, setError] = useState<string>();
   const [portability, setPortability] = useState<PortabilityDialogState>();
+  const searchInput = useRef<HTMLInputElement>(null);
+  const quickConnectInput = useRef<HTMLInputElement>(null);
+  const hostDialogRef = useDialogFocus<HTMLFormElement>(
+    Boolean(draft),
+    searchInput,
+  );
+  const portabilityDialogRef = useDialogFocus<HTMLElement>(
+    Boolean(portability),
+    searchInput,
+  );
   const passwordInput = useRef<HTMLInputElement>(null);
   const passphraseInput = useRef<HTMLInputElement>(null);
 
@@ -79,6 +90,21 @@ export function HostsWorkspace({
     const timer = window.setTimeout(() => void reload(), 120);
     return () => window.clearTimeout(timer);
   }, [reload, refreshToken]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        searchInput.current?.focus();
+      }
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        quickConnectInput.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const visibleHosts = useMemo(
     () => hosts.filter((host) => !favoritesOnly || host.favorite),
@@ -313,6 +339,7 @@ export function HostsWorkspace({
         <input
           aria-label="Buscar Hosts"
           className="field"
+          ref={searchInput}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar nome, endereço, usuário, grupo ou tag"
           value={search}
@@ -395,6 +422,7 @@ export function HostsWorkspace({
           <input
             aria-label="Quick Connect"
             className="field"
+            ref={quickConnectInput}
             onChange={(event) => setQuickConnect(event.target.value)}
             placeholder="usuário@host:porta"
             value={quickConnect}
@@ -426,7 +454,10 @@ export function HostsWorkspace({
         <div className="dialog-backdrop" role="presentation">
           <form
             aria-label="Formulário de Host"
+            ref={hostDialogRef}
+            aria-modal="true"
             className="dialog"
+            role="dialog"
             onSubmit={(event) => {
               event.preventDefault();
               void saveHost();
@@ -438,6 +469,7 @@ export function HostsWorkspace({
             <label>
               Nome
               <input
+                autoFocus
                 className="field"
                 required
                 value={draft.name}
@@ -596,7 +628,13 @@ export function HostsWorkspace({
       ) : null}
       {portability ? (
         <div className="dialog-backdrop" role="presentation">
-          <section aria-label="Importar ou exportar Hosts" className="dialog">
+          <section
+            aria-label="Importar ou exportar Hosts"
+            ref={portabilityDialogRef}
+            aria-modal="true"
+            className="dialog"
+            role="dialog"
+          >
             <h3 className="mb-3 font-semibold">Importar ou exportar Hosts</h3>
             <label>
               Formato
@@ -621,6 +659,8 @@ export function HostsWorkspace({
             <label>
               Conteúdo
               <textarea
+                data-dialog-initial
+                autoFocus={portability.mode === "import"}
                 className="field min-h-36 font-mono text-xs"
                 onChange={(event) =>
                   setPortability({

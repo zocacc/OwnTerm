@@ -1,4 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Backend, Host, HostGroup } from "../services/backend";
@@ -144,5 +150,93 @@ describe("Hosts workspace", () => {
     await user.click(screen.getByRole("button", { name: "Excluir Database" }));
     expect(window.confirm).toHaveBeenCalled();
     expect(backend.deleteHost).toHaveBeenCalledWith("host-1");
+  });
+
+  it("previews and applies a mock OpenSSH import without retaining credentials", async () => {
+    const user = userEvent.setup();
+    const { backend } = backendFixture();
+    const portability = backend as Backend;
+    portability.previewImport = vi.fn(async () => ({
+      groups: [],
+      settings: {},
+      ignored: [],
+      entries: [
+        {
+          host: {
+            name: "edge",
+            address: "edge.example",
+            port: 22,
+            tags: [],
+            favorite: false,
+            authKind: "password" as const,
+            credentialRequired: true,
+          },
+          conflict: false,
+          defaultAction: "create" as const,
+        },
+      ],
+    }));
+    portability.applyImport = vi.fn(async () => ({
+      applied: 1,
+      credentialsToConfigure: 1,
+    }));
+    render(
+      <HostsWorkspace
+        backend={portability}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Importar" }));
+    await user.type(screen.getByLabelText("Conteúdo"), "Host edge");
+    await user.click(screen.getByRole("button", { name: "Analisar" }));
+    expect(
+      await screen.findByText(/edge \(edge.example:22\)/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Aplicar seleção" }));
+    expect(portability.applyImport).toHaveBeenCalledWith([], {}, [
+      {
+        host: expect.objectContaining({ name: "edge" }),
+        action: "create",
+      },
+    ]);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Configure credenciais",
+    );
+  });
+
+  it("focuses Host search and Quick Connect through documented shortcuts", async () => {
+    const { backend } = backendFixture();
+    render(
+      <HostsWorkspace
+        backend={backend}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
+    await screen.findByText("Nenhum Host cadastrado.");
+    fireEvent.keyDown(window, { ctrlKey: true, key: "f" });
+    expect(screen.getByLabelText("Buscar Hosts")).toHaveFocus();
+    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "c" });
+    expect(screen.getByLabelText("Quick Connect")).toHaveFocus();
+  });
+
+  it("moves focus into dialogs and restores it when they close", async () => {
+    const user = userEvent.setup();
+    const { backend } = backendFixture();
+    render(
+      <HostsWorkspace
+        backend={backend}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
+    const newHost = await screen.findByRole("button", { name: "Novo" });
+    await user.click(newHost);
+    expect(screen.getByLabelText("Nome")).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.getByLabelText("Buscar Hosts")).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Importar" }));
+    expect(screen.getByLabelText("Conteúdo")).toHaveFocus();
   });
 });

@@ -12,6 +12,8 @@ Fornecer uma interface dark-first, compacta e keyboard-first que exponha Hosts, 
 - Estados vazio, carregando, erro, confirmação destrutiva, conexão, confiança SSH e credencial necessária.
 - Atalhos documentados para foco em busca, Quick Connect, abrir shell e alternar abas.
 
+Atalhos do MVP: `Ctrl+F` foca a busca de Hosts, `Ctrl+Shift+C` foca Quick Connect, `Ctrl+Shift+T` abre shell local e `Ctrl+Tab` alterna abas (`Ctrl+Shift+Tab` retorna à aba anterior).
+
 ## Fora do escopo
 
 - Temas configuráveis, atalhos configuráveis, animações complexas, Figma como gate e reprodução visual de produtos de terceiros.
