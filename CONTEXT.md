@@ -24,6 +24,20 @@ _Avoid_: fingerprint aceita, known_hosts do OpenSSH
 Uma opção detectada para iniciar um shell local, com identidade, comando e disponibilidade. PowerShell e CMD são perfis obrigatórios; WSL só existe quando detectado.
 _Avoid_: terminal, aba
 
+## Entrega
+
+**PR Gate**:
+Uma validação automatizada obrigatória para integrar uma Pull Request na sua branch de destino. Um PR Gate produz um resultado verificável, mas não é um artefato distribuível.
+_Avoid_: CI opcional, teste informativo
+
+**Integration Evidence**:
+O instalador validado gerado para o commit já integrado em `develop` e retido para triagem. Não é uma Release nem implica que o binário tenha assinatura.
+_Avoid_: release, publicação
+
+**Release**:
+Uma distribuição versionada deliberadamente disponibilizada a usuários. Gerar ou reter uma Integration Evidence não cria uma Release.
+_Avoid_: artefato de CI, build verde
+
 ## Runtime
 
 **Session**:
