@@ -21,5 +21,6 @@
 | 6 | E06 SSH | I09 | I06, I04, I08, I16 |
 | 7 | E07 Portabilidade | I10 | I06, I08 |
 | 8 | E08 Hardening/release | I11 | I07–I10 |
+| 9 | E10 Garantia de CI/CD | I17–I19 | I11 |
 
 `I03`, `I04` e `I05` podem ocorrer em paralelo. Nenhuma integração em `main` deve ocorrer diretamente da feature: a sequência local é `feature → develop → main`.
