@@ -426,7 +426,9 @@ export function HostsWorkspace({
         <div className="dialog-backdrop" role="presentation">
           <form
             aria-label="Formulário de Host"
+            aria-modal="true"
             className="dialog"
+            role="dialog"
             onSubmit={(event) => {
               event.preventDefault();
               void saveHost();
@@ -438,6 +440,7 @@ export function HostsWorkspace({
             <label>
               Nome
               <input
+                autoFocus
                 className="field"
                 required
                 value={draft.name}
@@ -596,7 +599,12 @@ export function HostsWorkspace({
       ) : null}
       {portability ? (
         <div className="dialog-backdrop" role="presentation">
-          <section aria-label="Importar ou exportar Hosts" className="dialog">
+          <section
+            aria-label="Importar ou exportar Hosts"
+            aria-modal="true"
+            className="dialog"
+            role="dialog"
+          >
             <h3 className="mb-3 font-semibold">Importar ou exportar Hosts</h3>
             <label>
               Formato
@@ -621,6 +629,7 @@ export function HostsWorkspace({
             <label>
               Conteúdo
               <textarea
+                autoFocus={portability.mode === "import"}
                 className="field min-h-36 font-mono text-xs"
                 onChange={(event) =>
                   setPortability({

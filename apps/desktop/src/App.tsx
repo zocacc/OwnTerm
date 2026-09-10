@@ -612,7 +612,11 @@ function App({ backend = defaultBackend }: AppProps) {
               <dd className="break-all">{trustPrompt.fingerprint}</dd>
             </dl>
             <div className="mt-4 flex justify-end gap-3">
-              <button onClick={() => void respondToTrust(false)} type="button">
+              <button
+                autoFocus
+                onClick={() => void respondToTrust(false)}
+                type="button"
+              >
                 Rejeitar
               </button>
               <Button onClick={() => void respondToTrust(true)} type="button">

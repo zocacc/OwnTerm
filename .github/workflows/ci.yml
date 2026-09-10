@@ -56,6 +56,10 @@ jobs:
         run: cargo test -p ownterm-terminal -p ownterm-platform -- --nocapture
         timeout-minutes: 2
 
+
+      - name: Validate SSH loopback fixture
+        run: cargo test -p ownterm-ssh --test local_fixture -- --nocapture
+        timeout-minutes: 2
   windows-build:
     name: Windows build
     runs-on: windows-latest

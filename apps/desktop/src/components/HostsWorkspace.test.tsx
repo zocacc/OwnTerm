@@ -145,4 +145,57 @@ describe("Hosts workspace", () => {
     expect(window.confirm).toHaveBeenCalled();
     expect(backend.deleteHost).toHaveBeenCalledWith("host-1");
   });
+
+  it("previews and applies a mock OpenSSH import without retaining credentials", async () => {
+    const user = userEvent.setup();
+    const { backend } = backendFixture();
+    const portability = backend as Backend;
+    portability.previewImport = vi.fn(async () => ({
+      groups: [],
+      settings: {},
+      ignored: [],
+      entries: [
+        {
+          host: {
+            name: "edge",
+            address: "edge.example",
+            port: 22,
+            tags: [],
+            favorite: false,
+            authKind: "password" as const,
+            credentialRequired: true,
+          },
+          conflict: false,
+          defaultAction: "create" as const,
+        },
+      ],
+    }));
+    portability.applyImport = vi.fn(async () => ({
+      applied: 1,
+      credentialsToConfigure: 1,
+    }));
+    render(
+      <HostsWorkspace
+        backend={portability}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Importar" }));
+    await user.type(screen.getByLabelText("Conteúdo"), "Host edge");
+    await user.click(screen.getByRole("button", { name: "Analisar" }));
+    expect(
+      await screen.findByText(/edge \(edge.example:22\)/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Aplicar seleção" }));
+    expect(portability.applyImport).toHaveBeenCalledWith([], {}, [
+      {
+        host: expect.objectContaining({ name: "edge" }),
+        action: "create",
+      },
+    ]);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Configure credenciais",
+    );
+  });
 });
