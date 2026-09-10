@@ -26,6 +26,10 @@ _Avoid_: terminal, aba
 
 ## Runtime
 
+**App Shell**:
+A composição visível do OwnTerm que organiza Hosts, abas de Session, superfície de terminal e estado operacional. Não é a moldura nativa da janela nem uma Session.
+_Avoid_: frontend, layout, janela
+
 **Session**:
 Uma execução ativa, local ou SSH, associada a um terminal e mantida somente em runtime. Encerrar uma Session não exclui seu Host ou Shell Profile.
 _Avoid_: host conectado, terminal salvo

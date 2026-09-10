@@ -170,7 +170,7 @@ describe("local terminal workspace", () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
-    const openButton = await screen.findByRole("button", { name: "Nova aba" });
+    const openButton = await screen.findByRole("button", { name: "New tab" });
     await user.click(openButton);
     await user.click(openButton);
 
@@ -182,7 +182,7 @@ describe("local terminal workspace", () => {
     expect(firstTab).toHaveAttribute("aria-current", "page");
 
     await user.click(
-      screen.getByRole("button", { name: "Fechar PowerShell 1" }),
+      screen.getByRole("button", { name: "Close PowerShell 1" }),
     );
     expect(firstTab).not.toBeInTheDocument();
     expect(secondTab).toHaveAttribute("aria-current", "page");
@@ -193,7 +193,7 @@ describe("local terminal workspace", () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
-    await user.click(await screen.findByRole("button", { name: "Nova aba" }));
+    await user.click(await screen.findByRole("button", { name: "New tab" }));
     act(() => {
       backend.emitExit({
         version: 1,
@@ -203,7 +203,7 @@ describe("local terminal workspace", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Encerrado · código 7",
+      "Closed · exit code 7",
     );
   });
 
@@ -211,9 +211,9 @@ describe("local terminal workspace", () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
-    await user.click(await screen.findByRole("button", { name: "Nova aba" }));
+    await user.click(await screen.findByRole("button", { name: "New tab" }));
     await user.click(
-      screen.getByRole("button", { name: "Fechar PowerShell 1" }),
+      screen.getByRole("button", { name: "Close PowerShell 1" }),
     );
 
     act(() => {
@@ -233,7 +233,7 @@ describe("local terminal workspace", () => {
     expect(
       screen.queryByRole("button", { name: "PowerShell 1" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Nenhuma sessão aberta")).toBeInTheDocument();
+    expect(screen.getByText("No open sessions")).toBeInTheDocument();
     expect(screen.queryByText(/late event/)).not.toBeInTheDocument();
   });
 
@@ -241,12 +241,12 @@ describe("local terminal workspace", () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
-    await screen.findByRole("button", { name: "Nova aba" });
+    await screen.findByRole("button", { name: "New tab" });
     await user.type(
       screen.getByLabelText("Quick Connect"),
       "alice@example.test:2222",
     );
-    await user.click(screen.getByRole("button", { name: "Conectar" }));
+    await user.click(screen.getByRole("button", { name: "Connect" }));
     expect(
       await screen.findByRole("button", { name: "alice@example.test:2222" }),
     ).toBeInTheDocument();
@@ -262,9 +262,7 @@ describe("local terminal workspace", () => {
       }),
     );
     expect(screen.getByText("SHA256:test-fingerprint")).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Confiar e conectar" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Trust and connect" }));
     expect(backend.trustResponses).toEqual([["ssh-1", true]]);
 
     act(() =>
@@ -274,7 +272,7 @@ describe("local terminal workspace", () => {
         kind: "password",
       }),
     );
-    const credential = screen.getByLabelText("Credencial SSH");
+    const credential = screen.getByLabelText("SSH credential");
     await user.type(credential, "one-use-secret");
     await user.click(
       screen.getByRole("dialog").querySelector("button[type=submit]")!,
@@ -289,12 +287,12 @@ describe("local terminal workspace", () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
-    await screen.findByRole("button", { name: "Nova aba" });
+    await screen.findByRole("button", { name: "New tab" });
     await user.type(
       screen.getByLabelText("Quick Connect"),
       "alice@changed.test",
     );
-    await user.click(screen.getByRole("button", { name: "Conectar" }));
+    await user.click(screen.getByRole("button", { name: "Connect" }));
     act(() =>
       backend.emitTrust({
         version: 1,
@@ -305,7 +303,7 @@ describe("local terminal workspace", () => {
         fingerprint: "SHA256:changed",
       }),
     );
-    await user.click(await screen.findByRole("button", { name: "Rejeitar" }));
+    await user.click(await screen.findByRole("button", { name: "Reject" }));
     expect(backend.trustResponses).toEqual([["ssh-1", false]]);
     act(() =>
       backend.emitStatus({
@@ -315,7 +313,7 @@ describe("local terminal workspace", () => {
         reason: "SSH host identity was rejected",
       }),
     );
-    await user.click(await screen.findByRole("button", { name: "Reconectar" }));
+    await user.click(await screen.findByRole("button", { name: "Reconnect" }));
     expect(
       screen.getAllByRole("button", { name: "alice@changed.test" }),
     ).toHaveLength(2);
