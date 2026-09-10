@@ -12,13 +12,13 @@ export function Button({
 }: ButtonProps) {
   const variantClass =
     variant === "primary"
-      ? "bg-[var(--primary)] text-black hover:brightness-110"
-      : "border border-[var(--border)] bg-white/5 text-[var(--foreground)] hover:bg-white/10";
+      ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_6px_16px_-8px_var(--primary)] hover:brightness-110 disabled:shadow-none"
+      : "border border-[var(--hairline)] bg-[var(--secondary-surface)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)]";
 
   return (
     <button
       className={[
-        "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+        "inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium leading-none transition-colors disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
         variantClass,
         className,
       ].join(" ")}

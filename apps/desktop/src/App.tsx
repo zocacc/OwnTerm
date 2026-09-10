@@ -1,3 +1,4 @@
+import { PanelLeft, Terminal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./components/ui/button";
 import { useDialogFocus } from "./components/useDialogFocus";
@@ -31,12 +32,12 @@ type OpenSession = SessionDescriptor & {
 type SshTarget = { hostId?: string; destination?: string };
 
 const statusLabels: Record<SessionStatus, string> = {
-  starting: "Iniciando",
-  awaiting_trust: "Aguardando confiança",
-  awaiting_credential: "Aguardando credencial",
-  connected: "Conectado",
-  disconnected: "Encerrado",
-  failed: "Falhou",
+  starting: "Starting",
+  awaiting_trust: "Awaiting trust",
+  awaiting_credential: "Awaiting credential",
+  connected: "Connected",
+  disconnected: "Closed",
+  failed: "Failed",
 };
 
 function App({ backend = defaultBackend }: AppProps) {
@@ -49,6 +50,7 @@ function App({ backend = defaultBackend }: AppProps) {
   const [opening, setOpening] = useState(false);
   const [terminalEventsReady, setTerminalEventsReady] = useState(false);
   const [hostsRefreshToken, setHostsRefreshToken] = useState(0);
+  const [connectionsOpen, setConnectionsOpen] = useState(true);
   const [trustPrompt, setTrustPrompt] = useState<SessionTrustRequiredEvent>();
   const [credentialPrompt, setCredentialPrompt] =
     useState<SessionCredentialRequiredEvent>();
@@ -207,10 +209,7 @@ function App({ backend = defaultBackend }: AppProps) {
       })
       .catch((error: unknown) => {
         if (mounted) {
-          setError(
-            "Não foi possível preparar os eventos do terminal: " +
-              String(error),
-          );
+          setError("Could not prepare terminal events: " + String(error));
         }
       });
 
@@ -237,7 +236,7 @@ function App({ backend = defaultBackend }: AppProps) {
       })
       .catch(() => {
         if (mounted) {
-          setError("Não foi possível iniciar o core do OwnTerm.");
+          setError("Could not start the OwnTerm core.");
         }
       });
     return () => {
@@ -273,7 +272,7 @@ function App({ backend = defaultBackend }: AppProps) {
       ]);
       setActiveSessionId(descriptor.id);
     } catch {
-      setError("Não foi possível abrir o shell selecionado.");
+      setError("Could not open the selected shell.");
     } finally {
       setOpening(false);
     }
@@ -344,8 +343,8 @@ function App({ backend = defaultBackend }: AppProps) {
     void terminal[action]().catch(() =>
       setError(
         action === "copy"
-          ? "Não foi possível copiar a seleção."
-          : "Não foi possível colar no terminal.",
+          ? "Could not copy the selection."
+          : "Could not paste into the terminal.",
       ),
     );
   };
@@ -374,7 +373,7 @@ function App({ backend = defaultBackend }: AppProps) {
         }
         setActiveSessionId(descriptor.id);
       } catch (reason) {
-        setError("Não foi possível iniciar a conexão SSH: " + String(reason));
+        setError("Could not start the SSH connection: " + String(reason));
       } finally {
         setOpening(false);
       }
@@ -390,9 +389,7 @@ function App({ backend = defaultBackend }: AppProps) {
       try {
         await backend.confirmSshTrust(sessionId, accept);
       } catch (reason) {
-        setError(
-          "Não foi possível confirmar a identidade do Host: " + String(reason),
-        );
+        setError("Could not confirm the Host identity: " + String(reason));
       }
     },
     [backend, trustPrompt],
@@ -408,7 +405,7 @@ function App({ backend = defaultBackend }: AppProps) {
       try {
         await backend.provideSshCredential(sessionId, secret);
       } catch (reason) {
-        setError("Não foi possível enviar a credencial: " + String(reason));
+        setError("Could not provide the credential: " + String(reason));
       }
     },
     [backend, credentialPrompt],
@@ -416,29 +413,71 @@ function App({ backend = defaultBackend }: AppProps) {
 
   return (
     <main className="flex h-screen min-h-[480px] flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4">
-        <div className="flex items-center gap-3">
-          <img alt="" className="size-7 rounded-md" src={ownTermLogo} />
-          <div>
-            <h1 className="text-sm font-semibold leading-none">OwnTerm</h1>
-            <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-              terminal local
-            </p>
-          </div>
+      <header className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--hairline)] bg-[var(--titlebar)] px-3 backdrop-blur-xl">
+        <div className="flex min-w-0 items-center gap-2.5 pr-4">
+          <img alt="" className="size-6 rounded-[5px]" src={ownTermLogo} />
+          <h1 className="text-[12.5px] font-medium tracking-[0.01em] text-[var(--strong-foreground)]">
+            OwnTerm
+          </h1>
+          <span className="hidden h-4 w-px bg-[var(--hairline)] sm:block" />
+          <span className="hidden text-[11px] text-[var(--muted-foreground)] sm:inline">
+            Terminal workspace
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <nav
+          aria-label="Sessions"
+          className="flex min-w-0 flex-1 items-stretch gap-0 overflow-x-auto"
+        >
+          {sessions.map((session) => (
+            <div
+              className={
+                session.id === activeSessionId
+                  ? "relative flex h-full min-w-40 items-center gap-2 border-r border-[var(--hairline)] bg-[var(--terminal)] px-3 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-[var(--primary)]"
+                  : "flex h-full min-w-40 items-center gap-2 border-r border-[var(--hairline)] px-3 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--control-hover)] hover:text-[var(--foreground)]"
+              }
+              key={session.id}
+            >
+              <button
+                aria-current={
+                  session.id === activeSessionId ? "page" : undefined
+                }
+                className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
+                onClick={() => {
+                  setActiveSessionId(session.id);
+                  terminals.current.get(session.id)?.focus();
+                }}
+                type="button"
+              >
+                <span
+                  className={`status-dot status-${session.status}`}
+                  title={statusLabels[session.status]}
+                />
+                <span className="truncate">{session.title}</span>
+              </button>
+              <button
+                aria-label={`Close ${session.title}`}
+                className="control-icon text-base"
+                onClick={() => closeSession(session.id)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </nav>
+        <div className="flex shrink-0 items-center gap-2">
           <label className="sr-only" htmlFor="shell-profile">
-            Shell
+            Shell profile
           </label>
           <select
-            className="h-8 max-w-56 rounded-md border border-[var(--border)] bg-[var(--surface-solid)] px-2 text-xs outline-none focus:border-[var(--primary)]"
+            className="h-7 max-w-48 rounded-md border border-[var(--hairline)] bg-[var(--control-surface)] px-2 text-[11px] text-[var(--foreground)] outline-none transition-colors hover:bg-[var(--control-hover)] focus:border-[var(--primary)]"
             disabled={profiles.length === 0}
             id="shell-profile"
             onChange={(event) => setSelectedProfileId(event.target.value)}
             value={selectedProfileId}
           >
             {profiles.length === 0 ? (
-              <option>Nenhum shell disponível</option>
+              <option>No shell available</option>
             ) : (
               profiles.map((profile) => (
                 <option key={profile.id} value={profile.id}>
@@ -448,78 +487,80 @@ function App({ backend = defaultBackend }: AppProps) {
             )}
           </select>
           <Button
-            className="h-8 py-1 text-xs"
+            className="h-7 rounded-md px-2.5 py-0 text-[11px]"
             disabled={!selectedProfileId || opening || !terminalEventsReady}
             onClick={() => void openSession()}
           >
             {opening
-              ? "Abrindo…"
+              ? "Opening…"
               : terminalEventsReady
-                ? "Nova aba"
-                : "Preparando terminal…"}
+                ? "New tab"
+                : "Preparing…"}
           </Button>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <HostsWorkspace
-          backend={backend}
-          onOpenLocal={() => void openSession()}
-          refreshToken={hostsRefreshToken}
-          onRequestConnection={requestHostConnection}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <nav
-            aria-label="Sessões locais"
-            className="flex h-10 shrink-0 items-end gap-1 overflow-x-auto border-b border-[var(--border)] bg-black/10 px-2 pt-1"
+        <nav
+          aria-label="Workspace"
+          className="flex w-12 shrink-0 flex-col items-center border-r border-[var(--hairline)] bg-[var(--toolbar)] py-2"
+        >
+          <button
+            aria-label={
+              connectionsOpen ? "Collapse connections" : "Expand connections"
+            }
+            aria-pressed={connectionsOpen}
+            className="control-icon text-[var(--primary)]"
+            onClick={() => setConnectionsOpen((open) => !open)}
+            title={
+              connectionsOpen ? "Collapse connections" : "Expand connections"
+            }
+            type="button"
           >
-            {sessions.map((session) => (
-              <div
-                className={
-                  session.id === activeSessionId
-                    ? "flex h-9 min-w-40 items-center gap-2 rounded-t-md border border-b-0 border-[var(--border)] bg-[var(--terminal)] px-3"
-                    : "flex h-9 min-w-40 items-center gap-2 rounded-t-md px-3 text-[var(--muted-foreground)] hover:bg-white/5"
-                }
-                key={session.id}
-              >
-                <button
-                  aria-current={
-                    session.id === activeSessionId ? "page" : undefined
-                  }
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
-                  onClick={() => {
-                    setActiveSessionId(session.id);
-                    terminals.current.get(session.id)?.focus();
-                  }}
-                  type="button"
-                >
-                  <span
-                    className={`status-dot status-${session.status}`}
-                    title={statusLabels[session.status]}
-                  />
-                  <span className="truncate">{session.title}</span>
-                </button>
-                <button
-                  aria-label={`Fechar ${session.title}`}
-                  className="rounded px-1 text-base leading-none hover:bg-white/10 hover:text-white"
-                  onClick={() => closeSession(session.id)}
-                  type="button"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </nav>
-
+            {connectionsOpen ? (
+              <PanelLeft className="size-4" />
+            ) : (
+              <Terminal className="size-4" />
+            )}
+          </button>
+        </nav>
+        {connectionsOpen ? (
+          <HostsWorkspace
+            backend={backend}
+            onOpenLocal={() => void openSession()}
+            refreshToken={hostsRefreshToken}
+            onRequestConnection={requestHostConnection}
+          />
+        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-10 shrink-0 items-center gap-3 border-b border-[var(--hairline)] bg-[var(--toolbar)] px-3 text-[11px] backdrop-blur-xl">
+            <span className="min-w-0 truncate text-[var(--strong-foreground)]">
+              {activeSession ? activeSession.title : "No active session"}
+            </span>
+            <span className="text-[var(--muted-foreground)]">/</span>
+            <span className="font-mono text-[var(--primary)]">
+              {activeSession?.kind.type === "ssh"
+                ? "SSH"
+                : activeSession
+                  ? "Local"
+                  : "Ready"}
+            </span>
+            {activeSession ? (
+              <span className="ml-auto flex items-center gap-1.5 rounded-md border border-[var(--hairline)] px-2 py-0.5 text-[var(--muted-foreground)]">
+                <span className={`status-dot status-${activeSession.status}`} />
+                {statusLabels[activeSession.status]}
+              </span>
+            ) : null}
+          </div>
           <section className="relative min-h-0 flex-1 bg-[var(--terminal)]">
             {sessions.length === 0 ? (
               <div className="grid h-full place-items-center p-8 text-center">
                 <div>
                   <p className="font-mono text-sm text-[var(--primary)]">
-                    Nenhuma sessão aberta
+                    No open sessions
                   </p>
                   <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                    Escolha um shell e abra uma aba. Atalho: Ctrl+Shift+T.
+                    Choose a shell and open a tab. Shortcut: Ctrl+Shift+T.
                   </p>
                 </div>
               </div>
@@ -538,16 +579,16 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
       </div>
 
-      <footer className="flex min-h-8 shrink-0 items-center justify-between gap-4 border-t border-[var(--border)] bg-[var(--surface-solid)] px-3 text-[11px]">
+      <footer className="flex min-h-8 shrink-0 items-center justify-between gap-4 border-t border-[var(--hairline)] bg-[var(--statusbar)] px-3 text-[11px] text-[var(--muted-foreground)] backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-3">
           <span className="text-[var(--muted-foreground)]">
-            {appInfo ? `${appInfo.name} ${appInfo.version}` : "Iniciando core…"}
+            {appInfo ? `${appInfo.name} ${appInfo.version}` : "Starting core…"}
           </span>
           {activeSession ? (
             <span role="status">
               {statusLabels[activeSession.status]}
               {activeSession.exitCode !== undefined
-                ? ` · código ${activeSession.exitCode}`
+                ? ` · exit code ${activeSession.exitCode}`
                 : ""}
               {activeSession.reason ? ` · ${activeSession.reason}` : ""}
             </span>
@@ -561,34 +602,34 @@ function App({ backend = defaultBackend }: AppProps) {
           (activeSession.status === "failed" ||
             activeSession.status === "disconnected") ? (
             <button
-              className="rounded px-2 py-1 text-[var(--primary)] hover:bg-white/5"
+              className="rounded px-2 py-1 text-[var(--primary)] hover:bg-[var(--control-hover)]"
               onClick={() => {
                 const target = sshTargets.current.get(activeSession.id);
                 if (target) void requestHostConnection(target);
               }}
               type="button"
             >
-              Reconectar
+              Reconnect
             </button>
           ) : null}
           <button
-            className="rounded px-2 py-1 text-[var(--muted-foreground)] hover:bg-white/5 hover:text-white disabled:opacity-40"
+            className="control-ghost"
             disabled={!activeSession}
             onClick={() => runClipboardAction("copy")}
             type="button"
           >
-            Copiar
+            Copy
           </button>
           <button
-            className="rounded px-2 py-1 text-[var(--muted-foreground)] hover:bg-white/5 hover:text-white disabled:opacity-40"
+            className="control-ghost"
             disabled={!activeSession || activeSession.status !== "connected"}
             onClick={() => runClipboardAction("paste")}
             type="button"
           >
-            Colar
+            Paste
           </button>
           <span className="ml-2 hidden text-[var(--muted-foreground)] sm:inline">
-            Ctrl+Tab alterna abas
+            Ctrl+Tab switches tabs
           </span>
         </div>
       </footer>
@@ -603,14 +644,14 @@ function App({ backend = defaultBackend }: AppProps) {
             role="dialog"
           >
             <h2 className="font-semibold" id="ssh-trust-title">
-              Confirmar identidade do Host
+              Confirm Host identity
             </h2>
             <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-              Primeiro acesso a {trustPrompt.destination}:{trustPrompt.port}.
-              Confirme a impressão digital por um canal confiável.
+              First connection to {trustPrompt.destination}:{trustPrompt.port}.
+              Confirm the fingerprint through a trusted channel.
             </p>
-            <dl className="mt-3 rounded border border-[var(--border)] bg-black/20 p-3 font-mono text-xs">
-              <dt className="text-[var(--muted-foreground)]">Algoritmo</dt>
+            <dl className="mt-3 rounded border border-[var(--border)] bg-[var(--control-surface)] p-3 font-mono text-xs">
+              <dt className="text-[var(--muted-foreground)]">Algorithm</dt>
               <dd>{trustPrompt.algorithm}</dd>
               <dt className="mt-2 text-[var(--muted-foreground)]">
                 Fingerprint
@@ -623,10 +664,10 @@ function App({ backend = defaultBackend }: AppProps) {
                 onClick={() => void respondToTrust(false)}
                 type="button"
               >
-                Rejeitar
+                Reject
               </button>
               <Button onClick={() => void respondToTrust(true)} type="button">
-                Confiar e conectar
+                Trust and connect
               </Button>
             </div>
           </section>
@@ -648,15 +689,15 @@ function App({ backend = defaultBackend }: AppProps) {
           >
             <h2 className="font-semibold" id="ssh-credential-title">
               {credentialPrompt.kind === "password"
-                ? "Senha SSH"
-                : "Frase secreta da chave"}
+                ? "SSH password"
+                : "Key passphrase"}
             </h2>
             <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-              A credencial será usada somente nesta tentativa e não será mantida
-              no estado da interface.
+              The credential is used only for this attempt and is never retained
+              in interface state.
             </p>
             <input
-              aria-label="Credencial SSH"
+              aria-label="SSH credential"
               autoComplete="current-password"
               autoFocus
               className="field mt-4"
@@ -669,9 +710,9 @@ function App({ backend = defaultBackend }: AppProps) {
                 onClick={() => void provideCredential(false)}
                 type="button"
               >
-                Cancelar
+                Cancel
               </button>
-              <Button type="submit">Conectar</Button>
+              <Button type="submit">Connect</Button>
             </div>
           </form>
         </div>
