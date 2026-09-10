@@ -55,6 +55,8 @@ export function HostsWorkspace({
   const [newGroup, setNewGroup] = useState("");
   const [error, setError] = useState<string>();
   const [portability, setPortability] = useState<PortabilityDialogState>();
+  const searchInput = useRef<HTMLInputElement>(null);
+  const quickConnectInput = useRef<HTMLInputElement>(null);
   const passwordInput = useRef<HTMLInputElement>(null);
   const passphraseInput = useRef<HTMLInputElement>(null);
 
@@ -79,6 +81,21 @@ export function HostsWorkspace({
     const timer = window.setTimeout(() => void reload(), 120);
     return () => window.clearTimeout(timer);
   }, [reload, refreshToken]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        searchInput.current?.focus();
+      }
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        quickConnectInput.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const visibleHosts = useMemo(
     () => hosts.filter((host) => !favoritesOnly || host.favorite),
@@ -313,6 +330,7 @@ export function HostsWorkspace({
         <input
           aria-label="Buscar Hosts"
           className="field"
+          ref={searchInput}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar nome, endereço, usuário, grupo ou tag"
           value={search}
@@ -395,6 +413,7 @@ export function HostsWorkspace({
           <input
             aria-label="Quick Connect"
             className="field"
+            ref={quickConnectInput}
             onChange={(event) => setQuickConnect(event.target.value)}
             placeholder="usuário@host:porta"
             value={quickConnect}

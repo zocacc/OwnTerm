@@ -1,4 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Backend, Host, HostGroup } from "../services/backend";
@@ -197,5 +203,21 @@ describe("Hosts workspace", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Configure credenciais",
     );
+  });
+
+  it("focuses Host search and Quick Connect through documented shortcuts", async () => {
+    const { backend } = backendFixture();
+    render(
+      <HostsWorkspace
+        backend={backend}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
+    await screen.findByText("Nenhum Host cadastrado.");
+    fireEvent.keyDown(window, { ctrlKey: true, key: "f" });
+    expect(screen.getByLabelText("Buscar Hosts")).toHaveFocus();
+    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "c" });
+    expect(screen.getByLabelText("Quick Connect")).toHaveFocus();
   });
 });
