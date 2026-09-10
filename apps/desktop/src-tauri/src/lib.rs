@@ -2,8 +2,13 @@
 
 use ownterm_application::OwnTermApplication;
 use ownterm_application::platform::AppDirectoriesProvider;
+use ownterm_application::portability::{
+    ImportAction, ImportPreview, PortableGroup, PortableHost, decode_workspace, encode_workspace,
+    parse_openssh_config,
+};
 use ownterm_application::repositories::{
     GroupRemoval, GroupRepository, HostQuery, HostRepository, RecentHost, RecentHostRepository,
+    SettingsRepository,
 };
 use ownterm_application::ssh::{resolve_quick_connect, resolve_saved_host};
 use ownterm_application::ssh_trust::{TrustDecision, TrustService};
@@ -22,11 +27,13 @@ use ownterm_ssh::{
 use ownterm_storage_sqlite::SqliteStore;
 use ownterm_terminal::NativeTerminalBackend;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 struct DesktopState {
     terminal: NativeTerminalBackend,
@@ -708,7 +715,10 @@ pub fn run() {
             delete_host,
             save_host_group,
             delete_host_group,
-            record_recent_host
+            record_recent_host,
+            preview_import,
+            apply_import,
+            export_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running OwnTerm");
@@ -997,4 +1007,115 @@ fn provide_ssh_credential(
             request.secret,
         )
         .map_err(|error| error.to_string())
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ImportSource {
+    Openssh,
+    Workspace,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PreviewImportRequest {
+    source: ImportSource,
+    content: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportSelection {
+    host: PortableHost,
+    action: ImportAction,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApplyImportRequest {
+    groups: Vec<PortableGroup>,
+    settings: BTreeMap<String, String>,
+    entries: Vec<ImportSelection>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportResult {
+    applied: usize,
+    credentials_to_configure: usize,
+}
+
+#[tauri::command]
+fn preview_import(
+    state: State<'_, DesktopState>,
+    request: PreviewImportRequest,
+) -> Result<ImportPreview, String> {
+    let existing = state
+        .store
+        .list_hosts(&HostQuery::default())
+        .map_err(repository_error)?;
+    match request.source {
+        ImportSource::Openssh => Ok(parse_openssh_config(&request.content, &existing)),
+        ImportSource::Workspace => {
+            decode_workspace(&request.content, &existing).map_err(|error| error.to_string())
+        }
+    }
+}
+
+#[tauri::command]
+fn apply_import(
+    state: State<'_, DesktopState>,
+    request: ApplyImportRequest,
+) -> Result<ImportResult, String> {
+    let credentials_to_configure = request
+        .entries
+        .iter()
+        .filter(|entry| {
+            entry.action != ImportAction::Skip
+                && matches!(
+                    entry.host.auth_kind,
+                    ownterm_application::portability::PortableAuthKind::Password
+                        | ownterm_application::portability::PortableAuthKind::PrivateKey
+                )
+                && entry.host.credential_required
+        })
+        .count();
+    let entries = request
+        .entries
+        .into_iter()
+        .map(|entry| (entry.host, entry.action))
+        .collect::<Vec<_>>();
+    let applied = state
+        .store
+        .apply_portability_import(&request.groups, &request.settings, &entries, now())
+        .map_err(repository_error)?;
+    let _ = SecretService::new(&state.vault, state.store.as_ref()).cleanup_pending();
+    Ok(ImportResult {
+        applied,
+        credentials_to_configure,
+    })
+}
+
+#[tauri::command]
+fn export_workspace(state: State<'_, DesktopState>) -> Result<String, String> {
+    let groups = state.store.list_groups().map_err(repository_error)?;
+    let hosts = state
+        .store
+        .list_hosts(&HostQuery::default())
+        .map_err(repository_error)?;
+    let settings = state
+        .store
+        .list_settings()
+        .map_err(repository_error)?
+        .into_iter()
+        .map(|setting| (setting.key, setting.value))
+        .collect();
+    encode_workspace(
+        &groups,
+        &hosts,
+        settings,
+        OffsetDateTime::now_utc()
+            .format(&Rfc3339)
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }

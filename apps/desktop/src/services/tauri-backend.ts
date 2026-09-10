@@ -83,4 +83,9 @@ export const tauriBackend: Backend = {
   deleteHostGroup: (id, moveHostsToUngrouped) =>
     invoke("delete_host_group", { request: { id, moveHostsToUngrouped } }),
   recordRecentHost: (id) => invoke("record_recent_host", { id }),
+  previewImport: (source, content) =>
+    invoke("preview_import", { request: { source, content } }),
+  applyImport: (groups, settings, entries) =>
+    invoke("apply_import", { request: { groups, settings, entries } }),
+  exportWorkspace: () => invoke("export_workspace"),
 };

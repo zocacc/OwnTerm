@@ -7,3 +7,5 @@ license.workspace = true
 
 [dependencies]
 ownterm-domain = { path = "../ownterm-domain" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

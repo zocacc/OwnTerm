@@ -4,8 +4,19 @@ import type {
   Host,
   HostGroup,
   SaveHostRequest,
+  ImportPreview,
+  ImportAction,
 } from "../services/backend";
 import { Button } from "./ui/button";
+
+type PortabilityDialogState = {
+  mode: "import" | "export";
+  source: "openssh" | "workspace";
+  content: string;
+  preview?: ImportPreview;
+  actions: ImportAction[];
+  result?: string;
+};
 
 type Props = {
   backend: Backend;
@@ -43,6 +54,7 @@ export function HostsWorkspace({
   const [draft, setDraft] = useState<SaveHostRequest>();
   const [newGroup, setNewGroup] = useState("");
   const [error, setError] = useState<string>();
+  const [portability, setPortability] = useState<PortabilityDialogState>();
   const passwordInput = useRef<HTMLInputElement>(null);
   const passphraseInput = useRef<HTMLInputElement>(null);
 
@@ -158,6 +170,62 @@ export function HostsWorkspace({
       privateKeyPath: host.privateKeyPath,
     });
 
+  async function previewPortability() {
+    if (!portability?.content.trim() || !backend.previewImport) return;
+    try {
+      const preview = await backend.previewImport(
+        portability.source,
+        portability.content,
+      );
+      setPortability({
+        ...portability,
+        preview,
+        actions: preview.entries.map((entry) => entry.defaultAction),
+        result: undefined,
+      });
+      setError(undefined);
+    } catch (reason) {
+      setError(`Não foi possível analisar a importação: ${String(reason)}`);
+    }
+  }
+
+  async function applyPortability() {
+    if (!portability?.preview || !backend.applyImport) return;
+    try {
+      const result = await backend.applyImport(
+        portability.preview.groups,
+        portability.preview.settings,
+        portability.preview.entries.map((entry, index) => ({
+          host: entry.host,
+          action: portability.actions[index] ?? entry.defaultAction,
+        })),
+      );
+      setPortability({
+        ...portability,
+        result: `${result.applied} Host(s) importado(s).${result.credentialsToConfigure ? ` Configure credenciais para ${result.credentialsToConfigure} Host(s).` : ""}`,
+      });
+      await reload();
+    } catch (reason) {
+      setError(`Não foi possível aplicar a importação: ${String(reason)}`);
+    }
+  }
+
+  async function exportPortability() {
+    if (!backend.exportWorkspace) return;
+    try {
+      const content = await backend.exportWorkspace();
+      setPortability({
+        mode: "export",
+        source: "workspace",
+        content,
+        actions: [],
+        result: "Exportação pronta para copiar e salvar como JSON.",
+      });
+    } catch (reason) {
+      setError(`Não foi possível exportar os Hosts: ${String(reason)}`);
+    }
+  }
+
   const rows = (items: Host[]) =>
     items.map((host) => (
       <div
@@ -212,12 +280,35 @@ export function HostsWorkspace({
           <h2 className="text-xs font-semibold uppercase tracking-[0.16em]">
             Hosts
           </h2>
-          <Button
-            className="h-7 px-2 text-xs"
-            onClick={() => setDraft({ ...emptyDraft })}
-          >
-            Novo
-          </Button>
+          <div className="flex gap-1">
+            <button
+              className="px-1 text-xs text-[var(--muted-foreground)]"
+              onClick={() =>
+                setPortability({
+                  mode: "import",
+                  source: "openssh",
+                  content: "",
+                  actions: [],
+                })
+              }
+              type="button"
+            >
+              Importar
+            </button>
+            <button
+              className="px-1 text-xs text-[var(--muted-foreground)]"
+              onClick={() => void exportPortability()}
+              type="button"
+            >
+              Exportar
+            </button>
+            <Button
+              className="h-7 px-2 text-xs"
+              onClick={() => setDraft({ ...emptyDraft })}
+            >
+              Novo
+            </Button>
+          </div>
         </div>
         <input
           aria-label="Buscar Hosts"
@@ -501,6 +592,110 @@ export function HostsWorkspace({
               <Button type="submit">Salvar</Button>
             </div>
           </form>
+        </div>
+      ) : null}
+      {portability ? (
+        <div className="dialog-backdrop" role="presentation">
+          <section aria-label="Importar ou exportar Hosts" className="dialog">
+            <h3 className="mb-3 font-semibold">Importar ou exportar Hosts</h3>
+            <label>
+              Formato
+              <select
+                className="field"
+                disabled={portability.mode === "export"}
+                onChange={(event) =>
+                  setPortability({
+                    ...portability,
+                    source: event.target.value as "openssh" | "workspace",
+                    preview: undefined,
+                    actions: [],
+                    result: undefined,
+                  })
+                }
+                value={portability.source}
+              >
+                <option value="openssh">OpenSSH config</option>
+                <option value="workspace">OwnTerm JSON</option>
+              </select>
+            </label>
+            <label>
+              Conteúdo
+              <textarea
+                className="field min-h-36 font-mono text-xs"
+                onChange={(event) =>
+                  setPortability({
+                    ...portability,
+                    content: event.target.value,
+                    preview: undefined,
+                    actions: [],
+                    result: undefined,
+                  })
+                }
+                readOnly={portability.mode === "export"}
+                value={portability.content}
+              />
+            </label>
+            {portability.preview?.entries.map((entry, index) => (
+              <div
+                className="mt-2 flex items-center gap-2 text-xs"
+                key={entry.host.name}
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {entry.host.name} ({entry.host.address}:{entry.host.port})
+                  {entry.conflict ? " — já existe" : ""}
+                </span>
+                <select
+                  aria-label={`Ação para ${entry.host.name}`}
+                  className="field w-24"
+                  onChange={(event) => {
+                    const actions = [...portability.actions];
+                    actions[index] = event.target.value as ImportAction;
+                    setPortability({ ...portability, actions });
+                  }}
+                  value={portability.actions[index] ?? entry.defaultAction}
+                >
+                  <option value="create">Criar</option>
+                  <option value="update">Atualizar</option>
+                  <option value="skip">Pular</option>
+                </select>
+              </div>
+            ))}
+            {portability.preview?.ignored.length ? (
+              <p className="mt-3 text-xs text-[var(--muted-foreground)]">
+                {portability.preview.ignored.length} diretiva(s) ignorada(s):{" "}
+                {portability.preview.ignored
+                  .map((item) => item.directive)
+                  .join(", ")}
+              </p>
+            ) : null}
+            {portability.result ? (
+              <p className="mt-3 text-xs" role="status">
+                {portability.result}
+              </p>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setPortability(undefined)} type="button">
+                Fechar
+              </button>
+              {portability.mode === "import" ? (
+                <>
+                  <button
+                    onClick={() => void previewPortability()}
+                    type="button"
+                  >
+                    Analisar
+                  </button>
+                  <Button
+                    disabled={!portability.preview}
+                    onClick={() => void applyPortability()}
+                    type="button"
+                  >
+                    Aplicar seleção
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </section>
         </div>
       ) : null}
     </aside>

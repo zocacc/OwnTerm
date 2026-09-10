@@ -23,3 +23,4 @@ ownterm-terminal = { path = "../../../crates/ownterm-terminal" }
 serde = { version = "1.0.229", features = ["derive"] }
 tauri = "2.11.3"
 uuid = { version = "1.26.0", features = ["v4"] }
+time = { version = "0.3.55", features = ["formatting"] }

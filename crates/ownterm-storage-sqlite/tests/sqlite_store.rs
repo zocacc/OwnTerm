@@ -1,3 +1,6 @@
+use ownterm_application::portability::{
+    ImportAction, PortableAuthKind, PortableGroup, PortableHost,
+};
 use ownterm_application::repositories::{
     CredentialCleanupRepository, GroupRemoval, GroupRepository, HostQuery, HostRepository,
     KnownHostRepository, RecentHost, RecentHostRepository, RepositoryError, Setting,
@@ -9,6 +12,7 @@ use ownterm_application::vault::{
 };
 use ownterm_domain::{AuthMethod, CredentialRef, Host, HostDraft, HostGroup, Timestamp};
 use ownterm_storage_sqlite::SqliteStore;
+use std::collections::BTreeMap;
 
 fn timestamp(value: i64) -> Timestamp {
     Timestamp::from_unix_millis(value)
@@ -294,4 +298,87 @@ fn strict_tofu_persists_first_use_and_blocks_changed_identity() {
             .unwrap(),
         TrustDecision::ConfirmFirstUse
     );
+}
+
+#[test]
+fn portability_import_is_atomic_and_creates_exported_groups() {
+    let store = SqliteStore::open_in_memory().unwrap();
+    let host = PortableHost {
+        name: "edge".into(),
+        address: "edge.example".into(),
+        port: 22,
+        username: Some("ops".into()),
+        group: Some("Production".into()),
+        tags: vec!["linux".into()],
+        favorite: true,
+        auth_kind: PortableAuthKind::PrivateKey,
+        private_key_path: Some("~/.ssh/id_ed25519".into()),
+        credential_required: true,
+    };
+    let invalid = PortableHost {
+        name: "broken".into(),
+        port: 0,
+        ..host.clone()
+    };
+    let groups = vec![PortableGroup {
+        name: "Empty group".into(),
+        sort_order: 5,
+    }];
+    assert!(
+        store
+            .apply_portability_import(
+                &groups,
+                &BTreeMap::new(),
+                &[
+                    (host.clone(), ImportAction::Create),
+                    (invalid, ImportAction::Create)
+                ],
+                timestamp(100)
+            )
+            .is_err()
+    );
+    assert!(store.list_hosts(&HostQuery::default()).unwrap().is_empty());
+    assert!(store.list_groups().unwrap().is_empty());
+    assert_eq!(
+        store
+            .apply_portability_import(
+                &groups,
+                &BTreeMap::from([("theme".into(), "dark".into())]),
+                &[(host, ImportAction::Create)],
+                timestamp(100)
+            )
+            .unwrap(),
+        1
+    );
+    assert_eq!(store.list_groups().unwrap().len(), 2);
+    assert_eq!(store.list_hosts(&HostQuery::default()).unwrap().len(), 1);
+    assert_eq!(store.get_setting("theme").unwrap().unwrap().value, "dark");
+}
+#[test]
+fn portability_import_preserves_agent_authentication() {
+    let store = SqliteStore::open_in_memory().unwrap();
+    let agent = PortableHost {
+        name: "agent-host".into(),
+        address: "agent.example".into(),
+        port: 22,
+        username: Some("ops".into()),
+        group: None,
+        tags: vec![],
+        favorite: false,
+        auth_kind: PortableAuthKind::Agent,
+        private_key_path: None,
+        credential_required: false,
+    };
+    store
+        .apply_portability_import(
+            &[],
+            &BTreeMap::new(),
+            &[(agent, ImportAction::Create)],
+            timestamp(1),
+        )
+        .unwrap();
+    assert!(matches!(
+        store.list_hosts(&HostQuery::default()).unwrap()[0].auth,
+        AuthMethod::Agent
+    ));
 }
