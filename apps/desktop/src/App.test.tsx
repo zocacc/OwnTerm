@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,24 +19,35 @@ import type {
   SessionTrustRequiredEvent,
 } from "./services/backend";
 
+const terminalSurfaceMocks = vi.hoisted(() => ({ focus: vi.fn() }));
+
 vi.mock("./terminal/TerminalSurface", () => ({
   TerminalSurface: ({
     active,
     sessionId,
     terminalBackgroundOpacity,
+    onReady,
   }: {
     active: boolean;
     sessionId: string;
     terminalBackgroundOpacity: number;
-  }) => (
-    <div
-      data-active={active}
-      data-opacity={terminalBackgroundOpacity}
-      data-testid={`terminal-${sessionId}`}
-    />
-  ),
+    onReady: (sessionId: string, handle?: unknown) => void;
+  }) => {
+    onReady(sessionId, {
+      focus: terminalSurfaceMocks.focus,
+      write: vi.fn(),
+      copy: vi.fn(async () => undefined),
+      paste: vi.fn(async () => undefined),
+    });
+    return (
+      <div
+        data-active={active}
+        data-opacity={terminalBackgroundOpacity}
+        data-testid={`terminal-${sessionId}`}
+      />
+    );
+  },
 }));
-
 class TestBackend implements Backend {
   private nextSession = 1;
   private readonly outputHandlers = new Set<
@@ -371,6 +383,9 @@ describe("local terminal workspace", () => {
     const dialog = screen.getByRole("dialog", { name: "Appearance" });
     expect(dialog).toHaveTextContent("Window opacity 92%");
     expect(dialog).toHaveTextContent("Terminal background opacity 82%");
+    expect(
+      screen.getByRole("button", { name: "Close appearance settings" }),
+    ).toHaveFocus();
 
     fireEvent.change(
       screen.getByRole("slider", { name: /Terminal background opacity/ }),
@@ -401,6 +416,11 @@ describe("local terminal workspace", () => {
     expect(
       screen.getByRole("button", { name: "PowerShell 1" }),
     ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "Appearance" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(terminalSurfaceMocks.focus).toHaveBeenCalled());
   });
 
   it("shows the non-blocking native opacity warning", async () => {

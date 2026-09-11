@@ -41,9 +41,23 @@ type OpenSession = SessionDescriptor & {
 
 type SshTarget = { hostId?: string; destination?: string };
 
-const defaultAppearance: AppearanceSettings = {
+type AppearancePreferenceValues = Pick<
+  AppearanceSettings,
+  "windowOpacity" | "terminalBackgroundOpacity"
+>;
+
+const appearanceDefaults: AppearancePreferenceValues = {
   windowOpacity: 92,
   terminalBackgroundOpacity: 82,
+};
+
+const appearanceBounds = {
+  windowOpacity: { min: 70, max: 100 },
+  terminalBackgroundOpacity: { min: 55, max: 100 },
+} as const;
+
+const defaultAppearance: AppearanceSettings = {
+  ...appearanceDefaults,
   windowOpacitySupport: "unsupported",
   windowOpacityApplied: false,
   windowOpacityWarning: null,
@@ -454,13 +468,18 @@ function App({ backend = defaultBackend }: AppProps) {
     [backend, credentialPrompt],
   );
 
+  const closeAppearance = useCallback(() => {
+    setAppearanceOpen(false);
+    window.setTimeout(() => {
+      const terminal = activeSessionId
+        ? terminals.current.get(activeSessionId)
+        : undefined;
+      if (terminal) terminal.focus();
+    });
+  }, [activeSessionId]);
+
   const saveAppearance = useCallback(
-    (
-      next: Pick<
-        AppearanceSettings,
-        "windowOpacity" | "terminalBackgroundOpacity"
-      >,
-    ) => {
+    (next: AppearancePreferenceValues) => {
       const requested = { ...appearance, ...next };
       setAppearance(requested);
       const version = ++appearanceSaveVersion.current;
@@ -737,7 +756,7 @@ function App({ backend = defaultBackend }: AppProps) {
             aria-modal="true"
             className="dialog appearance-dialog"
             onKeyDown={(event) => {
-              if (event.key === "Escape") setAppearanceOpen(false);
+              if (event.key === "Escape") closeAppearance();
             }}
             ref={appearanceDialogRef}
             role="dialog"
@@ -754,7 +773,7 @@ function App({ backend = defaultBackend }: AppProps) {
               <button
                 aria-label="Close appearance settings"
                 className="control-icon"
-                onClick={() => setAppearanceOpen(false)}
+                onClick={closeAppearance}
                 type="button"
               >
                 <X size={16} />
@@ -767,8 +786,8 @@ function App({ backend = defaultBackend }: AppProps) {
               <input
                 aria-valuetext={`${appearance.windowOpacity}%`}
                 id="window-opacity"
-                max="100"
-                min="70"
+                max={appearanceBounds.windowOpacity.max}
+                min={appearanceBounds.windowOpacity.min}
                 onChange={(event) =>
                   saveAppearance({
                     windowOpacity: Number(event.target.value),
@@ -794,8 +813,8 @@ function App({ backend = defaultBackend }: AppProps) {
               <input
                 aria-valuetext={`${appearance.terminalBackgroundOpacity}%`}
                 id="terminal-background-opacity"
-                max="100"
-                min="55"
+                max={appearanceBounds.terminalBackgroundOpacity.max}
+                min={appearanceBounds.terminalBackgroundOpacity.min}
                 onChange={(event) =>
                   saveAppearance({
                     windowOpacity: appearance.windowOpacity,
@@ -809,17 +828,12 @@ function App({ backend = defaultBackend }: AppProps) {
             </label>
             <div className="appearance-dialog-actions">
               <Button
-                onClick={() =>
-                  saveAppearance({
-                    windowOpacity: 92,
-                    terminalBackgroundOpacity: 82,
-                  })
-                }
+                onClick={() => saveAppearance(appearanceDefaults)}
                 variant="secondary"
               >
                 Reset defaults
               </Button>
-              <Button onClick={() => setAppearanceOpen(false)}>Done</Button>
+              <Button onClick={closeAppearance}>Done</Button>
             </div>
           </section>
         </div>
