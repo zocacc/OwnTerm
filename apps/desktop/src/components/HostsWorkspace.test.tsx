@@ -187,6 +187,9 @@ describe("Hosts workspace", () => {
         onRequestConnection={vi.fn()}
       />,
     );
+    await user.click(
+      screen.getByRole("button", { name: "Connection actions" }),
+    );
     await user.click(await screen.findByRole("button", { name: "Import" }));
     await user.type(screen.getByLabelText("Content"), "Host edge");
     await user.click(screen.getByRole("button", { name: "Analyze" }));
@@ -236,6 +239,9 @@ describe("Hosts workspace", () => {
     expect(screen.getByLabelText("Name")).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.getByLabelText("Search hosts")).toHaveFocus();
+    await user.click(
+      screen.getByRole("button", { name: "Connection actions" }),
+    );
     await user.click(screen.getByRole("button", { name: "Import" }));
     expect(screen.getByLabelText("Content")).toHaveFocus();
   });

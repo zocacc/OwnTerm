@@ -7,7 +7,19 @@ import type {
   ImportPreview,
   ImportAction,
 } from "../services/backend";
-import { Download, Plus, Star, Upload } from "lucide-react";
+import {
+  Download,
+  Plus,
+  Star,
+  Upload,
+  Server,
+  Search,
+  Pencil,
+  X,
+  Clock,
+  Folder,
+} from "lucide-react";
+import { ActionMenu } from "./ActionMenu";
 import { Button } from "./ui/button";
 import { useDialogFocus } from "./useDialogFocus";
 
@@ -24,6 +36,8 @@ type Props = {
   backend: Backend;
   onOpenLocal: () => void;
   refreshToken?: number;
+  activeHostId?: string;
+  connectedHostIds?: string[];
   onRequestConnection: (target: {
     hostId?: string;
     destination?: string;
@@ -46,6 +60,8 @@ export function HostsWorkspace({
   onOpenLocal,
   onRequestConnection,
   refreshToken,
+  activeHostId,
+  connectedHostIds = [],
 }: Props) {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [groups, setGroups] = useState<HostGroup[]>([]);
@@ -253,122 +269,148 @@ export function HostsWorkspace({
   const rows = (items: Host[]) =>
     items.map((host) => (
       <div
-        className="host-row"
+        className={`host-row ${activeHostId === host.id ? "is-selected" : ""}`}
         key={host.id}
         onDoubleClick={() => onRequestConnection({ hostId: host.id })}
       >
         <button
-          className="min-w-0 flex-1 text-left"
+          title={`${host.username ? `${host.username}@` : ""}${host.address}:${host.port}`}
+          className="host-link"
+          aria-current={activeHostId === host.id ? "true" : undefined}
           onClick={() => onRequestConnection({ hostId: host.id })}
           type="button"
         >
-          <span className="block truncate text-xs font-medium">
-            {host.name}
+          <Server size={18} className="host-icon" aria-hidden="true" />
+          <span className="host-label">
+            <span className="host-name">{host.name}</span>
+            <span className="host-address">
+              {host.username ? `${host.username}@` : ""}
+              {host.address}:{host.port}
+            </span>
           </span>
-          <span className="block truncate text-[11px] text-[var(--muted-foreground)]">
-            {host.username ? `${host.username}@` : ""}
-            {host.address}:{host.port}
-          </span>
+          <span
+            className={`host-connection-dot ${connectedHostIds.includes(host.id) ? "is-connected" : ""}`}
+            title={
+              connectedHostIds.includes(host.id)
+                ? "Connected session"
+                : "No connected session"
+            }
+          />
         </button>
-        <button
-          aria-label={`${host.favorite ? "Remove" : "Add"} ${host.name} to favorites`}
-          onClick={() => void toggleFavorite(host)}
-          type="button"
-        >
-          {host.favorite ? "★" : "☆"}
-        </button>
-        <button
-          aria-label={`Edit ${host.name}`}
-          onClick={() => edit(host)}
-          type="button"
-        >
-          ✎
-        </button>
-        <button
-          aria-label={`Delete ${host.name}`}
-          onClick={() => void removeHost(host)}
-          type="button"
-        >
-          ×
-        </button>
+        <div className="host-actions">
+          <button
+            aria-label={`${host.favorite ? "Remove" : "Add"} ${host.name} to favorites`}
+            onClick={() => void toggleFavorite(host)}
+            type="button"
+          >
+            <Star size={13} fill={host.favorite ? "currentColor" : "none"} />
+          </button>
+          <button
+            aria-label={`Edit ${host.name}`}
+            onClick={() => edit(host)}
+            type="button"
+          >
+            <Pencil size={13} />
+          </button>
+          <button
+            aria-label={`Delete ${host.name}`}
+            onClick={() => void removeHost(host)}
+            type="button"
+          >
+            <X size={13} />
+          </button>
+        </div>
       </div>
     ));
 
   return (
-    <aside
-      aria-label="Hosts"
-      className="flex w-72 shrink-0 flex-col border-r border-[var(--hairline)] bg-[var(--sidebar-surface)] backdrop-blur-xl"
-    >
-      <div className="border-b border-[var(--hairline)] px-3.5 pt-3.5 pb-3">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-[13px] font-semibold text-[var(--strong-foreground)]">
-            <span className="grid size-5 place-items-center rounded-md bg-[var(--subtle-surface)] text-[var(--primary)]">
-              <Star className="size-3" />
-            </span>
-            Connections
-          </h2>
+    <aside aria-label="Hosts" className="connections-sidebar">
+      <div className="connections-header">
+        <div className="connections-heading">
+          <h2>Connections</h2>
           <div className="flex items-center gap-1">
             <button
-              className="control-ghost h-7 text-xs"
-              onClick={() =>
-                setPortbility({
-                  mode: "import",
-                  source: "openssh",
-                  content: "",
-                  actions: [],
-                })
-              }
-              type="button"
-            >
-              <Upload className="mr-1 inline size-3" />
-              Import
-            </button>
-            <button
-              className="control-ghost h-7 text-xs"
-              onClick={() => void exportPortbility()}
-              type="button"
-            >
-              <Download className="mr-1 inline size-3" />
-              Export
-            </button>
-            <Button
-              className="h-7 px-2 text-xs"
+              aria-label="New"
+              title="New connection"
+              className="control-icon"
               onClick={() => setDraft({ ...emptyDraft })}
+              type="button"
             >
-              <Plus className="mr-1 size-3.5" />
-              New
-            </Button>
+              <Plus size={17} />
+            </button>
+            <ActionMenu label="Connection actions">
+              <button
+                onClick={() =>
+                  setPortbility({
+                    mode: "import",
+                    source: "openssh",
+                    content: "",
+                    actions: [],
+                  })
+                }
+                type="button"
+              >
+                <Upload size={14} />
+                Import
+              </button>
+              <button onClick={() => void exportPortbility()} type="button">
+                <Download size={14} />
+                Export
+              </button>
+              <label className="menu-checkbox">
+                <input
+                  checked={favoritesOnly}
+                  onChange={(event) => setFavoritesOnly(event.target.checked)}
+                  type="checkbox"
+                />
+                Favorites only
+              </label>
+            </ActionMenu>
           </div>
         </div>
-        <input
-          aria-label="Search hosts"
-          className="field"
-          ref={searchInput}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search hosts…"
-          value={search}
-        />
-        <label className="mt-2 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+        <div className="host-search">
+          <Search size={14} aria-hidden="true" />
           <input
-            checked={favoritesOnly}
-            onChange={(event) => setFavoritesOnly(event.target.checked)}
-            type="checkbox"
-          />{" "}
-          Favorites only
-        </label>
+            aria-label="Search hosts"
+            ref={searchInput}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search hosts…"
+            value={search}
+          />
+          <kbd>Ctrl F</kbd>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
-        {recentHosts.length > 0 ? (
-          <section className="mb-3" aria-label="Recent connections">
-            <div className="px-2 py-1.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Recent
+        {visibleHosts.some((host) => host.favorite) ? (
+          <section className="mb-4" aria-label="Favorite connections">
+            <div className="host-section-heading">
+              <Star size={13} /> Favorites
             </div>
-            {rows(recentHosts)}
+            {rows(visibleHosts.filter((host) => host.favorite))}
+          </section>
+        ) : null}
+        {!favoritesOnly &&
+        recentHosts.some(
+          (host) =>
+            !host.favorite &&
+            visibleHosts.some((visible) => visible.id === host.id),
+        ) ? (
+          <section className="mb-3" aria-label="Recent connections">
+            <div className="host-section-heading">
+              <Clock size={13} /> Recent
+            </div>
+            {rows(
+              recentHosts.filter(
+                (host) =>
+                  !host.favorite &&
+                  visibleHosts.some((visible) => visible.id === host.id),
+              ),
+            )}
           </section>
         ) : null}
         {groups.map((group) => (
           <section className="mb-3" key={group.id}>
-            <div className="flex items-center justify-between px-2 py-1.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+            <div className="host-section-heading justify-between">
               <span>{group.name}</span>
               <div className="flex gap-2">
                 <button
@@ -376,26 +418,44 @@ export function HostsWorkspace({
                   onClick={() => void renameGroup(group)}
                   type="button"
                 >
-                  ✎
+                  <Pencil size={13} />
                 </button>
                 <button
                   aria-label={"Delete group " + group.name}
                   onClick={() => void removeGroup(group)}
                   type="button"
                 >
-                  ×
+                  <X size={13} />
                 </button>
               </div>
             </div>
-            {rows(visibleHosts.filter((host) => host.groupId === group.id))}
+            {rows(
+              visibleHosts.filter(
+                (host) => host.groupId === group.id && !host.favorite,
+              ),
+            )}
           </section>
         ))}
-        <section>
-          <div className="px-2 py-1.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-            Ungrouped
-          </div>
-          {rows(visibleHosts.filter((host) => !host.groupId))}
-        </section>
+        {visibleHosts.some(
+          (host) =>
+            !host.groupId &&
+            !host.favorite &&
+            !recentHosts.some((recent) => recent.id === host.id),
+        ) ? (
+          <section>
+            <div className="host-section-heading">
+              <Folder size={13} /> Ungrouped
+            </div>
+            {rows(
+              visibleHosts.filter(
+                (host) =>
+                  !host.groupId &&
+                  !host.favorite &&
+                  !recentHosts.some((recent) => recent.id === host.id),
+              ),
+            )}
+          </section>
+        ) : null}
         {visibleHosts.length === 0 ? (
           <div className="m-2 rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted-foreground)]">
             <p>No saved connections.</p>
@@ -414,7 +474,7 @@ export function HostsWorkspace({
           </p>
         ) : null}
       </div>
-      <div className="border-t border-[var(--hairline)] bg-[var(--control-surface)] p-3">
+      <div className="connections-footer">
         <form
           className="flex gap-2"
           onSubmit={(event) => {
@@ -431,7 +491,11 @@ export function HostsWorkspace({
             placeholder="user@host:port"
             value={quickConnect}
           />
-          <Button className="h-8 px-2 text-xs" type="submit">
+          <Button
+            variant="secondary"
+            className="h-8 px-2 text-xs"
+            type="submit"
+          >
             Connect
           </Button>
         </form>
