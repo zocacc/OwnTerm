@@ -33,5 +33,6 @@ Persistência, diálogo Appearance, opacidade do canvas xterm e publicação de 
 
 - `apps/desktop/src-tauri/src/window_opacity.rs` encapsula `HWND`, `WS_EX_LAYERED` e `SetLayeredWindowAttributes(LWA_ALPHA)`; o estilo original é preservado e restaurado quando a opacidade retorna a 100%.
 - Tauri 2.11 fornece `set_effects` para Mica/Acrylic, mas não uma API de opacidade percentual; por isso o adapter usa a API Win32 diretamente somente na fronteira Tauri.
-- `cargo test -p ownterm-desktop window_opacity --lib`: 2 testes passaram no Linux.
-- A validação cruzada/visual Windows 10 e 11 permanece pendente: este ambiente não possui runner Windows e a instalação do target `x86_64-pc-windows-gnu` falhou por falta de espaço em disco.
+- `cargo fmt --all -- --check` e `git diff --check` passam após a correção da faixa e do tratamento de erro.
+- Teste isolado da conversão 70–100% → alpha (`rustc --test`): 1 teste passou.
+- A validação cruzada/visual Windows 10 e 11 permanece pendente: o target foi instalado, mas a checagem cruzada não concluiu porque o ambiente não possui `x86_64-w64-mingw32-gcc`; a recompilação Linux também foi interrompida por falta de espaço nos artefatos GTK.
