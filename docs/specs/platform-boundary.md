@@ -16,6 +16,7 @@ Manter o OwnTerm Windows-first sem espalhar APIs de Windows, Linux, ConPTY, PTY,
 - `ownterm-terminal::NativeTerminalBackend` implementa terminal e descoberta de shells. Módulos internos isolam Windows/ConPTY/WSL e Unix/PTY.
 - `ownterm-platform::SystemVault` usa o cofre Windows; em Linux retorna `UnsupportedPlatform`.
 - `ownterm-platform::SystemDirectories` resolve `LOCALAPPDATA/OwnTerm` no Windows e XDG data/config no Linux.
+- `apps/desktop/src-tauri::window_opacity` encapsula `HWND`/`WS_EX_LAYERED` no adapter Tauri; React, domínio e application não conhecem APIs de janela.
 
 ## Fora do escopo
 

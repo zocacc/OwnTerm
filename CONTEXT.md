@@ -59,3 +59,7 @@ _Avoid_: aceitar sempre, ignorar fingerprint
 **Workspace Export**:
 Um arquivo JSON versionado que transporta configurações permitidas do OwnTerm. Nunca transporta senhas, passphrases, conteúdo de chaves ou fingerprints confiadas.
 _Avoid_: backup de credenciais, clonagem completa
+
+**Appearance Preference**:
+Uma preferência visual local que controla a opacidade da janela do OwnTerm ou do fundo das Sessions. Ela pertence à instalação em uso e não acompanha um Workspace Export.
+_Avoid_: tema, configuração de Host, transparência de credencial

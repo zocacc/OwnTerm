@@ -8,7 +8,7 @@ Fornecer uma interface dark-first, compacta e keyboard-first que exponha Hosts, 
 
 - AppShell com title bar, activity bar, sidebar de Hosts, tab bar, workspace de terminal e status bar.
 - Tokens semânticos para background, superfícies, texto, borda, primária, sucesso, alerta e erro.
-- Transparência moderada em painel/title bar com fallback sólido quando window effects não estiverem disponíveis.
+- Transparência moderada em painel/title bar com fallback sólido quando window effects não estiverem disponíveis; controles de Appearance seguem `docs/specs/appearance.md`.
 - Estados vazio, carregando, erro, confirmação destrutiva, conexão, confiança SSH e credencial necessária.
 - Atalhos documentados para foco em busca, Quick Connect, abrir shell e alternar abas.
 
@@ -16,7 +16,7 @@ Atalhos do MVP: `Ctrl+F` foca a busca de Hosts, `Ctrl+Shift+C` foca Quick Connec
 
 ## Fora do escopo
 
-- Temas configuráveis, atalhos configuráveis, animações complexas, Figma como gate e reprodução visual de produtos de terceiros.
+- Temas gerais configuráveis, atalhos configuráveis, animações complexas, Figma como gate e reprodução visual de produtos de terceiros. Opacidade de janela e do fundo do terminal são preferências visuais locais definidas na spec de Appearance.
 
 ## Regras de apresentação
 
