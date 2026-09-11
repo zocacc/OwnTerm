@@ -41,3 +41,17 @@ describe("portability commands", () => {
     });
   });
 });
+
+describe("appearance commands", () => {
+  it("uses typed read and write IPC payloads", async () => {
+    await tauriBackend.getAppearanceSettings?.();
+    expect(invoke).toHaveBeenCalledWith("get_appearance_settings");
+    await tauriBackend.saveAppearanceSettings?.({
+      windowOpacity: 92,
+      terminalBackgroundOpacity: 82,
+    });
+    expect(invoke).toHaveBeenCalledWith("save_appearance_settings", {
+      request: { windowOpacity: 92, terminalBackgroundOpacity: 82 },
+    });
+  });
+});

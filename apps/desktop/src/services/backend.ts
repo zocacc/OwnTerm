@@ -107,6 +107,17 @@ export type ImportPreview = {
 };
 export type ImportResult = { applied: number; credentialsToConfigure: number };
 export type SaveGroupRequest = { id?: string; name: string; sortOrder: number };
+export type AppearanceSettings = {
+  windowOpacity: number;
+  terminalBackgroundOpacity: number;
+  windowOpacitySupport: "supported" | "unsupported";
+  windowOpacityApplied: boolean;
+  defaultsApplied: boolean;
+};
+export type SaveAppearanceSettingsRequest = Pick<
+  AppearanceSettings,
+  "windowOpacity" | "terminalBackgroundOpacity"
+>;
 
 export type Unsubscribe = () => void;
 export type EventSubscription<T> = (
@@ -163,6 +174,10 @@ export interface Backend {
     entries: Array<{ host: PortableHost; action: ImportAction }>,
   ): Promise<ImportResult>;
   exportWorkspace?(): Promise<string>;
+  getAppearanceSettings?(): Promise<AppearanceSettings>;
+  saveAppearanceSettings?(
+    request: SaveAppearanceSettingsRequest,
+  ): Promise<AppearanceSettings>;
 }
 
 export const defaultBackend = isTauriEnvironment ? tauriBackend : mockBackend;

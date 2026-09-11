@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
   AppInfo,
+  AppearanceSettings,
+  SaveAppearanceSettingsRequest,
   Backend,
   SessionDescriptor,
   SessionCredentialRequiredEvent,
@@ -88,4 +90,8 @@ export const tauriBackend: Backend = {
   applyImport: (groups, settings, entries) =>
     invoke("apply_import", { request: { groups, settings, entries } }),
   exportWorkspace: () => invoke("export_workspace"),
+  getAppearanceSettings: () =>
+    invoke<AppearanceSettings>("get_appearance_settings"),
+  saveAppearanceSettings: (request: SaveAppearanceSettingsRequest) =>
+    invoke<AppearanceSettings>("save_appearance_settings", { request }),
 };
