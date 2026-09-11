@@ -54,7 +54,7 @@ pub const fn opacity_to_alpha(opacity: u8) -> Option<u8> {
 
 #[cfg(windows)]
 pub fn apply(
-    window: &tauri::Window,
+    window: &tauri::WebviewWindow,
     opacity: u8,
     state: &mut WindowOpacityState,
 ) -> Result<(), WindowOpacityError> {
@@ -115,7 +115,7 @@ fn set_window_style(
 
 #[cfg(not(windows))]
 pub fn apply(
-    _window: &tauri::Window,
+    _window: &tauri::WebviewWindow,
     _opacity: u8,
     _state: &mut WindowOpacityState,
 ) -> Result<(), WindowOpacityError> {

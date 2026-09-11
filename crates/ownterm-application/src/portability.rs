@@ -350,6 +350,8 @@ mod tests {
             ("theme".into(), "dark".into()),
             ("apiKey".into(), "must-not-export".into()),
             ("knownHosts".into(), "must-not-export".into()),
+            ("appearance.windowOpacity".into(), "92".into()),
+            ("appearance.terminalBackgroundOpacity".into(), "82".into()),
         ]);
         let json = encode_workspace(&[], &[host], settings, "2026-01-01T00:00:00Z".into()).unwrap();
         assert!(!json.contains("secret-reference"));

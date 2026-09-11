@@ -5,6 +5,9 @@
 mod window_opacity;
 
 use ownterm_application::OwnTermApplication;
+use ownterm_application::appearance::{
+    AppearanceSettings, TERMINAL_BACKGROUND_OPACITY_KEY, WINDOW_OPACITY_KEY,
+};
 use ownterm_application::platform::AppDirectoriesProvider;
 use ownterm_application::portability::{
     ImportAction, ImportPreview, PortableGroup, PortableHost, decode_workspace, encode_workspace,
@@ -33,8 +36,8 @@ use ownterm_terminal::NativeTerminalBackend;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -44,6 +47,7 @@ struct DesktopState {
     ssh: SshSessionBackend,
     vault: SystemVault,
     store: Arc<SqliteStore>,
+    window_opacity: Mutex<window_opacity::WindowOpacityState>,
 }
 
 impl DesktopState {
@@ -61,6 +65,7 @@ impl DesktopState {
             ssh: SshSessionBackend::default(),
             vault: SystemVault,
             store,
+            window_opacity: Mutex::new(window_opacity::WindowOpacityState::default()),
         })
     }
 }
@@ -704,6 +709,114 @@ struct WindowAppearance {
     acrylic: bool,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppearanceSettingsDto {
+    window_opacity: u8,
+    terminal_background_opacity: u8,
+    window_opacity_support: &'static str,
+    window_opacity_applied: bool,
+    window_opacity_warning: Option<&'static str>,
+    defaults_applied: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveAppearanceSettingsRequest {
+    window_opacity: u8,
+    terminal_background_opacity: u8,
+}
+
+fn appearance_settings_from_store(
+    state: &DesktopState,
+) -> Result<(AppearanceSettings, bool), String> {
+    let window = state
+        .store
+        .get_setting(WINDOW_OPACITY_KEY)
+        .map_err(|e| format!("could not read appearance settings: {e:?}"))?;
+    let terminal = state
+        .store
+        .get_setting(TERMINAL_BACKGROUND_OPACITY_KEY)
+        .map_err(|e| format!("could not read appearance settings: {e:?}"))?;
+    let loaded = AppearanceSettings::from_storage(
+        window.as_ref().map(|s| s.value.as_str()),
+        terminal.as_ref().map(|s| s.value.as_str()),
+    );
+    Ok((loaded.settings, loaded.defaults_applied))
+}
+
+fn apply_window_opacity(
+    window: &tauri::WebviewWindow,
+    state: &DesktopState,
+    settings: AppearanceSettings,
+) -> bool {
+    let Ok(mut adapter_state) = state.window_opacity.lock() else {
+        return false;
+    };
+    if window_opacity::apply(window, settings.window_opacity, &mut adapter_state).is_ok() {
+        return true;
+    }
+    // Native failure is non-blocking: restore a solid window when possible.
+    let _ = window_opacity::apply(window, 100, &mut adapter_state);
+    false
+}
+
+fn appearance_dto(
+    settings: AppearanceSettings,
+    defaults_applied: bool,
+    applied: bool,
+) -> AppearanceSettingsDto {
+    AppearanceSettingsDto {
+        window_opacity: settings.window_opacity,
+        terminal_background_opacity: settings.terminal_background_opacity,
+        window_opacity_support: match window_opacity::support() {
+            window_opacity::WindowOpacitySupport::Supported => "supported",
+            window_opacity::WindowOpacitySupport::Unsupported => "unsupported",
+        },
+        window_opacity_applied: applied,
+        window_opacity_warning: (!applied)
+            .then_some("Window opacity is unavailable; using a solid window."),
+        defaults_applied,
+    }
+}
+
+#[tauri::command]
+fn get_appearance_settings(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> Result<AppearanceSettingsDto, String> {
+    let (settings, defaults_applied) = appearance_settings_from_store(&state)?;
+    let applied = apply_window_opacity(&window, &state, settings);
+    Ok(appearance_dto(settings, defaults_applied, applied))
+}
+
+#[tauri::command]
+fn save_appearance_settings(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+    request: SaveAppearanceSettingsRequest,
+) -> Result<AppearanceSettingsDto, String> {
+    let settings =
+        AppearanceSettings::try_new(request.window_opacity, request.terminal_background_opacity)
+            .map_err(|e| e.to_string())?;
+    state
+        .store
+        .set_setting(&ownterm_application::repositories::Setting {
+            key: WINDOW_OPACITY_KEY.into(),
+            value: settings.window_opacity.to_string(),
+        })
+        .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
+    state
+        .store
+        .set_setting(&ownterm_application::repositories::Setting {
+            key: TERMINAL_BACKGROUND_OPACITY_KEY.into(),
+            value: settings.terminal_background_opacity.to_string(),
+        })
+        .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
+    let applied = apply_window_opacity(&window, &state, settings);
+    Ok(appearance_dto(settings, false, applied))
+}
+
 #[tauri::command]
 fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
     #[cfg(target_os = "windows")]
@@ -744,6 +857,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             prepare_window_chrome,
             show_custom_chrome,
+            get_appearance_settings,
+            save_appearance_settings,
             app_info,
             list_shell_profiles,
             start_local_session,
