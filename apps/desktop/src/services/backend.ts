@@ -112,6 +112,7 @@ export type AppearanceSettings = {
   terminalBackgroundOpacity: number;
   windowOpacitySupport: "supported" | "unsupported";
   windowOpacityApplied: boolean;
+  windowOpacityWarning: string | null;
   defaultsApplied: boolean;
 };
 export type SaveAppearanceSettingsRequest = Pick<

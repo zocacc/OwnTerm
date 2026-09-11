@@ -44,7 +44,18 @@ describe("portability commands", () => {
 
 describe("appearance commands", () => {
   it("uses typed read and write IPC payloads", async () => {
-    await tauriBackend.getAppearanceSettings?.();
+    invoke.mockResolvedValueOnce({
+      windowOpacity: 92,
+      terminalBackgroundOpacity: 82,
+      windowOpacitySupport: "unsupported",
+      windowOpacityApplied: false,
+      windowOpacityWarning:
+        "Window opacity is unavailable; using a solid window.",
+      defaultsApplied: false,
+    });
+    const settings = await tauriBackend.getAppearanceSettings?.();
+    expect(settings?.windowOpacityApplied).toBe(false);
+    expect(settings?.windowOpacityWarning).toContain("solid window");
     expect(invoke).toHaveBeenCalledWith("get_appearance_settings");
     await tauriBackend.saveAppearanceSettings?.({
       windowOpacity: 92,

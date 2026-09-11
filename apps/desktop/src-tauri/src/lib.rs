@@ -716,6 +716,7 @@ struct AppearanceSettingsDto {
     terminal_background_opacity: u8,
     window_opacity_support: &'static str,
     window_opacity_applied: bool,
+    window_opacity_warning: Option<&'static str>,
     defaults_applied: bool,
 }
 
@@ -752,7 +753,12 @@ fn apply_window_opacity(
     let Ok(mut adapter_state) = state.window_opacity.lock() else {
         return false;
     };
-    window_opacity::apply(window, settings.window_opacity, &mut adapter_state).is_ok()
+    if window_opacity::apply(window, settings.window_opacity, &mut adapter_state).is_ok() {
+        return true;
+    }
+    // Native failure is non-blocking: restore a solid window when possible.
+    let _ = window_opacity::apply(window, 100, &mut adapter_state);
+    false
 }
 
 fn appearance_dto(
@@ -768,6 +774,8 @@ fn appearance_dto(
             window_opacity::WindowOpacitySupport::Unsupported => "unsupported",
         },
         window_opacity_applied: applied,
+        window_opacity_warning: (!applied)
+            .then_some("Window opacity is unavailable; using a solid window."),
         defaults_applied,
     }
 }
