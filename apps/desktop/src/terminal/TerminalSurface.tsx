@@ -15,6 +15,7 @@ type TerminalSurfaceProps = {
   onError(message: string): void;
   onReady(sessionId: string, handle?: TerminalHandle): void;
   sessionId: string;
+  terminalBackgroundOpacity: number;
 };
 
 export function TerminalSurface({
@@ -23,6 +24,7 @@ export function TerminalSurface({
   onError,
   onReady,
   sessionId,
+  terminalBackgroundOpacity,
 }: TerminalSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef(active);
@@ -123,9 +125,12 @@ export function TerminalSurface({
   return (
     <div
       aria-hidden={!active}
-      className={active ? "h-full w-full p-3" : "hidden"}
+      className={active ? "terminal-surface h-full w-full p-3" : "hidden"}
       data-testid={`terminal-${sessionId}`}
       ref={containerRef}
+      style={{
+        backgroundColor: `rgb(12 15 21 / ${terminalBackgroundOpacity}%)`,
+      }}
     />
   );
 }

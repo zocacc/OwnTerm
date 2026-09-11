@@ -4,6 +4,7 @@ import {
   Plus,
   ChevronDown,
   Monitor,
+  Settings,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +16,7 @@ import ownTermLogo from "./assets/svg/ownterm-logo.svg";
 import {
   defaultBackend,
   type AppInfo,
+  type AppearanceSettings,
   type Backend,
   type SessionDescriptor,
   type SessionCredentialRequiredEvent,
@@ -39,6 +41,15 @@ type OpenSession = SessionDescriptor & {
 
 type SshTarget = { hostId?: string; destination?: string };
 
+const defaultAppearance: AppearanceSettings = {
+  windowOpacity: 92,
+  terminalBackgroundOpacity: 82,
+  windowOpacitySupport: "unsupported",
+  windowOpacityApplied: false,
+  windowOpacityWarning: null,
+  defaultsApplied: false,
+};
+
 const statusLabels: Record<SessionStatus, string> = {
   starting: "Starting",
   awaiting_trust: "Awaiting trust",
@@ -59,6 +70,8 @@ function App({ backend = defaultBackend }: AppProps) {
   const [terminalEventsReady, setTerminalEventsReady] = useState(false);
   const [hostsRefreshToken, setHostsRefreshToken] = useState(0);
   const [connectionsOpen, setConnectionsOpen] = useState(true);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [appearance, setAppearance] = useState(defaultAppearance);
   const [trustPrompt, setTrustPrompt] = useState<SessionTrustRequiredEvent>();
   const [credentialPrompt, setCredentialPrompt] =
     useState<SessionCredentialRequiredEvent>();
@@ -67,11 +80,17 @@ function App({ backend = defaultBackend }: AppProps) {
     Boolean(credentialPrompt),
   );
   const credentialInput = useRef<HTMLInputElement>(null);
+  const appearanceTrigger = useRef<HTMLButtonElement>(null);
+  const appearanceSaveVersion = useRef(0);
   const sshTargets = useRef(new Map<string, SshTarget>());
   const terminals = useRef(new Map<string, TerminalHandle>());
   const pendingOutput = useRef(new Map<string, number[][]>());
   const pendingStatus = useRef(new Map<string, SessionStatusEvent>());
   const closedSessions = useRef(new Set<string>());
+  const appearanceDialogRef = useDialogFocus<HTMLElement>(
+    appearanceOpen,
+    appearanceTrigger,
+  );
 
   const reportError = useCallback((message: string) => setError(message), []);
 
@@ -226,6 +245,22 @@ function App({ backend = defaultBackend }: AppProps) {
       for (const unsubscribe of unsubscribers) {
         unsubscribe();
       }
+    };
+  }, [backend]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!backend.getAppearanceSettings) return;
+    void backend
+      .getAppearanceSettings()
+      .then((settings) => {
+        if (mounted) setAppearance(settings);
+      })
+      .catch(() => {
+        if (mounted) setError("Could not load appearance preferences.");
+      });
+    return () => {
+      mounted = false;
     };
   }, [backend]);
 
@@ -419,6 +454,31 @@ function App({ backend = defaultBackend }: AppProps) {
     [backend, credentialPrompt],
   );
 
+  const saveAppearance = useCallback(
+    (
+      next: Pick<
+        AppearanceSettings,
+        "windowOpacity" | "terminalBackgroundOpacity"
+      >,
+    ) => {
+      const requested = { ...appearance, ...next };
+      setAppearance(requested);
+      const version = ++appearanceSaveVersion.current;
+      if (!backend.saveAppearanceSettings) return;
+      void backend
+        .saveAppearanceSettings(next)
+        .then((saved) => {
+          if (version === appearanceSaveVersion.current) setAppearance(saved);
+        })
+        .catch(() => {
+          if (version === appearanceSaveVersion.current) {
+            setError("Could not save appearance preferences.");
+          }
+        });
+    },
+    [appearance, backend],
+  );
+
   return (
     <main className="app-shell">
       <header className="titlebar" data-tauri-drag-region>
@@ -528,6 +588,17 @@ function App({ backend = defaultBackend }: AppProps) {
               <Terminal className="size-4" />
             )}
           </button>
+          <button
+            aria-label="Appearance settings"
+            aria-pressed={appearanceOpen}
+            className="rail-button appearance-button"
+            onClick={() => setAppearanceOpen(true)}
+            ref={appearanceTrigger}
+            title="Appearance settings"
+            type="button"
+          >
+            <Settings className="size-4" />
+          </button>
         </nav>
         {connectionsOpen ? (
           <HostsWorkspace
@@ -596,6 +667,7 @@ function App({ backend = defaultBackend }: AppProps) {
                 onError={reportError}
                 onReady={registerTerminal}
                 sessionId={session.id}
+                terminalBackgroundOpacity={appearance.terminalBackgroundOpacity}
               />
             ))}
           </section>
@@ -656,6 +728,102 @@ function App({ backend = defaultBackend }: AppProps) {
           </span>
         </div>
       </footer>
+
+      {appearanceOpen ? (
+        <div className="dialog-backdrop" role="presentation">
+          <section
+            aria-describedby="appearance-description"
+            aria-labelledby="appearance-title"
+            aria-modal="true"
+            className="dialog appearance-dialog"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setAppearanceOpen(false);
+            }}
+            ref={appearanceDialogRef}
+            role="dialog"
+          >
+            <div className="appearance-dialog-heading">
+              <div>
+                <h2 className="font-semibold" id="appearance-title">
+                  Appearance
+                </h2>
+                <p id="appearance-description">
+                  Adjust local opacity preferences. Changes apply immediately.
+                </p>
+              </div>
+              <button
+                aria-label="Close appearance settings"
+                className="control-icon"
+                onClick={() => setAppearanceOpen(false)}
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <label htmlFor="window-opacity">
+              <span>
+                Window opacity <output>{appearance.windowOpacity}%</output>
+              </span>
+              <input
+                aria-valuetext={`${appearance.windowOpacity}%`}
+                id="window-opacity"
+                max="100"
+                min="70"
+                onChange={(event) =>
+                  saveAppearance({
+                    windowOpacity: Number(event.target.value),
+                    terminalBackgroundOpacity:
+                      appearance.terminalBackgroundOpacity,
+                  })
+                }
+                step="1"
+                type="range"
+                value={appearance.windowOpacity}
+              />
+            </label>
+            {appearance.windowOpacityWarning ? (
+              <p className="appearance-warning" role="status">
+                {appearance.windowOpacityWarning}
+              </p>
+            ) : null}
+            <label htmlFor="terminal-background-opacity">
+              <span>
+                Terminal background opacity{" "}
+                <output>{appearance.terminalBackgroundOpacity}%</output>
+              </span>
+              <input
+                aria-valuetext={`${appearance.terminalBackgroundOpacity}%`}
+                id="terminal-background-opacity"
+                max="100"
+                min="55"
+                onChange={(event) =>
+                  saveAppearance({
+                    windowOpacity: appearance.windowOpacity,
+                    terminalBackgroundOpacity: Number(event.target.value),
+                  })
+                }
+                step="1"
+                type="range"
+                value={appearance.terminalBackgroundOpacity}
+              />
+            </label>
+            <div className="appearance-dialog-actions">
+              <Button
+                onClick={() =>
+                  saveAppearance({
+                    windowOpacity: 92,
+                    terminalBackgroundOpacity: 82,
+                  })
+                }
+                variant="secondary"
+              >
+                Reset defaults
+              </Button>
+              <Button onClick={() => setAppearanceOpen(false)}>Done</Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {trustPrompt ? (
         <div className="dialog-backdrop" role="presentation">
