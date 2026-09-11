@@ -692,11 +692,54 @@ const fn status_name(status: SessionStatus) -> &'static str {
     }
 }
 
+// Presentation only: keep native decorations unless the frontend is ready.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowAppearance {
+    custom_titlebar: bool,
+    acrylic: bool,
+}
+
+#[tauri::command]
+fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
+    #[cfg(target_os = "windows")]
+    {
+        // Use the native result, rather than a queued window-effect request,
+        // so unsupported Acrylic leaves the frontend's opaque fallback intact.
+        let acrylic = window_vibrancy::apply_acrylic(&window, Some((20, 23, 30, 150))).is_ok();
+        WindowAppearance {
+            custom_titlebar: true,
+            acrylic,
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        WindowAppearance {
+            custom_titlebar: false,
+            acrylic: false,
+        }
+    }
+}
+
+#[tauri::command]
+fn show_custom_chrome(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    window
+        .set_decorations(false)
+        .map_err(|error| error.to_string())?;
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(DesktopState::open().expect("could not initialize OwnTerm storage"))
         .invoke_handler(tauri::generate_handler![
+            prepare_window_chrome,
+            show_custom_chrome,
             app_info,
             list_shell_profiles,
             start_local_session,

@@ -1,5 +1,13 @@
-import { PanelLeft, Terminal } from "lucide-react";
+import {
+  PanelLeft,
+  Terminal,
+  Plus,
+  ChevronDown,
+  Monitor,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { WindowControls } from "./components/WindowControls";
 import { Button } from "./components/ui/button";
 import { useDialogFocus } from "./components/useDialogFocus";
 import { HostsWorkspace } from "./components/HostsWorkspace";
@@ -412,28 +420,19 @@ function App({ backend = defaultBackend }: AppProps) {
   );
 
   return (
-    <main className="flex h-screen min-h-[480px] flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <header className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--hairline)] bg-[var(--titlebar)] px-3 backdrop-blur-xl">
-        <div className="flex min-w-0 items-center gap-2.5 pr-4">
-          <img alt="" className="size-6 rounded-[5px]" src={ownTermLogo} />
-          <h1 className="text-[12.5px] font-medium tracking-[0.01em] text-[var(--strong-foreground)]">
-            OwnTerm
-          </h1>
-          <span className="hidden h-4 w-px bg-[var(--hairline)] sm:block" />
-          <span className="hidden text-[11px] text-[var(--muted-foreground)] sm:inline">
-            Terminal workspace
-          </span>
+    <main className="app-shell">
+      <header className="titlebar" data-tauri-drag-region>
+        <div className="brand" data-tauri-drag-region>
+          <img alt="" src={ownTermLogo} />
+          <h1 data-tauri-drag-region>OwnTerm</h1>
         </div>
-        <nav
-          aria-label="Sessions"
-          className="flex min-w-0 flex-1 items-stretch gap-0 overflow-x-auto"
-        >
+        <nav aria-label="Sessions" className="session-tabs">
           {sessions.map((session) => (
             <div
               className={
                 session.id === activeSessionId
-                  ? "relative flex h-full min-w-40 items-center gap-2 border-r border-[var(--hairline)] bg-[var(--terminal)] px-3 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-[var(--primary)]"
-                  : "flex h-full min-w-40 items-center gap-2 border-r border-[var(--hairline)] px-3 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--control-hover)] hover:text-[var(--foreground)]"
+                  ? "session-tab is-active"
+                  : "session-tab"
               }
               key={session.id}
             >
@@ -460,57 +459,63 @@ function App({ backend = defaultBackend }: AppProps) {
                 onClick={() => closeSession(session.id)}
                 type="button"
               >
-                ×
+                <X size={14} />
               </button>
             </div>
           ))}
         </nav>
-        <div className="flex shrink-0 items-center gap-2">
-          <label className="sr-only" htmlFor="shell-profile">
-            Shell profile
-          </label>
-          <select
-            className="h-7 max-w-48 rounded-md border border-[var(--hairline)] bg-[var(--control-surface)] px-2 text-[11px] text-[var(--foreground)] outline-none transition-colors hover:bg-[var(--control-hover)] focus:border-[var(--primary)]"
-            disabled={profiles.length === 0}
-            id="shell-profile"
-            onChange={(event) => setSelectedProfileId(event.target.value)}
-            value={selectedProfileId}
-          >
-            {profiles.length === 0 ? (
-              <option>No shell available</option>
-            ) : (
-              profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))
-            )}
-          </select>
-          <Button
-            className="h-7 rounded-md px-2.5 py-0 text-[11px]"
+        <div className="tab-actions">
+          <button
+            aria-label={
+              opening
+                ? "Opening…"
+                : terminalEventsReady
+                  ? "New tab"
+                  : "Preparing…"
+            }
+            title="New tab (Ctrl+Shift+T)"
+            className="control-icon"
             disabled={!selectedProfileId || opening || !terminalEventsReady}
             onClick={() => void openSession()}
+            type="button"
           >
-            {opening
-              ? "Opening…"
-              : terminalEventsReady
-                ? "New tab"
-                : "Preparing…"}
-          </Button>
+            <Plus size={17} />
+          </button>
+          <div className="shell-picker" title="Shell profile">
+            <ChevronDown size={16} aria-hidden="true" />
+            <label className="sr-only" htmlFor="shell-profile">
+              Shell profile
+            </label>
+            <select
+              disabled={profiles.length === 0}
+              id="shell-profile"
+              onChange={(event) => setSelectedProfileId(event.target.value)}
+              value={selectedProfileId}
+            >
+              {profiles.length === 0 ? (
+                <option>No shell available</option>
+              ) : (
+                profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
         </div>
+        <div className="titlebar-space" data-tauri-drag-region />
+        <WindowControls />
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <nav
-          aria-label="Workspace"
-          className="flex w-12 shrink-0 flex-col items-center border-r border-[var(--hairline)] bg-[var(--toolbar)] py-2"
-        >
+        <nav aria-label="Workspace" className="activity-rail">
           <button
             aria-label={
               connectionsOpen ? "Collapse connections" : "Expand connections"
             }
             aria-pressed={connectionsOpen}
-            className="control-icon text-[var(--primary)]"
+            className="rail-button"
             onClick={() => setConnectionsOpen((open) => !open)}
             title={
               connectionsOpen ? "Collapse connections" : "Expand connections"
@@ -529,16 +534,31 @@ function App({ backend = defaultBackend }: AppProps) {
             backend={backend}
             onOpenLocal={() => void openSession()}
             refreshToken={hostsRefreshToken}
+            activeHostId={
+              activeSession?.kind.type === "ssh"
+                ? activeSession.kind.hostId
+                : undefined
+            }
+            connectedHostIds={sessions
+              .filter((session) => session.status === "connected")
+              .flatMap((session) => {
+                const hostId =
+                  session.kind.type === "ssh" ? session.kind.hostId : undefined;
+                return hostId ? [hostId] : [];
+              })}
             onRequestConnection={requestHostConnection}
           />
         ) : null}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-10 shrink-0 items-center gap-3 border-b border-[var(--hairline)] bg-[var(--toolbar)] px-3 text-[11px] backdrop-blur-xl">
+        <div className="terminal-workspace">
+          <div className="session-info">
+            <Monitor
+              size={14}
+              className="shrink-0 text-[var(--muted-foreground)]"
+            />
             <span className="min-w-0 truncate text-[var(--strong-foreground)]">
               {activeSession ? activeSession.title : "No active session"}
             </span>
-            <span className="text-[var(--muted-foreground)]">/</span>
-            <span className="font-mono text-[var(--primary)]">
+            <span className="session-kind">
               {activeSession?.kind.type === "ssh"
                 ? "SSH"
                 : activeSession
@@ -546,17 +566,20 @@ function App({ backend = defaultBackend }: AppProps) {
                   : "Ready"}
             </span>
             {activeSession ? (
-              <span className="ml-auto flex items-center gap-1.5 rounded-md border border-[var(--hairline)] px-2 py-0.5 text-[var(--muted-foreground)]">
+              <span
+                className={`session-badge ${activeSession.status === "connected" ? "is-connected" : ""}`}
+              >
                 <span className={`status-dot status-${activeSession.status}`} />
                 {statusLabels[activeSession.status]}
               </span>
             ) : null}
           </div>
-          <section className="relative min-h-0 flex-1 bg-[var(--terminal)]">
+          <section className="terminal-stage">
             {sessions.length === 0 ? (
-              <div className="grid h-full place-items-center p-8 text-center">
+              <div className="empty-terminal">
                 <div>
-                  <p className="font-mono text-sm text-[var(--primary)]">
+                  <Terminal className="empty-terminal-icon" size={32} />
+                  <p className="text-sm text-[var(--strong-foreground)]">
                     No open sessions
                   </p>
                   <p className="mt-2 text-sm text-[var(--muted-foreground)]">
@@ -579,7 +602,7 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
       </div>
 
-      <footer className="flex min-h-8 shrink-0 items-center justify-between gap-4 border-t border-[var(--hairline)] bg-[var(--statusbar)] px-3 text-[11px] text-[var(--muted-foreground)] backdrop-blur-xl">
+      <footer className="statusbar">
         <div className="flex min-w-0 items-center gap-3">
           <span className="text-[var(--muted-foreground)]">
             {appInfo ? `${appInfo.name} ${appInfo.version}` : "Starting core…"}

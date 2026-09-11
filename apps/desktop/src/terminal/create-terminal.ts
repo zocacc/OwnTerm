@@ -4,6 +4,7 @@ import { Terminal } from "@xterm/xterm";
 export function createTerminal() {
   const terminal = new Terminal({
     allowProposedApi: false,
+    allowTransparency: true,
     convertEol: false,
     cursorBlink: true,
     cursorStyle: "bar",
@@ -11,7 +12,7 @@ export function createTerminal() {
     fontSize: 14,
     scrollback: 5_000,
     theme: {
-      background: "#111016",
+      background: "#00000000",
       cursor: "#b9a7ff",
       foreground: "#f4f2f8",
       selectionBackground: "#6750a455",
