@@ -1,4 +1,8 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
+
+#[allow(dead_code)]
+#[cfg_attr(windows, allow(unsafe_code))]
+mod window_opacity;
 
 use ownterm_application::OwnTermApplication;
 use ownterm_application::platform::AppDirectoriesProvider;
