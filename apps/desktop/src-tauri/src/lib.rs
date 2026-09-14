@@ -787,6 +787,10 @@ fn get_appearance_settings(
 ) -> Result<AppearanceSettingsDto, String> {
     let (settings, defaults_applied) = appearance_settings_from_store(&state)?;
     let applied = apply_window_opacity(&window, &state, settings);
+    // Layered-window style changes can clear the DWM backdrop. Reapply it
+    // after setting the saved native alpha so terminal translucency remains
+    // independent from Window Opacity.
+    let _ = window_material(&window);
     Ok(appearance_dto(settings, defaults_applied, applied))
 }
 
@@ -814,6 +818,8 @@ fn save_appearance_settings(
         })
         .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
     let applied = apply_window_opacity(&window, &state, settings);
+    // Restoring 100% removes WS_EX_LAYERED, which may reset Acrylic.
+    let _ = window_material(&window);
     Ok(appearance_dto(settings, false, applied))
 }
 
@@ -849,13 +855,13 @@ fn refresh_window_material(
     window: tauri::WebviewWindow,
     state: State<'_, DesktopState>,
 ) -> WindowAppearance {
-    let material = window_material(&window);
     // Maximizing/fullscreen can reset both DWM material and layered-window
-    // alpha. Restore the persisted preference after the native transition.
+    // alpha. Restore the stored alpha first, then reapply Acrylic because the
+    // WS_EX_LAYERED transition can clear the DWM backdrop.
     if let Ok((settings, _)) = appearance_settings_from_store(&state) {
         let _ = apply_window_opacity(&window, &state, settings);
     }
-    material
+    window_material(&window)
 }
 
 #[tauri::command]
