@@ -845,8 +845,17 @@ fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
 }
 
 #[tauri::command]
-fn refresh_window_material(window: tauri::WebviewWindow) -> WindowAppearance {
-    window_material(&window)
+fn refresh_window_material(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> WindowAppearance {
+    let material = window_material(&window);
+    // Maximizing/fullscreen can reset both DWM material and layered-window
+    // alpha. Restore the persisted preference after the native transition.
+    if let Ok((settings, _)) = appearance_settings_from_store(&state) {
+        let _ = apply_window_opacity(&window, &state, settings);
+    }
+    material
 }
 
 #[tauri::command]
