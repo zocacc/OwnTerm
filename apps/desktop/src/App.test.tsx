@@ -76,6 +76,32 @@ class TestBackend implements Backend {
     windowOpacityApplied: false,
     windowOpacityWarning: null,
     defaultsApplied: false,
+    activeProfileId: "migrated-appearance",
+    profiles: [
+      {
+        id: "migrated-appearance",
+        name: "Migrated appearance",
+        colorSchemeId: "ownterm-default",
+        fontFamily: "Consolas",
+        fontSize: 14,
+        windowOpacity: 92,
+        terminalBackgroundOpacity: 82,
+        useAcrylic: true,
+        builtIn: false,
+      },
+    ],
+    colorSchemes: [
+      {
+        id: "ownterm-default",
+        name: "OwnTerm Default",
+        background: "#0c0f15",
+        foreground: "#f4f2f8",
+        cursor: "#b9a7ff",
+        selectionBackground: "#6750a455",
+        ansi: Array(16).fill("#ffffff"),
+        builtIn: true,
+      },
+    ],
   };
 
   async appInfo() {
@@ -393,9 +419,10 @@ describe("local terminal workspace", () => {
         target: { value: "64" },
       },
     );
-    expect(backend.appearanceSaves.at(-1)).toEqual({
+    expect(backend.appearanceSaves.at(-1)).toMatchObject({
       windowOpacity: 92,
       terminalBackgroundOpacity: 64,
+      activeProfileId: "migrated-appearance",
     });
     expect(screen.getByTestId("terminal-session-1")).toHaveAttribute(
       "data-opacity",
@@ -409,7 +436,7 @@ describe("local terminal workspace", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Reset defaults" }));
-    expect(backend.appearanceSaves.at(-1)).toEqual({
+    expect(backend.appearanceSaves.at(-1)).toMatchObject({
       windowOpacity: 92,
       terminalBackgroundOpacity: 82,
     });

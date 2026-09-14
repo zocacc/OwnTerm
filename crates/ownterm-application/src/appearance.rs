@@ -1,7 +1,11 @@
-//! Contrato tipado para preferências locais de aparência.
+//! Contrato tipado para perfis visuais locais de terminal.
+
+use serde::{Deserialize, Serialize};
 
 pub const WINDOW_OPACITY_KEY: &str = "appearance.windowOpacity";
 pub const TERMINAL_BACKGROUND_OPACITY_KEY: &str = "appearance.terminalBackgroundOpacity";
+pub const TERMINAL_APPEARANCE_PROFILES_KEY: &str = "appearance.terminalProfiles";
+pub const ACTIVE_TERMINAL_APPEARANCE_PROFILE_KEY: &str = "appearance.activeTerminalProfile";
 pub const DEFAULT_WINDOW_OPACITY: u8 = 92;
 pub const MIN_WINDOW_OPACITY: u8 = 70;
 pub const MAX_WINDOW_OPACITY: u8 = 100;
@@ -90,6 +94,165 @@ impl AppearanceSettings {
     }
 }
 
+/// A reusable xterm palette. Built-ins are copied to local storage on first
+/// load, so a user can duplicate and change them without mutating the preset.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalColorScheme {
+    pub id: String,
+    pub name: String,
+    pub background: String,
+    pub foreground: String,
+    pub cursor: String,
+    pub selection_background: String,
+    pub ansi: [String; 16],
+    #[serde(default)]
+    pub built_in: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalAppearanceProfile {
+    pub id: String,
+    pub name: String,
+    pub color_scheme_id: String,
+    pub font_family: String,
+    pub font_size: u8,
+    pub window_opacity: u8,
+    pub terminal_background_opacity: u8,
+    pub use_acrylic: bool,
+    #[serde(default)]
+    pub built_in: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalAppearanceCatalog {
+    pub active_profile_id: String,
+    pub profiles: Vec<TerminalAppearanceProfile>,
+    pub color_schemes: Vec<TerminalColorScheme>,
+}
+
+pub fn default_terminal_appearance_catalog(
+    settings: AppearanceSettings,
+) -> TerminalAppearanceCatalog {
+    TerminalAppearanceCatalog {
+        active_profile_id: "migrated-appearance".into(),
+        profiles: vec![TerminalAppearanceProfile {
+            id: "migrated-appearance".into(),
+            name: "Migrated appearance".into(),
+            color_scheme_id: "ownterm-default".into(),
+            font_family: "JetBrains Mono, Cascadia Mono, Consolas, monospace".into(),
+            font_size: 14,
+            window_opacity: settings.window_opacity,
+            terminal_background_opacity: settings.terminal_background_opacity,
+            use_acrylic: true,
+            built_in: false,
+        }],
+        color_schemes: built_in_color_schemes(),
+    }
+}
+
+/// Built-in schemes are immutable product defaults. A caller may only submit
+/// one when its complete payload matches the canonical definition.
+pub fn is_canonical_builtin_scheme(scheme: &TerminalColorScheme) -> bool {
+    !scheme.built_in
+        || built_in_color_schemes()
+            .iter()
+            .any(|builtin| builtin == scheme)
+}
+
+pub fn built_in_color_schemes() -> Vec<TerminalColorScheme> {
+    vec![
+        scheme(
+            "ownterm-default",
+            "OwnTerm Default",
+            "#0c0f15",
+            "#f4f2f8",
+            "#b9a7ff",
+            "#6750a455",
+            [
+                "#151820", "#ff6b81", "#50c878", "#f0c674", "#7aa2f7", "#b9a7ff", "#78dce8",
+                "#d7dae0", "#4b5263", "#ff8294", "#70e1a8", "#ffe08a", "#94b6ff", "#d3bdff",
+                "#9feaf9", "#ffffff",
+            ],
+        ),
+        scheme(
+            "dracula",
+            "Dracula",
+            "#1E1F29",
+            "#F8F8F2",
+            "#BBBBBB",
+            "#44475A",
+            [
+                "#000000", "#FF5555", "#50FA7B", "#F1FA8C", "#BD93F9", "#FF79C6", "#8BE9FD",
+                "#BBBBBB", "#555555", "#FF5555", "#50FA7B", "#F1FA8C", "#BD93F9", "#FF79C6",
+                "#8BE9FD", "#FFFFFF",
+            ],
+        ),
+        scheme(
+            "material-ocean",
+            "MaterialOcean",
+            "#0F111A",
+            "#8F93A2",
+            "#FFCC00",
+            "#1F2233",
+            [
+                "#546E7A", "#FF5370", "#C3E88D", "#FFCB6B", "#82AAFF", "#C792EA", "#89DDFF",
+                "#FFFFFF", "#546E7A", "#FF5370", "#C3E88D", "#FFCB6B", "#82AAFF", "#C792EA",
+                "#89DDFF", "#FFFFFF",
+            ],
+        ),
+        scheme(
+            "moonlight-ii",
+            "Moonlight II",
+            "#222436",
+            "#C8D3F5",
+            "#FFFFFF",
+            "#FFFFFF",
+            [
+                "#191A2A", "#FF757F", "#C3E88D", "#FFC777", "#82AAFF", "#C099FF", "#86E1FC",
+                "#C8D3F5", "#828BB8", "#FF757F", "#C3E88D", "#FFC777", "#82AAFF", "#C099FF",
+                "#86E1FC", "#C8D3F5",
+            ],
+        ),
+        scheme(
+            "tokyo-night",
+            "TokyoNight",
+            "#16161E",
+            "#787C99",
+            "#FFFFFF",
+            "#FFFFFF",
+            [
+                "#363B54", "#F7768E", "#41A6B5", "#E0AF68", "#7AA2F7", "#BB9AF7", "#7DCFFF",
+                "#787C99", "#363B54", "#F7768E", "#41A6B5", "#E0AF68", "#7AA2F7", "#BB9AF7",
+                "#7DCFFF", "#ACB0D0",
+            ],
+        ),
+    ]
+}
+
+fn scheme(
+    id: &str,
+    name: &str,
+    background: &str,
+    foreground: &str,
+    cursor: &str,
+    selection_background: &str,
+    ansi: [&str; 16],
+) -> TerminalColorScheme {
+    TerminalColorScheme {
+        id: id.into(),
+        name: name.into(),
+        background: background.into(),
+        foreground: foreground.into(),
+        cursor: cursor.into(),
+        selection_background: selection_background.into(),
+        ansi: ansi.map(str::to_owned),
+        built_in: true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,6 +263,54 @@ mod tests {
         assert!(AppearanceSettings::try_new(69, 82).is_err());
         assert!(AppearanceSettings::try_new(92, 54).is_err());
         assert!(AppearanceSettings::try_new(70, 55).is_ok());
+    }
+
+    #[test]
+    fn rejects_mutated_builtin_schemes() {
+        let builtin = built_in_color_schemes().into_iter().next().unwrap();
+        assert!(is_canonical_builtin_scheme(&builtin));
+        let mut changed = builtin;
+        changed.background = "#000000".into();
+        assert!(!is_canonical_builtin_scheme(&changed));
+    }
+
+    #[test]
+    fn migrated_catalog_preserves_legacy_opacity_and_provides_terminal_presets() {
+        let catalog =
+            default_terminal_appearance_catalog(AppearanceSettings::try_new(88, 61).unwrap());
+        assert_eq!(catalog.active_profile_id, "migrated-appearance");
+        assert_eq!(catalog.profiles[0].window_opacity, 88);
+        assert_eq!(catalog.profiles[0].terminal_background_opacity, 61);
+        assert!(
+            catalog
+                .color_schemes
+                .iter()
+                .any(|scheme| scheme.name == "Dracula")
+        );
+        assert!(
+            catalog
+                .color_schemes
+                .iter()
+                .any(|scheme| scheme.name == "MaterialOcean")
+        );
+        assert!(
+            catalog
+                .color_schemes
+                .iter()
+                .any(|scheme| scheme.name == "Moonlight II")
+        );
+        assert!(
+            catalog
+                .color_schemes
+                .iter()
+                .any(|scheme| scheme.name == "TokyoNight")
+        );
+        assert!(
+            catalog
+                .color_schemes
+                .iter()
+                .all(|scheme| scheme.ansi.len() == 16)
+        );
     }
 
     #[test]

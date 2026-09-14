@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
-import type { Backend } from "../services/backend";
-import { createTerminal } from "./create-terminal";
+import type {
+  Backend,
+  TerminalAppearanceProfile,
+  TerminalColorScheme,
+} from "../services/backend";
+import { createTerminal, terminalTheme } from "./create-terminal";
 
 export type TerminalHandle = {
   write(data: number[]): void;
@@ -15,7 +19,10 @@ type TerminalSurfaceProps = {
   onError(message: string): void;
   onReady(sessionId: string, handle?: TerminalHandle): void;
   sessionId: string;
-  terminalBackgroundOpacity: number;
+  profile?: TerminalAppearanceProfile;
+  scheme?: TerminalColorScheme;
+  /** Kept for the legacy surface contract; profile value takes precedence. */
+  terminalBackgroundOpacity?: number;
 };
 
 export function TerminalSurface({
@@ -24,12 +31,57 @@ export function TerminalSurface({
   onError,
   onReady,
   sessionId,
+  profile: suppliedProfile,
+  scheme: suppliedScheme,
   terminalBackgroundOpacity,
 }: TerminalSurfaceProps) {
+  const fallbackScheme: TerminalColorScheme = {
+    id: "fallback",
+    name: "OwnTerm Default",
+    background: "#0c0f15",
+    foreground: "#f4f2f8",
+    cursor: "#b9a7ff",
+    selectionBackground: "#6750a455",
+    ansi: [
+      "#151820",
+      "#ff6b81",
+      "#50c878",
+      "#f0c674",
+      "#7aa2f7",
+      "#b9a7ff",
+      "#78dce8",
+      "#d7dae0",
+      "#4b5263",
+      "#ff8294",
+      "#70e1a8",
+      "#ffe08a",
+      "#94b6ff",
+      "#d3bdff",
+      "#9feaf9",
+      "#ffffff",
+    ],
+    builtIn: true,
+  };
+  const scheme = suppliedScheme ?? fallbackScheme;
+  const profile = suppliedProfile ?? {
+    id: "fallback",
+    name: "OwnTerm Default",
+    colorSchemeId: scheme.id,
+    fontFamily: "JetBrains Mono, Cascadia Mono, Consolas, monospace",
+    fontSize: 14,
+    windowOpacity: 92,
+    terminalBackgroundOpacity: terminalBackgroundOpacity ?? 82,
+    useAcrylic: true,
+    builtIn: true,
+  };
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef(active);
   const fitRef = useRef<() => void>(() => undefined);
   const focusRef = useRef<() => void>(() => undefined);
+  const terminalRef = useRef<
+    ReturnType<typeof createTerminal>["terminal"] | undefined
+  >(undefined);
+  const initialAppearance = useRef({ profile, scheme });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -37,7 +89,13 @@ export function TerminalSurface({
       return;
     }
 
-    const { terminal, fitAddon } = createTerminal();
+    const { profile: initialProfile, scheme: initialScheme } =
+      initialAppearance.current;
+    const { terminal, fitAddon } = createTerminal(
+      initialProfile,
+      initialScheme,
+    );
+    terminalRef.current = terminal;
     terminal.open(container);
 
     let resizeTimer: number | undefined;
@@ -110,6 +168,7 @@ export function TerminalSurface({
       resizeObserver.disconnect();
       inputSubscription.dispose();
       terminal.dispose();
+      terminalRef.current = undefined;
       onReady(sessionId);
     };
   }, [backend, onError, onReady, sessionId]);
@@ -122,6 +181,17 @@ export function TerminalSurface({
     }
   }, [active]);
 
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    if (!terminal.options) return;
+    terminal.options.fontFamily = profile.fontFamily;
+    terminal.options.fontSize = profile.fontSize;
+    terminal.options.theme = terminalTheme(scheme);
+    // Font metrics affect xterm columns/rows; immediately synchronize the PTY.
+    fitRef.current();
+  }, [profile.fontFamily, profile.fontSize, scheme]);
+
   return (
     <div
       aria-hidden={!active}
@@ -129,7 +199,9 @@ export function TerminalSurface({
       data-testid={`terminal-${sessionId}`}
       ref={containerRef}
       style={{
-        backgroundColor: `rgb(12 15 21 / ${terminalBackgroundOpacity}%)`,
+        backgroundColor: suppliedProfile
+          ? `color-mix(in srgb, ${scheme.background} ${profile.terminalBackgroundOpacity}%, transparent)`
+          : `rgb(12 15 21 / ${profile.terminalBackgroundOpacity}%)`,
       }}
     />
   );

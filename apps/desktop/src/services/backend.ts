@@ -107,6 +107,27 @@ export type ImportPreview = {
 };
 export type ImportResult = { applied: number; credentialsToConfigure: number };
 export type SaveGroupRequest = { id?: string; name: string; sortOrder: number };
+export type TerminalColorScheme = {
+  id: string;
+  name: string;
+  background: string;
+  foreground: string;
+  cursor: string;
+  selectionBackground: string;
+  ansi: string[];
+  builtIn: boolean;
+};
+export type TerminalAppearanceProfile = {
+  id: string;
+  name: string;
+  colorSchemeId: string;
+  fontFamily: string;
+  fontSize: number;
+  windowOpacity: number;
+  terminalBackgroundOpacity: number;
+  useAcrylic: boolean;
+  builtIn: boolean;
+};
 export type AppearanceSettings = {
   windowOpacity: number;
   terminalBackgroundOpacity: number;
@@ -114,11 +135,17 @@ export type AppearanceSettings = {
   windowOpacityApplied: boolean;
   windowOpacityWarning: string | null;
   defaultsApplied: boolean;
+  activeProfileId: string;
+  profiles: TerminalAppearanceProfile[];
+  colorSchemes: TerminalColorScheme[];
 };
 export type SaveAppearanceSettingsRequest = Pick<
   AppearanceSettings,
   "windowOpacity" | "terminalBackgroundOpacity"
->;
+> &
+  Partial<
+    Pick<AppearanceSettings, "activeProfileId" | "profiles" | "colorSchemes">
+  >;
 
 export type Unsubscribe = () => void;
 export type EventSubscription<T> = (
@@ -176,6 +203,7 @@ export interface Backend {
   ): Promise<ImportResult>;
   exportWorkspace?(): Promise<string>;
   getAppearanceSettings?(): Promise<AppearanceSettings>;
+  listSystemFonts?(): Promise<string[]>;
   saveAppearanceSettings?(
     request: SaveAppearanceSettingsRequest,
   ): Promise<AppearanceSettings>;

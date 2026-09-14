@@ -60,6 +60,14 @@ _Avoid_: aceitar sempre, ignorar fingerprint
 Um arquivo JSON versionado que transporta configurações permitidas do OwnTerm. Nunca transporta senhas, passphrases, conteúdo de chaves ou fingerprints confiadas.
 _Avoid_: backup de credenciais, clonagem completa
 
+**Terminal Appearance Profile**:
+Uma configuração visual local e global para as Sessions: fonte, esquema de cores, opacidade da janela, opacidade do fundo do terminal e Acrylic. Não é um **Shell Profile** e não define comando algum.
+_Avoid_: shell profile, conexão, tema de Host
+
+**Terminal Color Scheme**:
+Uma paleta reutilizável de fundo, foreground, cursor, seleção e 16 cores ANSI, escolhida por um Terminal Appearance Profile.
+_Avoid_: perfil de shell, credencial
+
 **Appearance Preference**:
 Uma preferência visual local que controla a opacidade da janela do OwnTerm ou do fundo das Sessions. Ela pertence à instalação em uso e não acompanha um Workspace Export.
 _Avoid_: tema, configuração de Host, transparência de credencial
