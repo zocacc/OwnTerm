@@ -1,8 +1,16 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type {
+  AppearanceSettings,
   Backend,
   SessionCredentialRequiredEvent,
   SessionExitEvent,
@@ -11,16 +19,35 @@ import type {
   SessionTrustRequiredEvent,
 } from "./services/backend";
 
+const terminalSurfaceMocks = vi.hoisted(() => ({ focus: vi.fn() }));
+
 vi.mock("./terminal/TerminalSurface", () => ({
   TerminalSurface: ({
     active,
     sessionId,
+    terminalBackgroundOpacity,
+    onReady,
   }: {
     active: boolean;
     sessionId: string;
-  }) => <div data-active={active} data-testid={`terminal-${sessionId}`} />,
+    terminalBackgroundOpacity: number;
+    onReady: (sessionId: string, handle?: unknown) => void;
+  }) => {
+    onReady(sessionId, {
+      focus: terminalSurfaceMocks.focus,
+      write: vi.fn(),
+      copy: vi.fn(async () => undefined),
+      paste: vi.fn(async () => undefined),
+    });
+    return (
+      <div
+        data-active={active}
+        data-opacity={terminalBackgroundOpacity}
+        data-testid={`terminal-${sessionId}`}
+      />
+    );
+  },
 }));
-
 class TestBackend implements Backend {
   private nextSession = 1;
   private readonly outputHandlers = new Set<
@@ -39,6 +66,17 @@ class TestBackend implements Backend {
   readonly trustResponses: Array<[string, boolean]> = [];
   readonly credentialResponses: Array<[string, string | undefined]> = [];
   readonly closedSessions: string[] = [];
+  readonly appearanceSaves: Array<
+    Pick<AppearanceSettings, "windowOpacity" | "terminalBackgroundOpacity">
+  > = [];
+  appearance: AppearanceSettings = {
+    windowOpacity: 92,
+    terminalBackgroundOpacity: 82,
+    windowOpacitySupport: "unsupported",
+    windowOpacityApplied: false,
+    windowOpacityWarning: null,
+    defaultsApplied: false,
+  };
 
   async appInfo() {
     return { name: "OwnTerm", version: "0.1.0-test" };
@@ -94,6 +132,21 @@ class TestBackend implements Backend {
 
   async closeSession(sessionId: string) {
     this.closedSessions.push(sessionId);
+  }
+
+  async getAppearanceSettings() {
+    return this.appearance;
+  }
+
+  async saveAppearanceSettings(
+    request: Pick<
+      AppearanceSettings,
+      "windowOpacity" | "terminalBackgroundOpacity"
+    >,
+  ) {
+    this.appearanceSaves.push(request);
+    this.appearance = { ...this.appearance, ...request };
+    return this.appearance;
   }
 
   onSessionOutput = async (handler: (event: SessionOutputEvent) => void) => {
@@ -317,5 +370,73 @@ describe("local terminal workspace", () => {
     expect(
       screen.getAllByRole("button", { name: "alice@changed.test" }),
     ).toHaveLength(2);
+  });
+
+  it("opens accessible Appearance settings and applies terminal opacity without closing a session", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    await user.click(await screen.findByRole("button", { name: "New tab" }));
+    await user.click(
+      screen.getByRole("button", { name: "Appearance settings" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Appearance" });
+    expect(dialog).toHaveTextContent("Window opacity 92%");
+    expect(dialog).toHaveTextContent("Terminal background opacity 82%");
+    expect(
+      screen.getByRole("button", { name: "Close appearance settings" }),
+    ).toHaveFocus();
+
+    fireEvent.change(
+      screen.getByRole("slider", { name: /Terminal background opacity/ }),
+      {
+        target: { value: "64" },
+      },
+    );
+    expect(backend.appearanceSaves.at(-1)).toEqual({
+      windowOpacity: 92,
+      terminalBackgroundOpacity: 64,
+    });
+    expect(screen.getByTestId("terminal-session-1")).toHaveAttribute(
+      "data-opacity",
+      "64",
+    );
+
+    await user.click(screen.getByRole("button", { name: "New tab" }));
+    expect(screen.getByTestId("terminal-session-2")).toHaveAttribute(
+      "data-opacity",
+      "64",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Reset defaults" }));
+    expect(backend.appearanceSaves.at(-1)).toEqual({
+      windowOpacity: 92,
+      terminalBackgroundOpacity: 82,
+    });
+    expect(
+      screen.getByRole("button", { name: "PowerShell 1" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "Appearance" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(terminalSurfaceMocks.focus).toHaveBeenCalled());
+  });
+
+  it("shows the non-blocking native opacity warning", async () => {
+    const user = userEvent.setup();
+    backend.appearance = {
+      ...backend.appearance,
+      windowOpacityWarning:
+        "Window opacity is unavailable; using a solid window.",
+    };
+    render(<App backend={backend} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Appearance settings" }),
+    );
+    expect(
+      screen.getByText("Window opacity is unavailable; using a solid window."),
+    ).toBeInTheDocument();
   });
 });

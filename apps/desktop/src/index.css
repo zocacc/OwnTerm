@@ -364,6 +364,9 @@ select:focus-visible {
 .rail-button:hover {
   background: var(--control-hover);
 }
+.appearance-button {
+  margin-top: auto;
+}
 .connections-sidebar {
   display: flex;
   flex-direction: column;
@@ -605,6 +608,51 @@ select:focus-visible {
   min-height: 0;
   flex: 1;
   padding: 0 4px 4px;
+}
+.terminal-surface {
+  transition: background-color 120ms ease;
+}
+.appearance-dialog {
+  width: min(32rem, 100%);
+}
+.appearance-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.appearance-dialog-heading p {
+  margin: 0.35rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.appearance-dialog label > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.appearance-dialog output {
+  color: var(--strong-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.appearance-dialog input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+}
+.appearance-warning {
+  margin: 0.75rem 0 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--warning) 9%, transparent);
+  color: var(--warning);
+  font-size: 0.75rem;
+}
+.appearance-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
 .empty-terminal {
   display: grid;
