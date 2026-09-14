@@ -1,6 +1,16 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
+
+#[allow(dead_code)]
+#[cfg_attr(windows, allow(unsafe_code))]
+mod window_opacity;
 
 use ownterm_application::OwnTermApplication;
+use ownterm_application::appearance::{
+    ACTIVE_TERMINAL_APPEARANCE_PROFILE_KEY, AppearanceSettings, TERMINAL_APPEARANCE_PROFILES_KEY,
+    TERMINAL_BACKGROUND_OPACITY_KEY, TerminalAppearanceCatalog, TerminalAppearanceProfile,
+    TerminalColorScheme, WINDOW_OPACITY_KEY, default_terminal_appearance_catalog,
+    is_canonical_builtin_scheme,
+};
 use ownterm_application::platform::AppDirectoriesProvider;
 use ownterm_application::portability::{
     ImportAction, ImportPreview, PortableGroup, PortableHost, decode_workspace, encode_workspace,
@@ -29,8 +39,8 @@ use ownterm_terminal::NativeTerminalBackend;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -40,6 +50,7 @@ struct DesktopState {
     ssh: SshSessionBackend,
     vault: SystemVault,
     store: Arc<SqliteStore>,
+    window_opacity: Mutex<window_opacity::WindowOpacityState>,
 }
 
 impl DesktopState {
@@ -57,6 +68,7 @@ impl DesktopState {
             ssh: SshSessionBackend::default(),
             vault: SystemVault,
             store,
+            window_opacity: Mutex::new(window_opacity::WindowOpacityState::default()),
         })
     }
 }
@@ -692,11 +704,378 @@ const fn status_name(status: SessionStatus) -> &'static str {
     }
 }
 
+// Presentation only: keep native decorations unless the frontend is ready.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowAppearance {
+    custom_titlebar: bool,
+    acrylic: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppearanceSettingsDto {
+    window_opacity: u8,
+    terminal_background_opacity: u8,
+    window_opacity_support: &'static str,
+    window_opacity_applied: bool,
+    window_opacity_warning: Option<&'static str>,
+    defaults_applied: bool,
+    active_profile_id: String,
+    profiles: Vec<TerminalAppearanceProfile>,
+    color_schemes: Vec<TerminalColorScheme>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveAppearanceSettingsRequest {
+    window_opacity: u8,
+    terminal_background_opacity: u8,
+    #[serde(default)]
+    active_profile_id: Option<String>,
+    #[serde(default)]
+    profiles: Option<Vec<TerminalAppearanceProfile>>,
+    #[serde(default)]
+    color_schemes: Option<Vec<TerminalColorScheme>>,
+}
+
+fn appearance_settings_from_store(
+    state: &DesktopState,
+) -> Result<(AppearanceSettings, bool), String> {
+    let window = state
+        .store
+        .get_setting(WINDOW_OPACITY_KEY)
+        .map_err(|e| format!("could not read appearance settings: {e:?}"))?;
+    let terminal = state
+        .store
+        .get_setting(TERMINAL_BACKGROUND_OPACITY_KEY)
+        .map_err(|e| format!("could not read appearance settings: {e:?}"))?;
+    let loaded = AppearanceSettings::from_storage(
+        window.as_ref().map(|s| s.value.as_str()),
+        terminal.as_ref().map(|s| s.value.as_str()),
+    );
+    Ok((loaded.settings, loaded.defaults_applied))
+}
+
+fn appearance_catalog_from_store(
+    state: &DesktopState,
+    settings: AppearanceSettings,
+) -> Result<TerminalAppearanceCatalog, String> {
+    let stored = state
+        .store
+        .get_setting(TERMINAL_APPEARANCE_PROFILES_KEY)
+        .map_err(|e| format!("could not read appearance profiles: {e:?}"))?;
+    let active = state
+        .store
+        .get_setting(ACTIVE_TERMINAL_APPEARANCE_PROFILE_KEY)
+        .map_err(|e| format!("could not read active appearance profile: {e:?}"))?;
+    let mut catalog = stored
+        .as_ref()
+        .and_then(|value| serde_json::from_str::<TerminalAppearanceCatalog>(&value.value).ok())
+        .unwrap_or_else(|| default_terminal_appearance_catalog(settings));
+    if let Some(active) = active {
+        catalog.active_profile_id = active.value;
+    }
+    if !catalog
+        .profiles
+        .iter()
+        .any(|profile| profile.id == catalog.active_profile_id)
+    {
+        catalog = default_terminal_appearance_catalog(settings);
+    }
+    Ok(catalog)
+}
+
+fn persist_appearance_catalog(
+    state: &DesktopState,
+    catalog: &TerminalAppearanceCatalog,
+) -> Result<(), String> {
+    let serialized = serde_json::to_string(catalog)
+        .map_err(|e| format!("could not serialize appearance profiles: {e}"))?;
+    state
+        .store
+        .set_setting(&ownterm_application::repositories::Setting {
+            key: TERMINAL_APPEARANCE_PROFILES_KEY.into(),
+            value: serialized,
+        })
+        .map_err(|e| format!("could not save appearance profiles: {e:?}"))?;
+    state
+        .store
+        .set_setting(&ownterm_application::repositories::Setting {
+            key: ACTIVE_TERMINAL_APPEARANCE_PROFILE_KEY.into(),
+            value: catalog.active_profile_id.clone(),
+        })
+        .map_err(|e| format!("could not save active appearance profile: {e:?}"))
+}
+
+fn active_profile(
+    catalog: &TerminalAppearanceCatalog,
+) -> Result<&TerminalAppearanceProfile, String> {
+    catalog
+        .profiles
+        .iter()
+        .find(|profile| profile.id == catalog.active_profile_id)
+        .ok_or_else(|| "active appearance profile is missing".into())
+}
+
+fn apply_window_opacity(
+    window: &tauri::WebviewWindow,
+    state: &DesktopState,
+    settings: AppearanceSettings,
+) -> bool {
+    let Ok(mut adapter_state) = state.window_opacity.lock() else {
+        return false;
+    };
+    if window_opacity::apply(window, settings.window_opacity, &mut adapter_state).is_ok() {
+        return true;
+    }
+    // Native failure is non-blocking: restore a solid window when possible.
+    let _ = window_opacity::apply(window, 100, &mut adapter_state);
+    false
+}
+
+fn appearance_dto(
+    settings: AppearanceSettings,
+    defaults_applied: bool,
+    applied: bool,
+    catalog: TerminalAppearanceCatalog,
+) -> AppearanceSettingsDto {
+    AppearanceSettingsDto {
+        window_opacity: settings.window_opacity,
+        terminal_background_opacity: settings.terminal_background_opacity,
+        window_opacity_support: match window_opacity::support() {
+            window_opacity::WindowOpacitySupport::Supported => "supported",
+            window_opacity::WindowOpacitySupport::Unsupported => "unsupported",
+        },
+        window_opacity_applied: applied,
+        window_opacity_warning: (!applied)
+            .then_some("Window opacity is unavailable; using a solid window."),
+        defaults_applied,
+        active_profile_id: catalog.active_profile_id,
+        profiles: catalog.profiles,
+        color_schemes: catalog.color_schemes,
+    }
+}
+
+#[tauri::command]
+fn list_system_fonts() -> Vec<String> {
+    #[cfg(target_os = "windows")]
+    {
+        // The Windows font catalog is maintained by the OS. PowerShell exposes
+        // the installed families without shipping or inspecting font files.
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Add-Type -AssemblyName System.Drawing; $bitmap=New-Object Drawing.Bitmap 1,1; $graphics=[Drawing.Graphics]::FromImage($bitmap); [Drawing.FontFamily]::Families | Where-Object { $_.IsStyleAvailable([Drawing.FontStyle]::Regular) } | Where-Object { $font=New-Object Drawing.Font($_.Name,12,[Drawing.FontStyle]::Regular); $narrow=$graphics.MeasureString('iiiiiiiiii',$font).Width; $wide=$graphics.MeasureString('WWWWWWWWWW',$font).Width; $font.Dispose(); [Math]::Abs($narrow-$wide) -lt 0.01 } | ForEach-Object Name | Sort-Object -Unique; $graphics.Dispose(); $bitmap.Dispose()",
+            ])
+            .output();
+        if let Ok(output) = output {
+            let fonts = String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .map(str::trim)
+                .filter(|font| !font.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>();
+            if !fonts.is_empty() {
+                return fonts;
+            }
+        }
+    }
+    vec![
+        "Cascadia Mono".into(),
+        "Consolas".into(),
+        "JetBrains Mono".into(),
+        "Fira Code".into(),
+    ]
+}
+
+#[tauri::command]
+fn get_appearance_settings(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> Result<AppearanceSettingsDto, String> {
+    let (settings, defaults_applied) = appearance_settings_from_store(&state)?;
+    let catalog = appearance_catalog_from_store(&state, settings)?;
+    // Persist the one-time legacy migration before the UI can make a change.
+    persist_appearance_catalog(&state, &catalog)?;
+    let profile = active_profile(&catalog)?;
+    let effective =
+        AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
+            .map_err(|e| e.to_string())?;
+    let applied = apply_window_opacity(&window, &state, effective);
+    apply_profile_material(&window, profile.use_acrylic);
+    Ok(appearance_dto(
+        effective,
+        defaults_applied,
+        applied,
+        catalog,
+    ))
+}
+
+#[tauri::command]
+fn save_appearance_settings(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+    request: SaveAppearanceSettingsRequest,
+) -> Result<AppearanceSettingsDto, String> {
+    let fallback =
+        AppearanceSettings::try_new(request.window_opacity, request.terminal_background_opacity)
+            .map_err(|e| e.to_string())?;
+    let mut catalog = appearance_catalog_from_store(&state, fallback)?;
+    if let (Some(active_profile_id), Some(profiles), Some(color_schemes)) = (
+        request.active_profile_id,
+        request.profiles,
+        request.color_schemes,
+    ) {
+        if profiles.is_empty()
+            || !profiles
+                .iter()
+                .any(|profile| profile.id == active_profile_id)
+        {
+            return Err("an active appearance profile is required".into());
+        }
+        if color_schemes
+            .iter()
+            .any(|scheme| !is_canonical_builtin_scheme(scheme))
+        {
+            return Err(
+                "built-in color schemes are immutable; duplicate a scheme before editing".into(),
+            );
+        }
+        if profiles.iter().any(|profile| {
+            AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
+                .is_err()
+                || !(6..=32).contains(&profile.font_size)
+                || !color_schemes
+                    .iter()
+                    .any(|scheme| scheme.id == profile.color_scheme_id)
+        }) {
+            return Err("appearance profile contains invalid values".into());
+        }
+        catalog = TerminalAppearanceCatalog {
+            active_profile_id,
+            profiles,
+            color_schemes,
+        };
+    }
+    let profile = active_profile(&catalog)?;
+    let settings =
+        AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
+            .map_err(|e| e.to_string())?;
+    persist_appearance_catalog(&state, &catalog)?;
+    state
+        .store
+        .set_setting(&ownterm_application::repositories::Setting {
+            key: WINDOW_OPACITY_KEY.into(),
+            value: settings.window_opacity.to_string(),
+        })
+        .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
+    state
+        .store
+        .set_setting(&ownterm_application::repositories::Setting {
+            key: TERMINAL_BACKGROUND_OPACITY_KEY.into(),
+            value: settings.terminal_background_opacity.to_string(),
+        })
+        .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
+    let applied = apply_window_opacity(&window, &state, settings);
+    apply_profile_material(&window, profile.use_acrylic);
+    Ok(appearance_dto(settings, false, applied, catalog))
+}
+
+fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) {
+    #[cfg(target_os = "windows")]
+    if use_acrylic {
+        let _ = window_material(window);
+    } else {
+        let _ = window_vibrancy::clear_acrylic(window);
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = (window, use_acrylic);
+}
+
+fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
+    #[cfg(target_os = "windows")]
+    {
+        // Windows can reset the DWM backdrop when the window enters or exits
+        // fullscreen. This function is intentionally idempotent so the
+        // frontend may invoke it again after a size transition.
+        let acrylic = window_vibrancy::apply_acrylic(window, Some((20, 23, 30, 150))).is_ok();
+        WindowAppearance {
+            custom_titlebar: true,
+            acrylic,
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        WindowAppearance {
+            custom_titlebar: false,
+            acrylic: false,
+        }
+    }
+}
+
+#[tauri::command]
+fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
+    window_material(&window)
+}
+
+#[tauri::command]
+fn refresh_window_material(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> WindowAppearance {
+    // Maximizing/fullscreen can reset both DWM material and layered-window
+    // alpha. Restore the stored alpha first, then reapply Acrylic because the
+    // WS_EX_LAYERED transition can clear the DWM backdrop.
+    if let Ok((settings, _)) = appearance_settings_from_store(&state) {
+        let catalog = appearance_catalog_from_store(&state, settings).ok();
+        let profile = catalog
+            .as_ref()
+            .and_then(|catalog| active_profile(catalog).ok());
+        let effective = profile
+            .and_then(|profile| {
+                AppearanceSettings::try_new(
+                    profile.window_opacity,
+                    profile.terminal_background_opacity,
+                )
+                .ok()
+            })
+            .unwrap_or(settings);
+        let _ = apply_window_opacity(&window, &state, effective);
+        let use_acrylic = profile.map(|profile| profile.use_acrylic).unwrap_or(true);
+        apply_profile_material(&window, use_acrylic);
+        return WindowAppearance {
+            custom_titlebar: cfg!(target_os = "windows"),
+            acrylic: use_acrylic,
+        };
+    }
+    window_material(&window)
+}
+
+#[tauri::command]
+fn show_custom_chrome(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    window
+        .set_decorations(false)
+        .map_err(|error| error.to_string())?;
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(DesktopState::open().expect("could not initialize OwnTerm storage"))
         .invoke_handler(tauri::generate_handler![
+            prepare_window_chrome,
+            refresh_window_material,
+            show_custom_chrome,
+            get_appearance_settings,
+            save_appearance_settings,
+            list_system_fonts,
             app_info,
             list_shell_profiles,
             start_local_session,

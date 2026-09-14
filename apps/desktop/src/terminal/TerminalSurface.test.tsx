@@ -92,20 +92,44 @@ describe("TerminalSurface", () => {
   it("bridges xterm input, output, resize and clipboard without interpreting bytes", async () => {
     const backend = testBackend();
     let handle: TerminalHandle | undefined;
+    const onError = vi.fn();
+    const onReady = (_sessionId: string, nextHandle?: TerminalHandle) => {
+      handle = nextHandle;
+    };
 
-    render(
+    const view = render(
       <TerminalSurface
         active
         backend={backend}
-        onError={vi.fn()}
-        onReady={(_sessionId, nextHandle) => {
-          handle = nextHandle;
-        }}
+        onError={onError}
+        onReady={onReady}
         sessionId="session-1"
+        terminalBackgroundOpacity={82}
       />,
     );
 
     expect(handle).toBeDefined();
+    expect(
+      document.querySelector("[data-testid=terminal-session-1]"),
+    ).toHaveStyle({
+      backgroundColor: "rgb(12 15 21 / 82%)",
+    });
+    view.rerender(
+      <TerminalSurface
+        active
+        backend={backend}
+        onError={onError}
+        onReady={onReady}
+        sessionId="session-1"
+        terminalBackgroundOpacity={64}
+      />,
+    );
+    expect(
+      document.querySelector("[data-testid=terminal-session-1]"),
+    ).toHaveStyle({
+      backgroundColor: "rgb(12 15 21 / 64%)",
+    });
+    expect(terminalMocks.terminal.open).toHaveBeenCalledTimes(1);
     expect(terminalMocks.terminal.focus).toHaveBeenCalledTimes(1);
     act(() => {
       terminalMocks.state.input?.("d");
