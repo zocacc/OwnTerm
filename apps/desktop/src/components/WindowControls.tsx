@@ -29,6 +29,42 @@ export function WindowControls() {
   }, []);
 
   useEffect(() => {
+    if (!customTitlebar || !isTauri()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    let timer: number | undefined;
+    const refreshMaterial = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void invoke<Appearance>("refresh_window_material")
+          .then((appearance) => {
+            if (disposed) return;
+            document.documentElement.dataset.material = appearance.acrylic
+              ? "acrylic"
+              : "opaque";
+          })
+          .catch(() => {
+            if (!disposed) document.documentElement.dataset.material = "opaque";
+          });
+      }, 120);
+    };
+    void getCurrentWindow()
+      .onResized(refreshMaterial)
+      .then((nextUnlisten) => {
+        if (disposed) nextUnlisten();
+        else unlisten = nextUnlisten;
+      })
+      .catch(() => {
+        // Keep the existing material; resize listening is a resilience path.
+      });
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+      unlisten?.();
+    };
+  }, [customTitlebar]);
+
+  useEffect(() => {
     if (!customTitlebar) return;
     // Hide the native title bar only after its replacement has rendered.
     void invoke("show_custom_chrome").catch(() => setCustomTitlebar(false));

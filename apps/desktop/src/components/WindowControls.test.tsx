@@ -8,6 +8,7 @@ const native = vi.hoisted(() => ({
   minimize: vi.fn(),
   toggleMaximize: vi.fn(),
   close: vi.fn(),
+  onResized: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,
@@ -33,6 +34,7 @@ describe("native window presentation", () => {
     native.minimize.mockResolvedValue(undefined);
     native.toggleMaximize.mockResolvedValue(undefined);
     native.close.mockResolvedValue(undefined);
+    native.onResized.mockResolvedValue(() => undefined);
     render(<WindowControls />);
     await userEvent.click(
       await screen.findByRole("button", { name: "Minimize window" }),
@@ -45,6 +47,28 @@ describe("native window presentation", () => {
     expect(native.minimize).toHaveBeenCalledOnce();
     expect(native.toggleMaximize).toHaveBeenCalledOnce();
     expect(native.close).toHaveBeenCalledOnce();
+  });
+
+  it("reapplies Acrylic after a fullscreen-sized resize", async () => {
+    let resized: (() => void) | undefined;
+    native.invoke.mockImplementation(async (command) => {
+      if (command === "prepare_window_chrome")
+        return { customTitlebar: true, acrylic: true };
+      if (command === "refresh_window_material")
+        return { customTitlebar: true, acrylic: true };
+      return undefined;
+    });
+    native.onResized.mockImplementation(async (handler) => {
+      resized = handler;
+      return () => undefined;
+    });
+    render(<WindowControls />);
+    await waitFor(() => expect(native.onResized).toHaveBeenCalledOnce());
+    resized?.();
+    await waitFor(() =>
+      expect(native.invoke).toHaveBeenCalledWith("refresh_window_material"),
+    );
+    expect(document.documentElement.dataset.material).toBe("acrylic");
   });
 
   it("retains native chrome if presentation initialization fails", async () => {

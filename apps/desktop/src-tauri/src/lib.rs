@@ -817,13 +817,13 @@ fn save_appearance_settings(
     Ok(appearance_dto(settings, false, applied))
 }
 
-#[tauri::command]
-fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
+fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
     #[cfg(target_os = "windows")]
     {
-        // Use the native result, rather than a queued window-effect request,
-        // so unsupported Acrylic leaves the frontend's opaque fallback intact.
-        let acrylic = window_vibrancy::apply_acrylic(&window, Some((20, 23, 30, 150))).is_ok();
+        // Windows can reset the DWM backdrop when the window enters or exits
+        // fullscreen. This function is intentionally idempotent so the
+        // frontend may invoke it again after a size transition.
+        let acrylic = window_vibrancy::apply_acrylic(window, Some((20, 23, 30, 150))).is_ok();
         WindowAppearance {
             custom_titlebar: true,
             acrylic,
@@ -837,6 +837,16 @@ fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
             acrylic: false,
         }
     }
+}
+
+#[tauri::command]
+fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
+    window_material(&window)
+}
+
+#[tauri::command]
+fn refresh_window_material(window: tauri::WebviewWindow) -> WindowAppearance {
+    window_material(&window)
 }
 
 #[tauri::command]
@@ -856,6 +866,7 @@ pub fn run() {
         .manage(DesktopState::open().expect("could not initialize OwnTerm storage"))
         .invoke_handler(tauri::generate_handler![
             prepare_window_chrome,
+            refresh_window_material,
             show_custom_chrome,
             get_appearance_settings,
             save_appearance_settings,
