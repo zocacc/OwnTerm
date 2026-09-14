@@ -17,6 +17,8 @@ import {
   defaultBackend,
   type AppInfo,
   type AppearanceSettings,
+  type TerminalAppearanceProfile,
+  type TerminalColorScheme,
   type Backend,
   type SessionDescriptor,
   type SessionCredentialRequiredEvent,
@@ -41,28 +43,77 @@ type OpenSession = SessionDescriptor & {
 
 type SshTarget = { hostId?: string; destination?: string };
 
-type AppearancePreferenceValues = Pick<
-  AppearanceSettings,
-  "windowOpacity" | "terminalBackgroundOpacity"
->;
-
-const appearanceDefaults: AppearancePreferenceValues = {
+const defaultScheme: TerminalColorScheme = {
+  id: "ownterm-default",
+  name: "OwnTerm Default",
+  background: "#0c0f15",
+  foreground: "#f4f2f8",
+  cursor: "#b9a7ff",
+  selectionBackground: "#6750a455",
+  ansi: [
+    "#151820",
+    "#ff6b81",
+    "#50c878",
+    "#f0c674",
+    "#7aa2f7",
+    "#b9a7ff",
+    "#78dce8",
+    "#d7dae0",
+    "#4b5263",
+    "#ff8294",
+    "#70e1a8",
+    "#ffe08a",
+    "#94b6ff",
+    "#d3bdff",
+    "#9feaf9",
+    "#ffffff",
+  ],
+  builtIn: true,
+};
+const defaultProfile: TerminalAppearanceProfile = {
+  id: "migrated-appearance",
+  name: "Migrated appearance",
+  colorSchemeId: defaultScheme.id,
+  fontFamily: "JetBrains Mono, Cascadia Mono, Consolas, monospace",
+  fontSize: 14,
   windowOpacity: 92,
   terminalBackgroundOpacity: 82,
+  useAcrylic: true,
+  builtIn: false,
 };
-
 const appearanceBounds = {
   windowOpacity: { min: 70, max: 100 },
   terminalBackgroundOpacity: { min: 55, max: 100 },
 } as const;
-
 const defaultAppearance: AppearanceSettings = {
-  ...appearanceDefaults,
+  ...defaultProfile,
   windowOpacitySupport: "unsupported",
   windowOpacityApplied: false,
   windowOpacityWarning: null,
   defaultsApplied: false,
+  activeProfileId: defaultProfile.id,
+  profiles: [defaultProfile],
+  colorSchemes: [defaultScheme],
 };
+function activeAppearanceProfile(appearance: AppearanceSettings) {
+  return (
+    appearance.profiles.find(
+      (profile) => profile.id === appearance.activeProfileId,
+    ) ??
+    appearance.profiles[0] ??
+    defaultProfile
+  );
+}
+function schemeForProfile(
+  appearance: AppearanceSettings,
+  profile: TerminalAppearanceProfile,
+) {
+  return (
+    appearance.colorSchemes.find(
+      (scheme) => scheme.id === profile.colorSchemeId,
+    ) ?? defaultScheme
+  );
+}
 
 const statusLabels: Record<SessionStatus, string> = {
   starting: "Starting",
@@ -86,6 +137,12 @@ function App({ backend = defaultBackend }: AppProps) {
   const [connectionsOpen, setConnectionsOpen] = useState(true);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [appearance, setAppearance] = useState(defaultAppearance);
+  const [systemFonts, setSystemFonts] = useState<string[]>([
+    "Cascadia Mono",
+    "Consolas",
+    "JetBrains Mono",
+    "Fira Code",
+  ]);
   const [trustPrompt, setTrustPrompt] = useState<SessionTrustRequiredEvent>();
   const [credentialPrompt, setCredentialPrompt] =
     useState<SessionCredentialRequiredEvent>();
@@ -264,6 +321,14 @@ function App({ backend = defaultBackend }: AppProps) {
 
   useEffect(() => {
     let mounted = true;
+    if (backend.listSystemFonts) {
+      void backend
+        .listSystemFonts()
+        .then((fonts) => {
+          if (mounted && fonts.length) setSystemFonts(fonts);
+        })
+        .catch(() => undefined);
+    }
     if (!backend.getAppearanceSettings) return;
     void backend
       .getAppearanceSettings()
@@ -479,23 +544,96 @@ function App({ backend = defaultBackend }: AppProps) {
   }, [activeSessionId]);
 
   const saveAppearance = useCallback(
-    (next: AppearancePreferenceValues) => {
-      const requested = { ...appearance, ...next };
+    (next: AppearanceSettings) => {
+      const active = activeAppearanceProfile(next);
+      const requested = {
+        ...next,
+        windowOpacity: active.windowOpacity,
+        terminalBackgroundOpacity: active.terminalBackgroundOpacity,
+      };
       setAppearance(requested);
       const version = ++appearanceSaveVersion.current;
       if (!backend.saveAppearanceSettings) return;
       void backend
-        .saveAppearanceSettings(next)
+        .saveAppearanceSettings(requested)
         .then((saved) => {
           if (version === appearanceSaveVersion.current) setAppearance(saved);
         })
         .catch(() => {
-          if (version === appearanceSaveVersion.current) {
+          if (version === appearanceSaveVersion.current)
             setError("Could not save appearance preferences.");
-          }
         });
     },
-    [appearance, backend],
+    [backend],
+  );
+
+  const updateActiveProfile = useCallback(
+    (update: Partial<TerminalAppearanceProfile>) => {
+      const active = activeAppearanceProfile(appearance);
+      saveAppearance({
+        ...appearance,
+        profiles: appearance.profiles.map((profile) =>
+          profile.id === active.id ? { ...profile, ...update } : profile,
+        ),
+      });
+    },
+    [appearance, saveAppearance],
+  );
+
+  const selectAppearanceProfile = useCallback(
+    (id: string) => {
+      const selected = appearance.profiles.find((profile) => profile.id === id);
+      if (!selected) return;
+      saveAppearance({
+        ...appearance,
+        activeProfileId: id,
+        windowOpacity: selected.windowOpacity,
+        terminalBackgroundOpacity: selected.terminalBackgroundOpacity,
+      });
+    },
+    [appearance, saveAppearance],
+  );
+
+  const duplicateAppearanceProfile = useCallback(() => {
+    const source = activeAppearanceProfile(appearance);
+    const id = `profile-${crypto.randomUUID()}`;
+    const copy = { ...source, id, name: `${source.name} copy`, builtIn: false };
+    saveAppearance({
+      ...appearance,
+      activeProfileId: id,
+      profiles: [...appearance.profiles, copy],
+      windowOpacity: copy.windowOpacity,
+      terminalBackgroundOpacity: copy.terminalBackgroundOpacity,
+    });
+  }, [appearance, saveAppearance]);
+
+  const duplicateColorScheme = useCallback(() => {
+    const profile = activeAppearanceProfile(appearance);
+    const source = schemeForProfile(appearance, profile);
+    const id = `scheme-${crypto.randomUUID()}`;
+    const copy = { ...source, id, name: `${source.name} copy`, builtIn: false };
+    saveAppearance({
+      ...appearance,
+      colorSchemes: [...appearance.colorSchemes, copy],
+      profiles: appearance.profiles.map((item) =>
+        item.id === profile.id ? { ...item, colorSchemeId: id } : item,
+      ),
+    });
+  }, [appearance, saveAppearance]);
+
+  const updateActiveScheme = useCallback(
+    (update: Partial<TerminalColorScheme>) => {
+      const profile = activeAppearanceProfile(appearance);
+      const scheme = schemeForProfile(appearance, profile);
+      if (scheme.builtIn) return;
+      saveAppearance({
+        ...appearance,
+        colorSchemes: appearance.colorSchemes.map((item) =>
+          item.id === scheme.id ? { ...item, ...update } : item,
+        ),
+      });
+    },
+    [appearance, saveAppearance],
   );
 
   return (
@@ -686,7 +824,14 @@ function App({ backend = defaultBackend }: AppProps) {
                 onError={reportError}
                 onReady={registerTerminal}
                 sessionId={session.id}
-                terminalBackgroundOpacity={appearance.terminalBackgroundOpacity}
+                profile={activeAppearanceProfile(appearance)}
+                scheme={schemeForProfile(
+                  appearance,
+                  activeAppearanceProfile(appearance),
+                )}
+                terminalBackgroundOpacity={
+                  activeAppearanceProfile(appearance).terminalBackgroundOpacity
+                }
               />
             ))}
           </section>
@@ -748,96 +893,281 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
       </footer>
 
-      {appearanceOpen ? (
-        <div className="dialog-backdrop" role="presentation">
-          <section
-            aria-describedby="appearance-description"
-            aria-labelledby="appearance-title"
-            aria-modal="true"
-            className="dialog appearance-dialog"
-            onKeyDown={(event) => {
-              if (event.key === "Escape") closeAppearance();
-            }}
-            ref={appearanceDialogRef}
-            role="dialog"
-          >
-            <div className="appearance-dialog-heading">
-              <div>
-                <h2 className="font-semibold" id="appearance-title">
-                  Appearance
-                </h2>
-                <p id="appearance-description">
-                  Adjust local opacity preferences. Changes apply immediately.
-                </p>
+      {appearanceOpen
+        ? (() => {
+            const profile = activeAppearanceProfile(appearance);
+            const scheme = schemeForProfile(appearance, profile);
+            return (
+              <div className="dialog-backdrop" role="presentation">
+                <section
+                  aria-describedby="appearance-description"
+                  aria-labelledby="appearance-title"
+                  aria-modal="true"
+                  className="dialog appearance-dialog"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") closeAppearance();
+                  }}
+                  ref={appearanceDialogRef}
+                  role="dialog"
+                >
+                  <div className="appearance-dialog-heading">
+                    <div>
+                      <h2 className="font-semibold" id="appearance-title">
+                        Appearance
+                      </h2>
+                      <p id="appearance-description">
+                        Profiles are local and apply to open and future sessions
+                        immediately.
+                      </p>
+                    </div>
+                    <button
+                      aria-label="Close appearance settings"
+                      className="control-icon"
+                      onClick={closeAppearance}
+                      type="button"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <label htmlFor="appearance-profile">
+                    <span>Visual profile</span>
+                    <select
+                      id="appearance-profile"
+                      value={profile.id}
+                      onChange={(event) =>
+                        selectAppearanceProfile(event.target.value)
+                      }
+                    >
+                      {appearance.profiles.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="appearance-profile-actions">
+                    <Button
+                      onClick={duplicateAppearanceProfile}
+                      variant="secondary"
+                    >
+                      Duplicate profile
+                    </Button>
+                  </div>
+                  <label htmlFor="profile-name">
+                    <span>Profile name</span>
+                    <input
+                      className="field"
+                      id="profile-name"
+                      value={profile.name}
+                      onChange={(event) =>
+                        updateActiveProfile({ name: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label htmlFor="color-scheme">
+                    <span>Color scheme</span>
+                    <select
+                      id="color-scheme"
+                      value={profile.colorSchemeId}
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          colorSchemeId: event.target.value,
+                        })
+                      }
+                    >
+                      {appearance.colorSchemes.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label htmlFor="font-family">
+                    <span>Font family</span>
+                    <input
+                      className="field"
+                      id="font-family"
+                      list="monospaced-fonts"
+                      value={profile.fontFamily}
+                      onChange={(event) =>
+                        updateActiveProfile({ fontFamily: event.target.value })
+                      }
+                    />
+                    <datalist id="monospaced-fonts">
+                      {systemFonts.map((font) => (
+                        <option key={font} value={font} />
+                      ))}
+                    </datalist>
+                  </label>
+                  <label htmlFor="font-size">
+                    <span>
+                      Font size <output>{profile.fontSize}px</output>
+                    </span>
+                    <input
+                      aria-valuetext={`${profile.fontSize}px`}
+                      id="font-size"
+                      max="32"
+                      min="6"
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          fontSize: Number(event.target.value),
+                        })
+                      }
+                      type="range"
+                      value={profile.fontSize}
+                    />
+                  </label>
+                  <label htmlFor="window-opacity">
+                    <span>
+                      Window opacity <output>{profile.windowOpacity}%</output>
+                    </span>
+                    <input
+                      aria-valuetext={`${profile.windowOpacity}%`}
+                      id="window-opacity"
+                      max={appearanceBounds.windowOpacity.max}
+                      min={appearanceBounds.windowOpacity.min}
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          windowOpacity: Number(event.target.value),
+                        })
+                      }
+                      type="range"
+                      value={profile.windowOpacity}
+                    />
+                  </label>
+                  {appearance.windowOpacityWarning ? (
+                    <p className="appearance-warning" role="status">
+                      {appearance.windowOpacityWarning}
+                    </p>
+                  ) : null}
+                  <label htmlFor="terminal-background-opacity">
+                    <span>
+                      Terminal background opacity{" "}
+                      <output>{profile.terminalBackgroundOpacity}%</output>
+                    </span>
+                    <input
+                      aria-valuetext={`${profile.terminalBackgroundOpacity}%`}
+                      id="terminal-background-opacity"
+                      max={appearanceBounds.terminalBackgroundOpacity.max}
+                      min={appearanceBounds.terminalBackgroundOpacity.min}
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          terminalBackgroundOpacity: Number(event.target.value),
+                        })
+                      }
+                      type="range"
+                      value={profile.terminalBackgroundOpacity}
+                    />
+                  </label>
+                  <label className="appearance-check" htmlFor="use-acrylic">
+                    <input
+                      checked={profile.useAcrylic}
+                      id="use-acrylic"
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          useAcrylic: event.target.checked,
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    Use Windows acrylic when available
+                  </label>
+                  <div className="appearance-colors">
+                    <div>
+                      <span>Scheme preview</span>
+                      <div
+                        className="appearance-swatch"
+                        style={{
+                          background: scheme.background,
+                          color: scheme.foreground,
+                        }}
+                      >
+                        <i style={{ background: scheme.cursor }} />
+                        Aa
+                      </div>
+                    </div>
+                    <Button onClick={duplicateColorScheme} variant="secondary">
+                      Duplicate scheme
+                    </Button>
+                  </div>
+                  {!scheme.builtIn ? (
+                    <div className="scheme-editor">
+                      <label htmlFor="scheme-name">
+                        <span>Scheme name</span>
+                        <input
+                          className="field"
+                          id="scheme-name"
+                          value={scheme.name}
+                          onChange={(event) =>
+                            updateActiveScheme({ name: event.target.value })
+                          }
+                        />
+                      </label>
+                      {(
+                        [
+                          "background",
+                          "foreground",
+                          "cursor",
+                          "selectionBackground",
+                        ] as const
+                      ).map((field) => (
+                        <label key={field}>
+                          <span>{field}</span>
+                          <input
+                            aria-label={field}
+                            type="color"
+                            value={scheme[field]}
+                            onChange={(event) =>
+                              updateActiveScheme({
+                                [field]: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                      <div className="ansi-colors">
+                        {scheme.ansi.map((color, index) => (
+                          <label key={index}>
+                            <span>ANSI {index}</span>
+                            <input
+                              aria-label={`ANSI ${index}`}
+                              type="color"
+                              value={color}
+                              onChange={(event) => {
+                                const ansi = [...scheme.ansi];
+                                ansi[index] = event.target.value;
+                                updateActiveScheme({ ansi });
+                              }}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="appearance-hint">
+                      Built-in schemes are read-only. Duplicate one to edit
+                      every ANSI color.
+                    </p>
+                  )}
+                  <div className="appearance-dialog-actions">
+                    <Button
+                      onClick={() =>
+                        updateActiveProfile({
+                          windowOpacity: 92,
+                          terminalBackgroundOpacity: 82,
+                        })
+                      }
+                      variant="secondary"
+                    >
+                      Reset defaults
+                    </Button>
+                    <Button onClick={closeAppearance}>Done</Button>
+                  </div>
+                </section>
               </div>
-              <button
-                aria-label="Close appearance settings"
-                className="control-icon"
-                onClick={closeAppearance}
-                type="button"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <label htmlFor="window-opacity">
-              <span>
-                Window opacity <output>{appearance.windowOpacity}%</output>
-              </span>
-              <input
-                aria-valuetext={`${appearance.windowOpacity}%`}
-                id="window-opacity"
-                max={appearanceBounds.windowOpacity.max}
-                min={appearanceBounds.windowOpacity.min}
-                onChange={(event) =>
-                  saveAppearance({
-                    windowOpacity: Number(event.target.value),
-                    terminalBackgroundOpacity:
-                      appearance.terminalBackgroundOpacity,
-                  })
-                }
-                step="1"
-                type="range"
-                value={appearance.windowOpacity}
-              />
-            </label>
-            {appearance.windowOpacityWarning ? (
-              <p className="appearance-warning" role="status">
-                {appearance.windowOpacityWarning}
-              </p>
-            ) : null}
-            <label htmlFor="terminal-background-opacity">
-              <span>
-                Terminal background opacity{" "}
-                <output>{appearance.terminalBackgroundOpacity}%</output>
-              </span>
-              <input
-                aria-valuetext={`${appearance.terminalBackgroundOpacity}%`}
-                id="terminal-background-opacity"
-                max={appearanceBounds.terminalBackgroundOpacity.max}
-                min={appearanceBounds.terminalBackgroundOpacity.min}
-                onChange={(event) =>
-                  saveAppearance({
-                    windowOpacity: appearance.windowOpacity,
-                    terminalBackgroundOpacity: Number(event.target.value),
-                  })
-                }
-                step="1"
-                type="range"
-                value={appearance.terminalBackgroundOpacity}
-              />
-            </label>
-            <div className="appearance-dialog-actions">
-              <Button
-                onClick={() => saveAppearance(appearanceDefaults)}
-                variant="secondary"
-              >
-                Reset defaults
-              </Button>
-              <Button onClick={closeAppearance}>Done</Button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+            );
+          })()
+        : null}
 
       {trustPrompt ? (
         <div className="dialog-backdrop" role="presentation">

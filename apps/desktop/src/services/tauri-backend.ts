@@ -92,6 +92,7 @@ export const tauriBackend: Backend = {
   exportWorkspace: () => invoke("export_workspace"),
   getAppearanceSettings: () =>
     invoke<AppearanceSettings>("get_appearance_settings"),
+  listSystemFonts: () => invoke<string[]>("list_system_fonts"),
   saveAppearanceSettings: (request: SaveAppearanceSettingsRequest) =>
     invoke<AppearanceSettings>("save_appearance_settings", { request }),
 };

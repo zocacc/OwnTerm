@@ -3134,6 +3134,7 @@ dependencies = [
  "ownterm-storage-sqlite",
  "ownterm-terminal",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "time",
