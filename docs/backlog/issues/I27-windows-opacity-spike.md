@@ -1,4 +1,4 @@
-# I21 — Validar composição e opacidade de janela no Windows
+# I27 — Validar composição e opacidade de janela no Windows
 
 **Status:** in progress
 **GitHub:** [#49](https://github.com/zocacc/OwnTerm/issues/49)

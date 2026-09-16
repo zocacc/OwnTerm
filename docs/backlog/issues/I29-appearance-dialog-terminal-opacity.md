@@ -1,8 +1,8 @@
-# I23 — Entregar Appearance e opacidade do terminal
+# I29 — Entregar Appearance e opacidade do terminal
 
 **Status:** in progress
 **GitHub:** [#51](https://github.com/zocacc/OwnTerm/issues/51)
-**Dependências:** I22
+**Dependências:** I28
 
 ## Objetivo
 
@@ -17,7 +17,7 @@ Entregar o diálogo acessível de Appearance e aplicar Terminal Background Opaci
 
 ## Fora do escopo
 
-Temas configuráveis, opacidade por aba, opacidade de Hosts/painéis e suporte nativo sem evidência do I21.
+Temas configuráveis, opacidade por aba, opacidade de Hosts/painéis e suporte nativo sem evidência do I27.
 
 ## Critérios de aceite
 

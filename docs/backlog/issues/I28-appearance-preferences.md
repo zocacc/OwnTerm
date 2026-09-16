@@ -1,8 +1,8 @@
-# I22 — Persistir e aplicar Appearance Preferences
+# I28 — Persistir e aplicar Appearance Preferences
 
 **Status:** in progress
 **GitHub:** [#50](https://github.com/zocacc/OwnTerm/issues/50)
-**Dependências:** I21
+**Dependências:** I27
 
 ## Objetivo
 
@@ -29,8 +29,8 @@ Layout do diálogo, controles React e alteração do fundo xterm.
 ## Testes
 
 - [x] Unitários de validação e storage.
-- [x] Testes de contrato IPC e fallback (contrato de resposta; validação manual Windows segue dependente do I21).
+- [x] Testes de contrato IPC e fallback (contrato de resposta; validação manual Windows segue dependente do I27).
 - [x] Regressão de portabilidade.
 
 
-> A implementação está pronta para revisão, mas permanece `in progress` até a evidência Windows 10/11 do I21 ser registrada.
+> A implementação está pronta para revisão, mas permanece `in progress` até a evidência Windows 10/11 do I27 ser registrada.
