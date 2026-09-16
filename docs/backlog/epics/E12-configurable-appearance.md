@@ -1,5 +1,8 @@
 # E12 — Aparência configurável
 
+**GitHub:** [#64](https://github.com/zocacc/OwnTerm/issues/64)  
+**Status:** done  
+
 Entrega histórica das preferências de aparência locais, opacidade de janela/terminal e perfis visuais. Foi renumerada para liberar E11 ao shell terminal-first.
 
 - [I27 — Validar composição e opacidade de janela no Windows](../issues/I27-windows-opacity-spike.md)
