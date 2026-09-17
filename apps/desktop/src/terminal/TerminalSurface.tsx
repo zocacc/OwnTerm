@@ -195,7 +195,10 @@ export function TerminalSurface({
   return (
     <div
       aria-hidden={!active}
+      aria-labelledby={`session-tab-${sessionId}`}
       className={active ? "terminal-surface h-full w-full p-3" : "hidden"}
+      id={`terminal-${sessionId}`}
+      role="tabpanel"
       data-testid={`terminal-${sessionId}`}
       ref={containerRef}
       style={{

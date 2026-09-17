@@ -243,22 +243,39 @@ describe("local terminal workspace", () => {
     expect(
       screen.getByRole("option", { name: "PowerShell" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Collapse connections" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  it("opens, switches and closes local session tabs", async () => {
+  it("opens, navigates and closes local session tabs", async () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
     const openButton = await screen.findByRole("button", { name: "New tab" });
     await user.click(openButton);
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
     await user.click(openButton);
 
-    const firstTab = screen.getByRole("button", { name: "PowerShell 1" });
-    const secondTab = screen.getByRole("button", { name: "PowerShell 2" });
+    const firstTab = screen.getByRole("tab", { name: "PowerShell 1" });
+    const secondTab = screen.getByRole("tab", { name: "PowerShell 2" });
     expect(secondTab).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("tablist", { name: "Sessions" }),
+    ).toBeInTheDocument();
+    expect(secondTab).toHaveAttribute("aria-selected", "true");
+    expect(secondTab).toHaveAccessibleDescription("Connected");
+    expect(screen.getAllByTitle("Connected")).toHaveLength(2);
 
-    await user.click(firstTab);
+    secondTab.focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(firstTab).toHaveFocus();
     expect(firstTab).toHaveAttribute("aria-current", "page");
+    await user.keyboard("{End}");
+    expect(secondTab).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(firstTab).toHaveFocus();
 
     await user.click(
       screen.getByRole("button", { name: "Close PowerShell 1" }),
@@ -266,6 +283,34 @@ describe("local terminal workspace", () => {
     expect(firstTab).not.toBeInTheDocument();
     expect(secondTab).toHaveAttribute("aria-current", "page");
     expect(backend.closedSessions).toEqual(["session-1"]);
+  });
+
+  it("announces every terminal status with text and a tooltip", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    await user.click(await screen.findByRole("button", { name: "New tab" }));
+    const tab = screen.getByRole("tab", { name: "PowerShell 1" });
+    const statuses = [
+      ["starting", "Starting"],
+      ["awaiting_trust", "Awaiting trust"],
+      ["awaiting_credential", "Awaiting credential"],
+      ["connected", "Connected"],
+      ["disconnected", "Closed"],
+      ["failed", "Failed"],
+    ] as const;
+
+    for (const [status, label] of statuses) {
+      act(() => {
+        backend.emitStatus({
+          version: 1,
+          sessionId: "session-1",
+          status,
+        });
+      });
+      expect(tab).toHaveAccessibleDescription(label);
+      expect(screen.getByTitle(label)).toBeInTheDocument();
+    }
   });
 
   it("shows process exit code when the backend publishes it", async () => {
@@ -310,7 +355,7 @@ describe("local terminal workspace", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: "PowerShell 1" }),
+      screen.queryByRole("tab", { name: "PowerShell 1" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("No open sessions")).toBeInTheDocument();
     expect(screen.queryByText(/late event/)).not.toBeInTheDocument();
@@ -327,7 +372,7 @@ describe("local terminal workspace", () => {
     );
     await user.click(screen.getByRole("button", { name: "Connect" }));
     expect(
-      await screen.findByRole("button", { name: "alice@example.test:2222" }),
+      await screen.findByRole("tab", { name: "alice@example.test:2222" }),
     ).toBeInTheDocument();
 
     act(() =>
@@ -394,7 +439,7 @@ describe("local terminal workspace", () => {
     );
     await user.click(await screen.findByRole("button", { name: "Reconnect" }));
     expect(
-      screen.getAllByRole("button", { name: "alice@changed.test" }),
+      screen.getAllByRole("tab", { name: "alice@changed.test" }),
     ).toHaveLength(2);
   });
 
@@ -441,7 +486,7 @@ describe("local terminal workspace", () => {
       terminalBackgroundOpacity: 82,
     });
     expect(
-      screen.getByRole("button", { name: "PowerShell 1" }),
+      screen.getByRole("tab", { name: "PowerShell 1" }),
     ).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(
