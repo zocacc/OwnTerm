@@ -278,6 +278,48 @@ describe("local terminal workspace", () => {
     await waitFor(() => expect(search).toHaveFocus());
   });
 
+  it("keeps the drawer open for its internal dialog and preserves terminal surfaces", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    await user.click(await screen.findByRole("button", { name: "New tab" }));
+    const terminal = screen.getByTestId("terminal-session-1");
+    await user.click(
+      screen.getByRole("button", { name: "Expand connections" }),
+    );
+    expect(screen.getByTestId("terminal-session-1")).toBe(terminal);
+
+    await user.click(screen.getByRole("button", { name: "New" }));
+    expect(await screen.findByLabelText("Name")).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Connections" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Close connections" }));
+    expect(screen.getByTestId("terminal-session-1")).toBe(terminal);
+  });
+
+  it("opens a local shell from the drawer and closes it after success", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expand connections" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Open a local shell" }),
+    );
+    expect(
+      await screen.findByRole("tab", { name: "PowerShell 1" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Connections" })).toBeNull(),
+    );
+  });
+
   it("opens, navigates and closes local session tabs", async () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);

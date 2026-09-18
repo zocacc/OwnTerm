@@ -129,21 +129,6 @@ export function HostsWorkspace({
     return () => window.clearTimeout(timer);
   }, [reload, refreshToken]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        searchInput.current?.focus();
-      }
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        quickConnectInput.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
   const visibleHosts = useMemo(
     () => hosts.filter((host) => !favoritesOnly || host.favorite),
     [favoritesOnly, hosts],
