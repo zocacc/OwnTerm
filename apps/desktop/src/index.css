@@ -203,31 +203,18 @@ select:focus-visible {
   align-items: center;
   flex-shrink: 0;
   height: 40px;
-  padding-left: 12px;
+  padding-left: 4px;
   border-bottom: 1px solid var(--hairline);
   background: var(--titlebar);
   user-select: none;
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 140px;
-  flex-shrink: 0;
-  height: 100%;
-}
-.brand img {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  pointer-events: none;
-}
-.brand h1 {
-  font-size: 12px;
-  font-weight: 600;
+.titlebar-connections {
+  flex: none;
+  margin-right: 0.25rem;
 }
 .session-tabs {
   display: flex;
+  flex: 1 1 auto;
   align-self: stretch;
   align-items: stretch;
   min-width: 0;
@@ -240,7 +227,8 @@ select:focus-visible {
   position: relative;
   align-items: center;
   gap: 12px;
-  flex: 0 0 172px;
+  flex: 0 1 172px;
+  min-width: 144px;
   max-width: 210px;
   padding: 0 8px 0 12px;
   border: 1px solid transparent;
@@ -268,6 +256,11 @@ select:focus-visible {
 }
 .session-tab > button:first-child {
   height: 100%;
+}
+.session-type {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted-foreground);
 }
 .tab-actions {
   display: flex;
@@ -687,9 +680,6 @@ select:focus-visible {
   overflow-y: auto;
 }
 @media (max-width: 900px) {
-  .brand {
-    width: 110px;
-  }
   .connections-sidebar {
     width: 240px;
   }

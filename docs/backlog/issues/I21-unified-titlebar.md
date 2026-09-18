@@ -1,6 +1,6 @@
 # I21 — Extrair barra superior unificada e abas compactas
 
-- **Status:** planned
+- **Status:** in progress
 - **GitHub:** [#57](https://github.com/zocacc/OwnTerm/issues/57)
 - **Dependências:** I08
 **Epic:** [E11 — Shell terminal-first](../epics/E11-terminal-first-shell.md)
@@ -11,15 +11,15 @@ Transformar a title bar atual no único chrome permanente do OwnTerm, removendo 
 
 ## Escopo
 
-- [ ] Extrair `UnifiedTitleBar` de `App.tsx` sem mover ownership de sessões para o componente.
-- [ ] Criar subcomponentes tipados para trigger de conexões, tabs, ações de nova sessão, drag region e controles da janela.
-- [ ] Posicionar o trigger da gaveta como primeiro controle à esquerda.
-- [ ] Remover a largura fixa da brand; manter identidade no ícone/tela vazia.
-- [ ] Preservar `WindowControls`, preparação segura do custom chrome e fallback nativo.
-- [ ] Aplicar semântica e navegação de tabs coerentes.
-- [ ] Exibir tipo/título/status/fechar em cada aba com nome acessível textual.
-- [ ] Garantir overflow horizontal de tabs sem cobrir launcher ou controles da janela.
-- [ ] Manter seleção/foco e política de aba vizinha após fechamento.
+- [x] Extrair `UnifiedTitleBar` de `App.tsx` sem mover ownership de sessões para o componente.
+- [x] Criar subcomponentes tipados para trigger de conexões, tabs, ações de nova sessão, drag region e controles da janela.
+- [x] Posicionar o trigger da gaveta como primeiro controle à esquerda.
+- [x] Remover a largura fixa da brand; manter identidade no ícone/tela vazia.
+- [x] Preservar `WindowControls`, preparação segura do custom chrome e fallback nativo.
+- [x] Aplicar semântica e navegação de tabs coerentes.
+- [x] Exibir tipo/título/status/fechar em cada aba com nome acessível textual.
+- [x] Garantir overflow horizontal de tabs sem cobrir launcher ou controles da janela.
+- [x] Manter seleção/foco e política de aba vizinha após fechamento.
 
 ## Fora do escopo
 
@@ -34,18 +34,18 @@ Gaveta funcional, menu completo de perfis, remoção da status bar, reordenaçã
 
 ## Critérios de aceite
 
-- [ ] A barra mede entre `40px` e `44px` e é o topo único da aplicação.
+- [x] A barra mede entre `40px` e `44px` e é o topo único da aplicação.
 - [ ] Trigger, tabs, ações, drag region e controles coexistem em `800px` de largura.
-- [ ] Cada status tem texto acessível além da cor.
-- [ ] Trocar/fechar aba preserva comportamento e foco atuais.
+- [x] Cada status tem texto acessível além da cor.
+- [x] Trocar/fechar aba preserva comportamento e foco atuais.
 - [ ] Ausência de custom chrome mantém a title bar nativa utilizável.
-- [ ] Nenhuma ação visual cria ou encerra sessão.
+- [x] Nenhuma ação visual cria ou encerra sessão.
 
 ## Testes
 
-- [ ] Renderização sem sessões, com uma sessão e com várias sessões.
+- [x] Renderização sem sessões, com uma sessão e com várias sessões.
 - [ ] Seleção, fechamento da ativa/inativa e overflow.
-- [ ] Labels por status e navegação por teclado.
+- [x] Labels por status e navegação por teclado.
 - [ ] Regressão de `WindowControls` e áreas arrastáveis em teste/manual Tauri.
 
 ## Entrega observável

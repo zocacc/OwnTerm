@@ -1,18 +1,10 @@
-import {
-  PanelLeft,
-  Terminal,
-  Plus,
-  ChevronDown,
-  Monitor,
-  Settings,
-  X,
-} from "lucide-react";
+import { Terminal, Monitor, Settings, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { WindowControls } from "./components/WindowControls";
+import { UnifiedTitleBar } from "./components/UnifiedTitleBar";
+import { sessionStatusLabels } from "./session-status";
 import { Button } from "./components/ui/button";
 import { useDialogFocus } from "./components/useDialogFocus";
 import { HostsWorkspace } from "./components/HostsWorkspace";
-import ownTermLogo from "./assets/svg/ownterm-logo.svg";
 import {
   defaultBackend,
   type AppInfo,
@@ -22,7 +14,6 @@ import {
   type Backend,
   type SessionDescriptor,
   type SessionCredentialRequiredEvent,
-  type SessionStatus,
   type SessionStatusEvent,
   type SessionTrustRequiredEvent,
   type ShellProfile,
@@ -114,15 +105,6 @@ function schemeForProfile(
     ) ?? defaultScheme
   );
 }
-
-const statusLabels: Record<SessionStatus, string> = {
-  starting: "Starting",
-  awaiting_trust: "Awaiting trust",
-  awaiting_credential: "Awaiting credential",
-  connected: "Connected",
-  disconnected: "Closed",
-  failed: "Failed",
-};
 
 function App({ backend = defaultBackend }: AppProps) {
   const [appInfo, setAppInfo] = useState<AppInfo>();
@@ -638,113 +620,26 @@ function App({ backend = defaultBackend }: AppProps) {
 
   return (
     <main className="app-shell">
-      <header className="titlebar" data-tauri-drag-region>
-        <div className="brand" data-tauri-drag-region>
-          <img alt="" src={ownTermLogo} />
-          <h1 data-tauri-drag-region>OwnTerm</h1>
-        </div>
-        <nav aria-label="Sessions" className="session-tabs">
-          {sessions.map((session) => (
-            <div
-              className={
-                session.id === activeSessionId
-                  ? "session-tab is-active"
-                  : "session-tab"
-              }
-              key={session.id}
-            >
-              <button
-                aria-current={
-                  session.id === activeSessionId ? "page" : undefined
-                }
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
-                onClick={() => {
-                  setActiveSessionId(session.id);
-                  terminals.current.get(session.id)?.focus();
-                }}
-                type="button"
-              >
-                <span
-                  className={`status-dot status-${session.status}`}
-                  title={statusLabels[session.status]}
-                />
-                <span className="truncate">{session.title}</span>
-              </button>
-              <button
-                aria-label={`Close ${session.title}`}
-                className="control-icon text-base"
-                onClick={() => closeSession(session.id)}
-                type="button"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-        </nav>
-        <div className="tab-actions">
-          <button
-            aria-label={
-              opening
-                ? "Opening…"
-                : terminalEventsReady
-                  ? "New tab"
-                  : "Preparing…"
-            }
-            title="New tab (Ctrl+Shift+T)"
-            className="control-icon"
-            disabled={!selectedProfileId || opening || !terminalEventsReady}
-            onClick={() => void openSession()}
-            type="button"
-          >
-            <Plus size={17} />
-          </button>
-          <div className="shell-picker" title="Shell profile">
-            <ChevronDown size={16} aria-hidden="true" />
-            <label className="sr-only" htmlFor="shell-profile">
-              Shell profile
-            </label>
-            <select
-              disabled={profiles.length === 0}
-              id="shell-profile"
-              onChange={(event) => setSelectedProfileId(event.target.value)}
-              value={selectedProfileId}
-            >
-              {profiles.length === 0 ? (
-                <option>No shell available</option>
-              ) : (
-                profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-        </div>
-        <div className="titlebar-space" data-tauri-drag-region />
-        <WindowControls />
-      </header>
+      <UnifiedTitleBar
+        activeSessionId={activeSessionId}
+        connectionsOpen={connectionsOpen}
+        onCloseSession={closeSession}
+        onOpenSession={() => void openSession()}
+        onSelectSession={(sessionId) => {
+          setActiveSessionId(sessionId);
+          terminals.current.get(sessionId)?.focus();
+        }}
+        onSelectedProfileChange={setSelectedProfileId}
+        onToggleConnections={() => setConnectionsOpen((open) => !open)}
+        opening={opening}
+        profiles={profiles}
+        selectedProfileId={selectedProfileId}
+        sessions={sessions}
+        terminalEventsReady={terminalEventsReady}
+      />
 
       <div className="flex min-h-0 flex-1">
         <nav aria-label="Workspace" className="activity-rail">
-          <button
-            aria-label={
-              connectionsOpen ? "Collapse connections" : "Expand connections"
-            }
-            aria-pressed={connectionsOpen}
-            className="rail-button"
-            onClick={() => setConnectionsOpen((open) => !open)}
-            title={
-              connectionsOpen ? "Collapse connections" : "Expand connections"
-            }
-            type="button"
-          >
-            {connectionsOpen ? (
-              <PanelLeft className="size-4" />
-            ) : (
-              <Terminal className="size-4" />
-            )}
-          </button>
           <button
             aria-label="Appearance settings"
             aria-pressed={appearanceOpen}
@@ -798,7 +693,7 @@ function App({ backend = defaultBackend }: AppProps) {
                 className={`session-badge ${activeSession.status === "connected" ? "is-connected" : ""}`}
               >
                 <span className={`status-dot status-${activeSession.status}`} />
-                {statusLabels[activeSession.status]}
+                {sessionStatusLabels[activeSession.status]}
               </span>
             ) : null}
           </div>
@@ -845,7 +740,7 @@ function App({ backend = defaultBackend }: AppProps) {
           </span>
           {activeSession ? (
             <span role="status">
-              {statusLabels[activeSession.status]}
+              {sessionStatusLabels[activeSession.status]}
               {activeSession.exitCode !== undefined
                 ? ` · exit code ${activeSession.exitCode}`
                 : ""}
