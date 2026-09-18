@@ -1,6 +1,6 @@
 # I22 — Converter Connections em gaveta acessível
 
-- **Status:** planned
+- **Status:** in progress
 - **GitHub:** [#58](https://github.com/zocacc/OwnTerm/issues/58)
 - **Dependências:** I21
 **Epic:** [E11 — Shell terminal-first](../epics/E11-terminal-first-shell.md)

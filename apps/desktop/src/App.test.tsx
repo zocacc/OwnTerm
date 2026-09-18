@@ -244,9 +244,38 @@ describe("local terminal workspace", () => {
       screen.getByRole("option", { name: "PowerShell" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Collapse connections" }),
+      screen.getByRole("button", { name: "Expand connections" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the connections drawer with its trigger, backdrop and shortcuts", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    const trigger = await screen.findByRole("button", {
+      name: "Expand connections",
+    });
+    await user.click(trigger);
+    const drawer = await screen.findByRole("dialog", { name: "Connections" });
+    expect(screen.getByLabelText("Search hosts")).toHaveFocus();
+
+    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "c" });
+    expect(screen.getByLabelText("Quick Connect")).toHaveFocus();
+    fireEvent.mouseDown(drawer.parentElement!);
+    expect(screen.queryByRole("dialog", { name: "Connections" })).toBeNull();
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "b" });
+    expect(
+      await screen.findByRole("dialog", { name: "Connections" }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Connections" })).toBeNull();
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "f" });
+    const search = await screen.findByLabelText("Search hosts");
+    await waitFor(() => expect(search).toHaveFocus());
   });
 
   it("opens, navigates and closes local session tabs", async () => {
@@ -366,8 +395,11 @@ describe("local terminal workspace", () => {
     render(<App backend={backend} />);
 
     await screen.findByRole("button", { name: "New tab" });
+    await user.click(
+      screen.getByRole("button", { name: "Expand connections" }),
+    );
     await user.type(
-      screen.getByLabelText("Quick Connect"),
+      await screen.findByLabelText("Quick Connect"),
       "alice@example.test:2222",
     );
     await user.click(screen.getByRole("button", { name: "Connect" }));
@@ -412,8 +444,11 @@ describe("local terminal workspace", () => {
     render(<App backend={backend} />);
 
     await screen.findByRole("button", { name: "New tab" });
+    await user.click(
+      screen.getByRole("button", { name: "Expand connections" }),
+    );
     await user.type(
-      screen.getByLabelText("Quick Connect"),
+      await screen.findByLabelText("Quick Connect"),
       "alice@changed.test",
     );
     await user.click(screen.getByRole("button", { name: "Connect" }));

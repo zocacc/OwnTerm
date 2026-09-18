@@ -1,10 +1,10 @@
 import { Terminal, Monitor, Settings, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConnectionsDrawer } from "./components/ConnectionsDrawer";
 import { UnifiedTitleBar } from "./components/UnifiedTitleBar";
 import { sessionStatusLabels } from "./session-status";
 import { Button } from "./components/ui/button";
 import { useDialogFocus } from "./components/useDialogFocus";
-import { HostsWorkspace } from "./components/HostsWorkspace";
 import {
   defaultBackend,
   type AppInfo,
@@ -116,7 +116,11 @@ function App({ backend = defaultBackend }: AppProps) {
   const [opening, setOpening] = useState(false);
   const [terminalEventsReady, setTerminalEventsReady] = useState(false);
   const [hostsRefreshToken, setHostsRefreshToken] = useState(0);
-  const [connectionsOpen, setConnectionsOpen] = useState(true);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [connectionsFocusTarget, setConnectionsFocusTarget] = useState<
+    "search" | "quickConnect"
+  >();
+  const [connectionsOverlayOpen, setConnectionsOverlayOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [appearance, setAppearance] = useState(defaultAppearance);
   const [systemFonts, setSystemFonts] = useState<string[]>([
@@ -134,6 +138,8 @@ function App({ backend = defaultBackend }: AppProps) {
   );
   const credentialInput = useRef<HTMLInputElement>(null);
   const appearanceTrigger = useRef<HTMLButtonElement>(null);
+  const connectionsTrigger = useRef<HTMLButtonElement>(null);
+  const connectionsRestoreTimer = useRef<number | undefined>(undefined);
   const appearanceSaveVersion = useRef(0);
   const sshTargets = useRef(new Map<string, SshTarget>());
   const terminals = useRef(new Map<string, TerminalHandle>());
@@ -355,7 +361,7 @@ function App({ backend = defaultBackend }: AppProps) {
 
   const openSession = useCallback(async () => {
     if (!selectedProfileId || opening || !terminalEventsReady) {
-      return;
+      return false;
     }
     setOpening(true);
     setError(undefined);
@@ -375,8 +381,10 @@ function App({ backend = defaultBackend }: AppProps) {
           : descriptor,
       ]);
       setActiveSessionId(descriptor.id);
+      return true;
     } catch {
       setError("Could not open the selected shell.");
+      return false;
     } finally {
       setOpening(false);
     }
@@ -416,27 +424,6 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, backend, sessions],
   );
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "t") {
-        event.preventDefault();
-        void openSession();
-      }
-      if (event.ctrlKey && event.key === "Tab" && sessions.length > 1) {
-        event.preventDefault();
-        const currentIndex = sessions.findIndex(
-          (session) => session.id === activeSessionId,
-        );
-        const direction = event.shiftKey ? -1 : 1;
-        const nextIndex =
-          (currentIndex + direction + sessions.length) % sessions.length;
-        setActiveSessionId(sessions[nextIndex]?.id);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeSessionId, openSession, sessions]);
-
   const runClipboardAction = (action: "copy" | "paste") => {
     const terminal = activeSessionId
       ? terminals.current.get(activeSessionId)
@@ -455,7 +442,7 @@ function App({ backend = defaultBackend }: AppProps) {
 
   const requestHostConnection = useCallback(
     async (target: SshTarget) => {
-      if (opening || !terminalEventsReady) return;
+      if (opening || !terminalEventsReady) return false;
       setOpening(true);
       setError(undefined);
       try {
@@ -476,8 +463,10 @@ function App({ backend = defaultBackend }: AppProps) {
           setHostsRefreshToken((value) => value + 1);
         }
         setActiveSessionId(descriptor.id);
+        return true;
       } catch (reason) {
         setError("Could not start the SSH connection: " + String(reason));
+        return false;
       } finally {
         setOpening(false);
       }
@@ -485,6 +474,90 @@ function App({ backend = defaultBackend }: AppProps) {
     [backend, opening, terminalEventsReady],
   );
 
+  const openConnections = useCallback(
+    (focusTarget: "search" | "quickConnect" = "search") => {
+      window.clearTimeout(connectionsRestoreTimer.current);
+      setConnectionsFocusTarget(focusTarget);
+      setConnectionsOpen(true);
+    },
+    [],
+  );
+
+  const closeConnections = useCallback((restoreFocus = true) => {
+    setConnectionsOpen(false);
+    setConnectionsFocusTarget(undefined);
+    if (restoreFocus) {
+      connectionsRestoreTimer.current = window.setTimeout(() =>
+        connectionsTrigger.current?.focus(),
+      );
+    }
+  }, []);
+
+  const openLocalFromDrawer = useCallback(async () => {
+    if (await openSession()) closeConnections(false);
+  }, [closeConnections, openSession]);
+
+  const requestConnectionFromDrawer = useCallback(
+    async (target: SshTarget) => {
+      if (await requestHostConnection(target)) closeConnections(false);
+    },
+    [closeConnections, requestHostConnection],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (event.ctrlKey && !event.shiftKey && key === "b") {
+        event.preventDefault();
+        if (connectionsOpen) closeConnections();
+        else openConnections();
+        return;
+      }
+      if (event.ctrlKey && !event.shiftKey && key === "f") {
+        event.preventDefault();
+        openConnections("search");
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "c") {
+        event.preventDefault();
+        openConnections("quickConnect");
+        return;
+      }
+      if (
+        event.key === "Escape" &&
+        connectionsOpen &&
+        !connectionsOverlayOpen
+      ) {
+        event.preventDefault();
+        closeConnections();
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "t") {
+        event.preventDefault();
+        void openSession();
+      }
+      if (event.ctrlKey && event.key === "Tab" && sessions.length > 1) {
+        event.preventDefault();
+        const currentIndex = sessions.findIndex(
+          (session) => session.id === activeSessionId,
+        );
+        const direction = event.shiftKey ? -1 : 1;
+        const nextIndex =
+          (currentIndex + direction + sessions.length) % sessions.length;
+        setActiveSessionId(sessions[nextIndex]?.id);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    activeSessionId,
+    closeConnections,
+    connectionsOpen,
+    connectionsOverlayOpen,
+    openConnections,
+    openSession,
+    sessions,
+  ]);
   const respondToTrust = useCallback(
     async (accept: boolean) => {
       if (!trustPrompt) return;
@@ -623,6 +696,7 @@ function App({ backend = defaultBackend }: AppProps) {
       <UnifiedTitleBar
         activeSessionId={activeSessionId}
         connectionsOpen={connectionsOpen}
+        connectionsTriggerRef={connectionsTrigger}
         onCloseSession={closeSession}
         onOpenSession={() => void openSession()}
         onSelectSession={(sessionId) => {
@@ -630,7 +704,10 @@ function App({ backend = defaultBackend }: AppProps) {
           terminals.current.get(sessionId)?.focus();
         }}
         onSelectedProfileChange={setSelectedProfileId}
-        onToggleConnections={() => setConnectionsOpen((open) => !open)}
+        onToggleConnections={() => {
+          if (connectionsOpen) closeConnections();
+          else openConnections();
+        }}
         opening={opening}
         profiles={profiles}
         selectedProfileId={selectedProfileId}
@@ -639,39 +716,6 @@ function App({ backend = defaultBackend }: AppProps) {
       />
 
       <div className="flex min-h-0 flex-1">
-        <nav aria-label="Workspace" className="activity-rail">
-          <button
-            aria-label="Appearance settings"
-            aria-pressed={appearanceOpen}
-            className="rail-button appearance-button"
-            onClick={() => setAppearanceOpen(true)}
-            ref={appearanceTrigger}
-            title="Appearance settings"
-            type="button"
-          >
-            <Settings className="size-4" />
-          </button>
-        </nav>
-        {connectionsOpen ? (
-          <HostsWorkspace
-            backend={backend}
-            onOpenLocal={() => void openSession()}
-            refreshToken={hostsRefreshToken}
-            activeHostId={
-              activeSession?.kind.type === "ssh"
-                ? activeSession.kind.hostId
-                : undefined
-            }
-            connectedHostIds={sessions
-              .filter((session) => session.status === "connected")
-              .flatMap((session) => {
-                const hostId =
-                  session.kind.type === "ssh" ? session.kind.hostId : undefined;
-                return hostId ? [hostId] : [];
-              })}
-            onRequestConnection={requestHostConnection}
-          />
-        ) : null}
         <div className="terminal-workspace">
           <div className="session-info">
             <Monitor
@@ -733,7 +777,43 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
       </div>
 
+      {connectionsOpen ? (
+        <ConnectionsDrawer
+          activeHostId={
+            activeSession?.kind.type === "ssh"
+              ? activeSession.kind.hostId
+              : undefined
+          }
+          backend={backend}
+          connectedHostIds={sessions
+            .filter((session) => session.status === "connected")
+            .flatMap((session) =>
+              session.kind.type === "ssh" ? [session.kind.hostId] : [],
+            )}
+          focusTarget={connectionsFocusTarget}
+          onClose={closeConnections}
+          onFocusTargetHandled={() => setConnectionsFocusTarget(undefined)}
+          onOpenLocal={() => void openLocalFromDrawer()}
+          onOverlayStateChange={setConnectionsOverlayOpen}
+          onRequestConnection={(target) =>
+            void requestConnectionFromDrawer(target)
+          }
+          refreshToken={hostsRefreshToken}
+        />
+      ) : null}
+
       <footer className="statusbar">
+        <button
+          aria-label="Appearance settings"
+          aria-pressed={appearanceOpen}
+          className="control-icon"
+          onClick={() => setAppearanceOpen(true)}
+          ref={appearanceTrigger}
+          title="Appearance settings"
+          type="button"
+        >
+          <Settings size={16} />
+        </button>
         <div className="flex min-w-0 items-center gap-3">
           <span className="text-[var(--muted-foreground)]">
             {appInfo ? `${appInfo.name} ${appInfo.version}` : "Starting core…"}

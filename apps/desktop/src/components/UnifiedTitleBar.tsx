@@ -6,13 +6,14 @@ import {
   Terminal,
   X,
 } from "lucide-react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, RefObject } from "react";
 import type { SessionDescriptor, ShellProfile } from "../services/backend";
 import { sessionStatusLabels } from "../session-status";
 import { WindowControls } from "./WindowControls";
 
 type UnifiedTitleBarProps = {
   connectionsOpen: boolean;
+  connectionsTriggerRef?: RefObject<HTMLButtonElement | null>;
   onCloseSession(sessionId: string): void;
   onOpenSession(): void;
   onSelectSession(sessionId: string): void;
@@ -46,8 +47,10 @@ type NewSessionActionsProps = Pick<
 
 function ConnectionDrawerTrigger({
   connectionsOpen,
+  connectionsTriggerRef,
   onToggleConnections,
-}: ConnectionDrawerTriggerProps) {
+}: ConnectionDrawerTriggerProps &
+  Pick<UnifiedTitleBarProps, "connectionsTriggerRef">) {
   const label = connectionsOpen ? "Collapse connections" : "Expand connections";
 
   return (
@@ -56,6 +59,7 @@ function ConnectionDrawerTrigger({
       aria-pressed={connectionsOpen}
       className="titlebar-connections control-icon"
       onClick={onToggleConnections}
+      ref={connectionsTriggerRef}
       title={label}
       type="button"
     >
@@ -226,6 +230,7 @@ export function UnifiedTitleBar(props: UnifiedTitleBarProps) {
     <header className="titlebar">
       <ConnectionDrawerTrigger
         connectionsOpen={props.connectionsOpen}
+        connectionsTriggerRef={props.connectionsTriggerRef}
         onToggleConnections={props.onToggleConnections}
       />
       <SessionTabs
