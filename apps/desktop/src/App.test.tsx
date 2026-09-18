@@ -272,7 +272,7 @@ describe("local terminal workspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens local profiles and drawer intentions from the accessible session launcher", async () => {
+  it("opens local profiles from the accessible session launcher", async () => {
     const user = userEvent.setup();
     backend.shellProfiles = [
       { id: "powershell", name: "PowerShell" },
@@ -306,34 +306,17 @@ describe("local terminal workspace", () => {
     expect(
       await screen.findByRole("menu", { name: "Session launcher" }),
     ).toBeInTheDocument();
-    await user.keyboard("{End}");
-    expect(
-      screen.getByRole("menuitem", { name: "Quick Connect…" }),
-    ).toHaveFocus();
-    await user.keyboard("{Home}");
-    expect(
-      screen.getByRole("menuitem", { name: /PowerShell.*Local shell/ }),
-    ).toHaveFocus();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("menu", { name: "Session launcher" })).toBeNull();
     await waitFor(() => expect(launcher).toHaveFocus());
 
-    await user.click(launcher);
-    await user.click(screen.getByRole("menuitem", { name: "Connections…" }));
+    expect(screen.queryByRole("menuitem", { name: "Connections…" })).toBeNull();
     expect(
-      await screen.findByRole("dialog", { name: "Connections" }),
-    ).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: "Escape" });
-    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "p" });
-    fireEvent.keyDown(
-      screen.getByRole("menuitem", { name: "Quick Connect…" }),
-      { key: " " },
-    );
-    expect(await screen.findByLabelText("Quick Connect")).toHaveFocus();
+      screen.queryByRole("menuitem", { name: "Quick Connect…" }),
+    ).toBeNull();
   });
 
-  it("keeps connection actions available when no local profile is detected", async () => {
+  it("keeps the drawer trigger as the connection entry point when no local profile is detected", async () => {
     const user = userEvent.setup();
     backend.shellProfiles = [];
     render(<App backend={backend} />);
@@ -342,10 +325,18 @@ describe("local terminal workspace", () => {
       await screen.findByRole("button", { name: "Open session launcher" }),
     );
     expect(screen.queryByRole("menuitem", { name: /Local shell/ })).toBeNull();
-    expect(
-      screen.getByRole("menuitem", { name: "Connections…" }),
-    ).toHaveFocus();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "No local shells detected",
+    );
     expect(screen.getByRole("button", { name: "New tab" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+
+    await user.click(
+      screen.getByRole("button", { name: "Expand connections" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Connections" }),
+    ).toBeInTheDocument();
   });
 
   it("prevents duplicate local sessions while a launch is pending", async () => {
@@ -365,7 +356,7 @@ describe("local terminal workspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens and closes the connections drawer with its trigger, backdrop and shortcuts", async () => {
+  it("opens and closes the connections drawer with its trigger, backdrop and Escape", async () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
@@ -375,23 +366,20 @@ describe("local terminal workspace", () => {
     await user.click(trigger);
     const drawer = await screen.findByRole("dialog", { name: "Connections" });
     expect(screen.getByLabelText("Search hosts")).toHaveFocus();
+    expect(
+      screen.queryByRole("button", { name: "Close connections" }),
+    ).toBeNull();
 
-    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "c" });
-    expect(screen.getByLabelText("Quick Connect")).toHaveFocus();
     fireEvent.mouseDown(drawer.parentElement!);
     expect(screen.queryByRole("dialog", { name: "Connections" })).toBeNull();
     await waitFor(() => expect(trigger).toHaveFocus());
 
-    fireEvent.keyDown(window, { ctrlKey: true, key: "b" });
+    await user.click(trigger);
     expect(
       await screen.findByRole("dialog", { name: "Connections" }),
     ).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Connections" })).toBeNull();
-
-    fireEvent.keyDown(window, { ctrlKey: true, key: "f" });
-    const search = await screen.findByLabelText("Search hosts");
-    await waitFor(() => expect(search).toHaveFocus());
   });
 
   it("keeps the drawer open for its internal dialog and preserves terminal surfaces", async () => {
@@ -414,7 +402,9 @@ describe("local terminal workspace", () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: "Close connections" }));
+    await user.click(
+      screen.getByRole("button", { name: "Collapse connections" }),
+    );
     expect(screen.getByTestId("terminal-session-1")).toBe(terminal);
   });
 

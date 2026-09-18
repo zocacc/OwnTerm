@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import type { Backend } from "../services/backend";
 import { HostsWorkspace } from "./HostsWorkspace";
 
@@ -40,15 +39,6 @@ export function ConnectionsDrawer({
       >
         <header className="connections-drawer-header">
           <h2>Connections</h2>
-          <button
-            aria-label="Close connections"
-            className="control-icon"
-            onClick={onClose}
-            title="Close connections (Escape)"
-            type="button"
-          >
-            <X size={16} />
-          </button>
         </header>
         <HostsWorkspace
           activeHostId={activeHostId}

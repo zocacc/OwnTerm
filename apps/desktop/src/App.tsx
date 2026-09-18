@@ -478,14 +478,11 @@ function App({ backend = defaultBackend }: AppProps) {
     [backend, terminalEventsReady],
   );
 
-  const openConnections = useCallback(
-    (focusTarget: "search" | "quickConnect" = "search") => {
-      window.clearTimeout(connectionsRestoreTimer.current);
-      setConnectionsFocusTarget(focusTarget);
-      setConnectionsOpen(true);
-    },
-    [],
-  );
+  const openConnections = useCallback(() => {
+    window.clearTimeout(connectionsRestoreTimer.current);
+    setConnectionsFocusTarget("search");
+    setConnectionsOpen(true);
+  }, []);
 
   const closeConnections = useCallback((restoreFocus = true) => {
     setConnectionsOpen(false);
@@ -511,25 +508,6 @@ function App({ backend = defaultBackend }: AppProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
-      if (event.ctrlKey && !event.shiftKey && key === "b") {
-        event.preventDefault();
-        setLauncherOpen(false);
-        if (connectionsOpen) closeConnections();
-        else openConnections();
-        return;
-      }
-      if (event.ctrlKey && !event.shiftKey && key === "f") {
-        event.preventDefault();
-        setLauncherOpen(false);
-        openConnections("search");
-        return;
-      }
-      if (event.ctrlKey && event.shiftKey && key === "c") {
-        event.preventDefault();
-        setLauncherOpen(false);
-        openConnections("quickConnect");
-        return;
-      }
       if (event.ctrlKey && event.shiftKey && key === "p") {
         event.preventDefault();
         setLauncherOpen(true);
@@ -572,7 +550,6 @@ function App({ backend = defaultBackend }: AppProps) {
     connectionsOpen,
     connectionsOverlayOpen,
     launcherOpen,
-    openConnections,
     openSession,
     sessions,
   ]);
@@ -723,8 +700,6 @@ function App({ backend = defaultBackend }: AppProps) {
         launcherOpen={launcherOpen}
         onCloseSession={closeSession}
         onOpenAppearance={() => setAppearanceOpen(true)}
-        onOpenConnections={() => openConnections("search")}
-        onOpenQuickConnect={() => openConnections("quickConnect")}
         onOpenSession={(profileId) => void openSession(profileId)}
         onSelectSession={(sessionId) => {
           setActiveSessionId(sessionId);

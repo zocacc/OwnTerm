@@ -206,7 +206,7 @@ select:focus-visible {
   width: min(30rem, 100%);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
-  background: var(--panel);
+  background: rgb(from var(--panel) r g b / var(--window-opacity));
   padding: 1.25rem;
   box-shadow: 0 24px 80px var(--dialog-shadow);
 }
@@ -236,7 +236,6 @@ select:focus-visible {
   flex-shrink: 0;
   height: 40px;
   padding-left: 4px;
-  border-bottom: 1px solid var(--hairline);
   background: rgb(from var(--titlebar) r g b / var(--window-opacity));
   user-select: none;
 }
@@ -336,6 +335,12 @@ select:focus-visible {
   cursor: not-allowed;
   opacity: 0.55;
 }
+.session-launcher-empty {
+  margin: 0;
+  padding: 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
 .session-launcher-menu > button span {
   margin-left: auto;
   color: var(--muted-foreground);
@@ -373,7 +378,7 @@ select:focus-visible {
   right: 8px;
   width: 240px;
   padding: 12px;
-  background: var(--panel);
+  background: rgb(from var(--panel) r g b / var(--window-opacity));
   border: 1px solid var(--border);
   border-radius: 6px;
 }
@@ -565,7 +570,7 @@ select:focus-visible {
   z-index: 40;
   width: 168px;
   padding: 5px;
-  background: var(--panel);
+  background: rgb(from var(--panel) r g b / var(--window-opacity));
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 10px 30px var(--dialog-shadow);

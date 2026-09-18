@@ -20,8 +20,6 @@ type UnifiedTitleBarProps = {
   launcherOpen: boolean;
   onCloseSession(sessionId: string): void;
   onOpenAppearance(): void;
-  onOpenConnections(): void;
-  onOpenQuickConnect(): void;
   onOpenSession(profileId?: string): void;
   onSelectSession(sessionId: string): void;
   onToggleConnections(): void;
@@ -45,8 +43,6 @@ type SessionTabsProps = Pick<
 type NewSessionActionsProps = Pick<
   UnifiedTitleBarProps,
   | "launcherOpen"
-  | "onOpenConnections"
-  | "onOpenQuickConnect"
   | "onOpenSession"
   | "onToggleLauncher"
   | "opening"
@@ -185,8 +181,6 @@ function SessionTabs({
 
 function NewSessionActions({
   launcherOpen,
-  onOpenConnections,
-  onOpenQuickConnect,
   onOpenSession,
   onToggleLauncher,
   opening,
@@ -289,21 +283,11 @@ function NewSessionActions({
               <Terminal size={14} /> {profile.name} <span>Local shell</span>
             </button>
           ))}
-          <button
-            autoFocus={profiles.length === 0}
-            onClick={() => select(onOpenConnections)}
-            role="menuitem"
-            type="button"
-          >
-            <PanelLeft size={14} /> Connections…
-          </button>
-          <button
-            onClick={() => select(onOpenQuickConnect)}
-            role="menuitem"
-            type="button"
-          >
-            <Server size={14} /> Quick Connect…
-          </button>
+          {profiles.length === 0 ? (
+            <p className="session-launcher-empty" role="status">
+              No local shells detected
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -353,8 +337,6 @@ export function UnifiedTitleBar(props: UnifiedTitleBarProps) {
       />
       <NewSessionActions
         launcherOpen={props.launcherOpen}
-        onOpenConnections={props.onOpenConnections}
-        onOpenQuickConnect={props.onOpenQuickConnect}
         onOpenSession={props.onOpenSession}
         onToggleLauncher={props.onToggleLauncher}
         opening={props.opening}
