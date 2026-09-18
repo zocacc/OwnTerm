@@ -66,6 +66,9 @@ class TestBackend implements Backend {
   readonly trustResponses: Array<[string, boolean]> = [];
   readonly credentialResponses: Array<[string, string | undefined]> = [];
   readonly closedSessions: string[] = [];
+  readonly startedShellProfiles: string[] = [];
+  localSessionGate?: Promise<void>;
+  shellProfiles = [{ id: "powershell", name: "PowerShell" }];
   readonly appearanceSaves: Array<
     Pick<AppearanceSettings, "windowOpacity" | "terminalBackgroundOpacity">
   > = [];
@@ -109,15 +112,20 @@ class TestBackend implements Backend {
   }
 
   async listShellProfiles() {
-    return [{ id: "powershell", name: "PowerShell" }];
+    return this.shellProfiles;
   }
 
   async startLocalSession(shellProfileId: string) {
+    this.startedShellProfiles.push(shellProfileId);
+    await this.localSessionGate;
     const id = `session-${this.nextSession++}`;
+    const profile = this.shellProfiles.find(
+      (item) => item.id === shellProfileId,
+    );
     return {
       id,
       kind: { type: "local" as const, shellProfileId },
-      title: `PowerShell ${id.slice(-1)}`,
+      title: `${profile?.name ?? shellProfileId} ${id.slice(-1)}`,
       status: "connected" as const,
     };
   }
@@ -241,12 +249,105 @@ describe("local terminal workspace", () => {
 
     expect(await screen.findByText("OwnTerm 0.1.0-test")).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "PowerShell" }),
+      await screen.findByRole("button", { name: "Open session launcher" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Expand connections" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  });
+
+  it("opens local profiles and drawer intentions from the accessible session launcher", async () => {
+    const user = userEvent.setup();
+    backend.shellProfiles = [
+      { id: "powershell", name: "PowerShell" },
+      { id: "cmd", name: "Command Prompt" },
+    ];
+    render(<App backend={backend} />);
+
+    const launcher = await screen.findByRole("button", {
+      name: "Open session launcher",
+    });
+    await user.click(launcher);
+    expect(
+      screen.getByRole("menu", { name: "Session launcher" }),
+    ).toBeInTheDocument();
+    const firstProfile = screen.getByRole("menuitem", {
+      name: /PowerShell.*Local shell/,
+    });
+    expect(firstProfile).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(
+      screen.getByRole("menuitem", { name: /Command Prompt.*Local shell/ }),
+    ).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(backend.startedShellProfiles).toEqual(["cmd"]);
+    expect(screen.queryByRole("menu", { name: "Session launcher" })).toBeNull();
+    expect(
+      await screen.findByRole("tab", { name: "Command Prompt 1" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "p" });
+    expect(
+      await screen.findByRole("menu", { name: "Session launcher" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{End}");
+    expect(
+      screen.getByRole("menuitem", { name: "Quick Connect…" }),
+    ).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(
+      screen.getByRole("menuitem", { name: /PowerShell.*Local shell/ }),
+    ).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu", { name: "Session launcher" })).toBeNull();
+    await waitFor(() => expect(launcher).toHaveFocus());
+
+    await user.click(launcher);
+    await user.click(screen.getByRole("menuitem", { name: "Connections…" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Connections" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "p" });
+    fireEvent.keyDown(
+      screen.getByRole("menuitem", { name: "Quick Connect…" }),
+      { key: " " },
+    );
+    expect(await screen.findByLabelText("Quick Connect")).toHaveFocus();
+  });
+
+  it("keeps connection actions available when no local profile is detected", async () => {
+    const user = userEvent.setup();
+    backend.shellProfiles = [];
+    render(<App backend={backend} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Open session launcher" }),
+    );
+    expect(screen.queryByRole("menuitem", { name: /Local shell/ })).toBeNull();
+    expect(
+      screen.getByRole("menuitem", { name: "Connections…" }),
+    ).toHaveFocus();
+    expect(screen.getByRole("button", { name: "New tab" })).toBeDisabled();
+  });
+
+  it("prevents duplicate local sessions while a launch is pending", async () => {
+    let release: (() => void) | undefined;
+    backend.localSessionGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    render(<App backend={backend} />);
+
+    const openButton = await screen.findByRole("button", { name: "New tab" });
+    fireEvent.click(openButton);
+    fireEvent.click(openButton);
+    expect(backend.startedShellProfiles).toEqual(["powershell"]);
+    release?.();
+    expect(
+      await screen.findByRole("tab", { name: "PowerShell 1" }),
+    ).toBeInTheDocument();
   });
 
   it("opens and closes the connections drawer with its trigger, backdrop and shortcuts", async () => {

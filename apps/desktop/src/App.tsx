@@ -117,6 +117,7 @@ function App({ backend = defaultBackend }: AppProps) {
   const [terminalEventsReady, setTerminalEventsReady] = useState(false);
   const [hostsRefreshToken, setHostsRefreshToken] = useState(0);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [launcherOpen, setLauncherOpen] = useState(false);
   const [connectionsFocusTarget, setConnectionsFocusTarget] = useState<
     "search" | "quickConnect"
   >();
@@ -140,6 +141,7 @@ function App({ backend = defaultBackend }: AppProps) {
   const appearanceTrigger = useRef<HTMLButtonElement>(null);
   const connectionsTrigger = useRef<HTMLButtonElement>(null);
   const connectionsRestoreTimer = useRef<number | undefined>(undefined);
+  const openingRef = useRef(false);
   const appearanceSaveVersion = useRef(0);
   const sshTargets = useRef(new Map<string, SshTarget>());
   const terminals = useRef(new Map<string, TerminalHandle>());
@@ -359,36 +361,40 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, sessions],
   );
 
-  const openSession = useCallback(async () => {
-    if (!selectedProfileId || opening || !terminalEventsReady) {
-      return false;
-    }
-    setOpening(true);
-    setError(undefined);
-    try {
-      const descriptor = await backend.startLocalSession(
-        selectedProfileId,
-        24,
-        80,
-      );
-      closedSessions.current.delete(descriptor.id);
-      const pending = pendingStatus.current.get(descriptor.id);
-      pendingStatus.current.delete(descriptor.id);
-      setSessions((current) => [
-        ...current,
-        pending
-          ? { ...descriptor, status: pending.status, reason: pending.reason }
-          : descriptor,
-      ]);
-      setActiveSessionId(descriptor.id);
-      return true;
-    } catch {
-      setError("Could not open the selected shell.");
-      return false;
-    } finally {
-      setOpening(false);
-    }
-  }, [backend, opening, selectedProfileId, terminalEventsReady]);
+  const openSession = useCallback(
+    async (profileId = selectedProfileId) => {
+      if (!profileId || openingRef.current || !terminalEventsReady) {
+        return false;
+      }
+      openingRef.current = true;
+      setOpening(true);
+      setError(undefined);
+      try {
+        const descriptor = await backend.startLocalSession(profileId, 24, 80);
+        closedSessions.current.delete(descriptor.id);
+        const pending = pendingStatus.current.get(descriptor.id);
+        pendingStatus.current.delete(descriptor.id);
+        setSessions((current) => [
+          ...current,
+          pending
+            ? { ...descriptor, status: pending.status, reason: pending.reason }
+            : descriptor,
+        ]);
+        setActiveSessionId(descriptor.id);
+        window.requestAnimationFrame(() =>
+          terminals.current.get(descriptor.id)?.focus(),
+        );
+        return true;
+      } catch {
+        setError("Could not open the selected shell.");
+        return false;
+      } finally {
+        openingRef.current = false;
+        setOpening(false);
+      }
+    },
+    [backend, selectedProfileId, terminalEventsReady],
+  );
 
   const closeSession = useCallback(
     (sessionId: string) => {
@@ -442,7 +448,8 @@ function App({ backend = defaultBackend }: AppProps) {
 
   const requestHostConnection = useCallback(
     async (target: SshTarget) => {
-      if (opening || !terminalEventsReady) return false;
+      if (openingRef.current || !terminalEventsReady) return false;
+      openingRef.current = true;
       setOpening(true);
       setError(undefined);
       try {
@@ -468,10 +475,11 @@ function App({ backend = defaultBackend }: AppProps) {
         setError("Could not start the SSH connection: " + String(reason));
         return false;
       } finally {
+        openingRef.current = false;
         setOpening(false);
       }
     },
-    [backend, opening, terminalEventsReady],
+    [backend, terminalEventsReady],
   );
 
   const openConnections = useCallback(
@@ -509,18 +517,31 @@ function App({ backend = defaultBackend }: AppProps) {
       const key = event.key.toLowerCase();
       if (event.ctrlKey && !event.shiftKey && key === "b") {
         event.preventDefault();
+        setLauncherOpen(false);
         if (connectionsOpen) closeConnections();
         else openConnections();
         return;
       }
       if (event.ctrlKey && !event.shiftKey && key === "f") {
         event.preventDefault();
+        setLauncherOpen(false);
         openConnections("search");
         return;
       }
       if (event.ctrlKey && event.shiftKey && key === "c") {
         event.preventDefault();
+        setLauncherOpen(false);
         openConnections("quickConnect");
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "p") {
+        event.preventDefault();
+        setLauncherOpen(true);
+        return;
+      }
+      if (event.key === "Escape" && launcherOpen) {
+        event.preventDefault();
+        setLauncherOpen(false);
         return;
       }
       if (
@@ -554,6 +575,7 @@ function App({ backend = defaultBackend }: AppProps) {
     closeConnections,
     connectionsOpen,
     connectionsOverlayOpen,
+    launcherOpen,
     openConnections,
     openSession,
     sessions,
@@ -697,14 +719,18 @@ function App({ backend = defaultBackend }: AppProps) {
         activeSessionId={activeSessionId}
         connectionsOpen={connectionsOpen}
         connectionsTriggerRef={connectionsTrigger}
+        launcherOpen={launcherOpen}
         onCloseSession={closeSession}
-        onOpenSession={() => void openSession()}
+        onOpenConnections={() => openConnections("search")}
+        onOpenQuickConnect={() => openConnections("quickConnect")}
+        onOpenSession={(profileId) => void openSession(profileId)}
         onSelectSession={(sessionId) => {
           setActiveSessionId(sessionId);
           terminals.current.get(sessionId)?.focus();
         }}
-        onSelectedProfileChange={setSelectedProfileId}
+        onToggleLauncher={() => setLauncherOpen((open) => !open)}
         onToggleConnections={() => {
+          setLauncherOpen(false);
           if (connectionsOpen) closeConnections();
           else openConnections();
         }}
