@@ -35,6 +35,7 @@ vi.mock("./terminal/TerminalSurface", () => ({
   }) => {
     onReady(sessionId, {
       focus: terminalSurfaceMocks.focus,
+      fit: vi.fn(),
       write: vi.fn(),
       copy: vi.fn(async () => undefined),
       paste: vi.fn(async () => undefined),
@@ -260,15 +261,11 @@ describe("local terminal workspace", () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Open connections" }),
-    );
     expect(
-      await screen.findByRole("dialog", { name: "Connections" }),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close connections" }));
+      screen.queryByRole("button", { name: "Open connections" }),
+    ).not.toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: "Open default shell" }),
+      await screen.findByRole("button", { name: "Open default shell" }),
     );
     expect(
       await screen.findByRole("tab", { name: "PowerShell 1" }),
@@ -654,6 +651,19 @@ describe("local terminal workspace", () => {
       screen.getByRole("button", { name: "Close appearance settings" }),
     ).toHaveFocus();
 
+    fireEvent.change(screen.getByRole("slider", { name: /Window opacity/ }), {
+      target: { value: "100" },
+    });
+    expect(backend.appearanceSaves.at(-1)).toMatchObject({
+      windowOpacity: 100,
+      terminalBackgroundOpacity: 82,
+      activeProfileId: "migrated-appearance",
+    });
+    expect(screen.getByTestId("terminal-session-1")).toHaveAttribute(
+      "data-opacity",
+      "82",
+    );
+
     fireEvent.change(
       screen.getByRole("slider", { name: /Terminal background opacity/ }),
       {
@@ -661,7 +671,7 @@ describe("local terminal workspace", () => {
       },
     );
     expect(backend.appearanceSaves.at(-1)).toMatchObject({
-      windowOpacity: 92,
+      windowOpacity: 100,
       terminalBackgroundOpacity: 64,
       activeProfileId: "migrated-appearance",
     });
@@ -691,20 +701,18 @@ describe("local terminal workspace", () => {
     await waitFor(() => expect(terminalSurfaceMocks.focus).toHaveBeenCalled());
   });
 
-  it("shows the non-blocking native opacity warning", async () => {
+  it("uses a chrome-only CSS variable for window opacity", async () => {
     const user = userEvent.setup();
-    backend.appearance = {
-      ...backend.appearance,
-      windowOpacityWarning:
-        "Window opacity is unavailable; using a solid window.",
-    };
     render(<App backend={backend} />);
 
     await user.click(
       await screen.findByRole("button", { name: "Appearance settings" }),
     );
+    fireEvent.change(screen.getByRole("slider", { name: /Window opacity/ }), {
+      target: { value: "55" },
+    });
     expect(
-      screen.getByText("Window opacity is unavailable; using a solid window."),
-    ).toBeInTheDocument();
+      document.documentElement.style.getPropertyValue("--window-opacity"),
+    ).toBe("0.55");
   });
 });

@@ -72,7 +72,7 @@ const defaultProfile: TerminalAppearanceProfile = {
   builtIn: false,
 };
 const appearanceBounds = {
-  windowOpacity: { min: 70, max: 100 },
+  windowOpacity: { min: 0, max: 100 },
   terminalBackgroundOpacity: { min: 55, max: 100 },
 } as const;
 const defaultAppearance: AppearanceSettings = {
@@ -357,6 +357,21 @@ function App({ backend = defaultBackend }: AppProps) {
     () => sessions.find((session) => session.id === activeSessionId),
     [activeSessionId, sessions],
   );
+
+  useEffect(() => {
+    const windowAlpha = activeAppearanceProfile(appearance).windowOpacity / 100;
+    document.documentElement.style.setProperty(
+      "--window-opacity",
+      String(windowAlpha),
+    );
+  }, [appearance]);
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    window.requestAnimationFrame(() =>
+      terminals.current.get(activeSessionId)?.fit(),
+    );
+  }, [activeSessionId, connectionsOpen]);
 
   const openSession = useCallback(
     async (profileId = selectedProfileId) => {
@@ -738,7 +753,7 @@ function App({ backend = defaultBackend }: AppProps) {
                   No open sessions
                 </p>
                 <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                  Open a local shell or connect to a saved host.
+                  Open the default shell with Ctrl+Shift+T or the + button.
                 </p>
                 <div className="empty-terminal-actions">
                   <button
@@ -750,13 +765,6 @@ function App({ backend = defaultBackend }: AppProps) {
                     type="button"
                   >
                     Open default shell
-                  </button>
-                  <button
-                    className="control-ghost"
-                    onClick={() => openConnections("search")}
-                    type="button"
-                  >
-                    Open connections
                   </button>
                 </div>
               </div>

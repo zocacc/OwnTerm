@@ -10,6 +10,7 @@ export type TerminalHandle = {
   write(data: number[]): void;
   focus(): void;
   copy(): Promise<void>;
+  fit(): void;
   paste(): Promise<void>;
 };
 
@@ -145,6 +146,7 @@ export function TerminalSurface({
     onReady(sessionId, {
       write: (data) => terminal.write(Uint8Array.from(data)),
       focus: () => terminal.focus(),
+      fit: fitAndResize,
       copy: async () => {
         const selection = terminal.getSelection();
         if (selection) {
@@ -187,25 +189,28 @@ export function TerminalSurface({
     if (!terminal.options) return;
     terminal.options.fontFamily = profile.fontFamily;
     terminal.options.fontSize = profile.fontSize;
-    terminal.options.theme = terminalTheme(scheme);
+    terminal.options.theme = terminalTheme(
+      scheme,
+      profile.terminalBackgroundOpacity,
+    );
     // Font metrics affect xterm columns/rows; immediately synchronize the PTY.
     fitRef.current();
-  }, [profile.fontFamily, profile.fontSize, scheme]);
+  }, [
+    profile.fontFamily,
+    profile.fontSize,
+    profile.terminalBackgroundOpacity,
+    scheme,
+  ]);
 
   return (
     <div
       aria-hidden={!active}
       aria-labelledby={`session-tab-${sessionId}`}
-      className={active ? "terminal-surface h-full w-full p-3" : "hidden"}
+      className={active ? "terminal-surface h-full w-full" : "hidden"}
       id={`terminal-${sessionId}`}
       role="tabpanel"
       data-testid={`terminal-${sessionId}`}
       ref={containerRef}
-      style={{
-        backgroundColor: suppliedProfile
-          ? `color-mix(in srgb, ${scheme.background} ${profile.terminalBackgroundOpacity}%, transparent)`
-          : `rgb(12 15 21 / ${profile.terminalBackgroundOpacity}%)`,
-      }}
     />
   );
 }

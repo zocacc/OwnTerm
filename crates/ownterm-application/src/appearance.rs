@@ -7,7 +7,7 @@ pub const TERMINAL_BACKGROUND_OPACITY_KEY: &str = "appearance.terminalBackground
 pub const TERMINAL_APPEARANCE_PROFILES_KEY: &str = "appearance.terminalProfiles";
 pub const ACTIVE_TERMINAL_APPEARANCE_PROFILE_KEY: &str = "appearance.activeTerminalProfile";
 pub const DEFAULT_WINDOW_OPACITY: u8 = 92;
-pub const MIN_WINDOW_OPACITY: u8 = 70;
+pub const MIN_WINDOW_OPACITY: u8 = 0;
 pub const MAX_WINDOW_OPACITY: u8 = 100;
 pub const DEFAULT_TERMINAL_BACKGROUND_OPACITY: u8 = 82;
 pub const MIN_TERMINAL_BACKGROUND_OPACITY: u8 = 55;
@@ -34,7 +34,7 @@ pub enum AppearanceSettingsError {
 impl std::fmt::Display for AppearanceSettingsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Self::WindowOpacityOutOfRange => "window opacity must be between 70 and 100",
+            Self::WindowOpacityOutOfRange => "window opacity must be between 0 and 100",
             Self::TerminalBackgroundOpacityOutOfRange => {
                 "terminal background opacity must be between 55 and 100"
             }
@@ -260,9 +260,9 @@ mod tests {
     #[test]
     fn validates_ranges_and_defaults() {
         assert_eq!(AppearanceSettings::default().window_opacity, 92);
-        assert!(AppearanceSettings::try_new(69, 82).is_err());
+        assert!(AppearanceSettings::try_new(101, 82).is_err());
         assert!(AppearanceSettings::try_new(92, 54).is_err());
-        assert!(AppearanceSettings::try_new(70, 55).is_ok());
+        assert!(AppearanceSettings::try_new(0, 55).is_ok());
     }
 
     #[test]

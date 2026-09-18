@@ -818,38 +818,31 @@ fn active_profile(
         .ok_or_else(|| "active appearance profile is missing".into())
 }
 
-fn apply_window_opacity(
-    window: &tauri::WebviewWindow,
-    state: &DesktopState,
-    settings: AppearanceSettings,
-) -> bool {
+/// The terminal canvas is deliberately never placed under a layered native
+/// window. Layered opacity affects every WebView pixel and would couple the
+/// shell slider to xterm's independently configured background alpha.
+fn reset_native_window_opacity(window: &tauri::WebviewWindow, state: &DesktopState) {
     let Ok(mut adapter_state) = state.window_opacity.lock() else {
-        return false;
+        return;
     };
-    if window_opacity::apply(window, settings.window_opacity, &mut adapter_state).is_ok() {
-        return true;
-    }
-    // Native failure is non-blocking: restore a solid window when possible.
+    // Restore the style when upgrading from a version that used native alpha.
+    // The preference is now composed by CSS only on chrome surfaces.
     let _ = window_opacity::apply(window, 100, &mut adapter_state);
-    false
 }
 
 fn appearance_dto(
     settings: AppearanceSettings,
     defaults_applied: bool,
-    applied: bool,
     catalog: TerminalAppearanceCatalog,
 ) -> AppearanceSettingsDto {
     AppearanceSettingsDto {
         window_opacity: settings.window_opacity,
         terminal_background_opacity: settings.terminal_background_opacity,
-        window_opacity_support: match window_opacity::support() {
-            window_opacity::WindowOpacitySupport::Supported => "supported",
-            window_opacity::WindowOpacitySupport::Unsupported => "unsupported",
-        },
-        window_opacity_applied: applied,
-        window_opacity_warning: (!applied)
-            .then_some("Window opacity is unavailable; using a solid window."),
+        // The setting is handled in the WebView's chrome surfaces and therefore
+        // has the same behavior on every supported desktop platform.
+        window_opacity_support: "supported",
+        window_opacity_applied: true,
+        window_opacity_warning: None,
         defaults_applied,
         active_profile_id: catalog.active_profile_id,
         profiles: catalog.profiles,
@@ -903,14 +896,9 @@ fn get_appearance_settings(
     let effective =
         AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
             .map_err(|e| e.to_string())?;
-    let applied = apply_window_opacity(&window, &state, effective);
+    reset_native_window_opacity(&window, &state);
     apply_profile_material(&window, profile.use_acrylic);
-    Ok(appearance_dto(
-        effective,
-        defaults_applied,
-        applied,
-        catalog,
-    ))
+    Ok(appearance_dto(effective, defaults_applied, catalog))
 }
 
 #[tauri::command]
@@ -978,9 +966,9 @@ fn save_appearance_settings(
             value: settings.terminal_background_opacity.to_string(),
         })
         .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
-    let applied = apply_window_opacity(&window, &state, settings);
+    reset_native_window_opacity(&window, &state);
     apply_profile_material(&window, profile.use_acrylic);
-    Ok(appearance_dto(settings, false, applied, catalog))
+    Ok(appearance_dto(settings, false, catalog))
 }
 
 fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) {
@@ -1026,24 +1014,14 @@ fn refresh_window_material(
     window: tauri::WebviewWindow,
     state: State<'_, DesktopState>,
 ) -> WindowAppearance {
-    // Maximizing/fullscreen can reset both DWM material and layered-window
-    // alpha. Restore the stored alpha first, then reapply Acrylic because the
-    // WS_EX_LAYERED transition can clear the DWM backdrop.
+    // Maximizing/fullscreen can reset DWM material. Clear any legacy layered
+    // alpha and then reapply Acrylic without changing terminal composition.
     if let Ok((settings, _)) = appearance_settings_from_store(&state) {
         let catalog = appearance_catalog_from_store(&state, settings).ok();
         let profile = catalog
             .as_ref()
             .and_then(|catalog| active_profile(catalog).ok());
-        let effective = profile
-            .and_then(|profile| {
-                AppearanceSettings::try_new(
-                    profile.window_opacity,
-                    profile.terminal_background_opacity,
-                )
-                .ok()
-            })
-            .unwrap_or(settings);
-        let _ = apply_window_opacity(&window, &state, effective);
+        reset_native_window_opacity(&window, &state);
         let use_acrylic = profile.map(|profile| profile.use_acrylic).unwrap_or(true);
         apply_profile_material(&window, use_acrylic);
         return WindowAppearance {

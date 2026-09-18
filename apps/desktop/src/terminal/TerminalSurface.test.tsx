@@ -111,9 +111,7 @@ describe("TerminalSurface", () => {
     expect(handle).toBeDefined();
     expect(
       document.querySelector("[data-testid=terminal-session-1]"),
-    ).toHaveStyle({
-      backgroundColor: "rgb(12 15 21 / 82%)",
-    });
+    ).not.toHaveAttribute("style");
     view.rerender(
       <TerminalSurface
         active
@@ -124,11 +122,7 @@ describe("TerminalSurface", () => {
         terminalBackgroundOpacity={64}
       />,
     );
-    expect(
-      document.querySelector("[data-testid=terminal-session-1]"),
-    ).toHaveStyle({
-      backgroundColor: "rgb(12 15 21 / 64%)",
-    });
+    expect(terminalMocks.terminal.open).toHaveBeenCalledTimes(1);
     expect(terminalMocks.terminal.open).toHaveBeenCalledTimes(1);
     expect(terminalMocks.terminal.focus).toHaveBeenCalledTimes(1);
     act(() => {
