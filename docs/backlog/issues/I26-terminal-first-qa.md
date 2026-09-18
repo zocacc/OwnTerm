@@ -1,6 +1,6 @@
 # I26 — Fechar regressão, acessibilidade e QA Windows
 
-- **Status:** planned
+- **Status:** in progress
 - **GitHub:** [#62](https://github.com/zocacc/OwnTerm/issues/62)
 - **Dependências:** I22, I23, I24, I25
 **Epic:** [E11 — Shell terminal-first](../epics/E11-terminal-first-shell.md)
@@ -11,16 +11,20 @@ Validar o shell terminal-first como um fluxo integrado, cobrindo regressões fun
 
 ## Escopo
 
-- [ ] Consolidar testes de integração do AppShell após extrações.
-- [ ] Cobrir abertura local, Host salvo, Quick Connect, trust, credencial, falha, reconexão e fechamento.
-- [ ] Verificar que gaveta/menu não desmontam xterm ou chamam lifecycle indevido.
-- [ ] Auditar teclado, foco, roles, names, estados e `aria-live`.
+- [x] Consolidar testes de integração do AppShell após extrações.
+- [x] Cobrir abertura local, Host salvo, Quick Connect, trust, credencial, falha, reconexão e fechamento.
+- [x] Verificar que gaveta/menu não desmontam xterm ou chamam lifecycle indevido.
+- [x] Auditar teclado, foco, roles, names, estados e `aria-live`.
 - [ ] Validar janela normal, mínima, maximizada e restaurada.
 - [ ] Validar PowerShell, CMD, WSL detectado e SSH em build Windows.
-- [ ] Validar Acrylic, fallback opaco, reduced transparency/motion e DPI.
+- [x] Validar Acrylic, fallback opaco, reduced transparency/motion e DPI.
 - [ ] Executar lint, typecheck, testes frontend, testes Rust relevantes e build.
-- [ ] Registrar screenshots e checklist manual no PR da entrega.
-- [ ] Atualizar documentação se a implementação exigir desvio da spec.
+- [x] Registrar screenshots e checklist manual no PR da entrega.
+- [x] Atualizar documentação se a implementação exigir desvio da spec.
+
+## Evidência Windows
+
+Use [E11 Windows acceptance](../../qa/E11-windows-acceptance.md) no artefato do CI; marque resultados e anexe somente screenshots sanitizados ao PR.
 
 ## Matriz mínima manual
 
@@ -43,9 +47,9 @@ Adicionar funcionalidades novas, corrigir problemas não relacionados sem issue 
 
 - [ ] Todos os critérios globais da spec estão marcados com evidência.
 - [ ] Testes automatizados e build Windows passam.
-- [ ] Nenhum segredo ou conteúdo de terminal aparece em logs, toast ou screenshot de teste.
-- [ ] Não há regressão em CRUD, portabilidade, sessões locais ou SSH.
-- [ ] Navegação essencial funciona sem mouse.
+- [x] Nenhum segredo ou conteúdo de terminal aparece em logs, toast ou screenshot de teste.
+- [x] Não há regressão em CRUD, portabilidade, sessões locais ou SSH.
+- [x] Navegação essencial funciona sem mouse.
 - [ ] Evidência visual cobre estados-chave e fallback.
 
 ## Entrega observável
