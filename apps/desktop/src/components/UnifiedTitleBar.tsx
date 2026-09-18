@@ -3,6 +3,7 @@ import {
   PanelLeft,
   Plus,
   Server,
+  Settings,
   Terminal,
   X,
 } from "lucide-react";
@@ -12,10 +13,13 @@ import { sessionStatusLabels } from "../session-status";
 import { WindowControls } from "./WindowControls";
 
 type UnifiedTitleBarProps = {
+  appearanceOpen: boolean;
+  appearanceTriggerRef?: RefObject<HTMLButtonElement | null>;
   connectionsOpen: boolean;
   connectionsTriggerRef?: RefObject<HTMLButtonElement | null>;
   launcherOpen: boolean;
   onCloseSession(sessionId: string): void;
+  onOpenAppearance(): void;
   onOpenConnections(): void;
   onOpenQuickConnect(): void;
   onOpenSession(profileId?: string): void;
@@ -306,6 +310,29 @@ function NewSessionActions({
   );
 }
 
+function AppearanceTrigger({
+  appearanceOpen,
+  appearanceTriggerRef,
+  onOpenAppearance,
+}: Pick<
+  UnifiedTitleBarProps,
+  "appearanceOpen" | "appearanceTriggerRef" | "onOpenAppearance"
+>) {
+  return (
+    <button
+      aria-label="Appearance settings"
+      aria-pressed={appearanceOpen}
+      className="control-icon"
+      onClick={onOpenAppearance}
+      ref={appearanceTriggerRef}
+      title="Appearance settings"
+      type="button"
+    >
+      <Settings size={16} />
+    </button>
+  );
+}
+
 function TitlebarDragRegion() {
   return <div className="titlebar-space" data-tauri-drag-region />;
 }
@@ -336,6 +363,11 @@ export function UnifiedTitleBar(props: UnifiedTitleBarProps) {
         terminalEventsReady={props.terminalEventsReady}
       />
       <TitlebarDragRegion />
+      <AppearanceTrigger
+        appearanceOpen={props.appearanceOpen}
+        appearanceTriggerRef={props.appearanceTriggerRef}
+        onOpenAppearance={props.onOpenAppearance}
+      />
       <WindowControls />
     </header>
   );

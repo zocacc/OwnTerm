@@ -1,4 +1,4 @@
-import { Terminal, Monitor, Settings, X } from "lucide-react";
+import { Terminal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectionsDrawer } from "./components/ConnectionsDrawer";
 import { UnifiedTitleBar } from "./components/UnifiedTitleBar";
@@ -7,7 +7,6 @@ import { Button } from "./components/ui/button";
 import { useDialogFocus } from "./components/useDialogFocus";
 import {
   defaultBackend,
-  type AppInfo,
   type AppearanceSettings,
   type TerminalAppearanceProfile,
   type TerminalColorScheme,
@@ -107,7 +106,6 @@ function schemeForProfile(
 }
 
 function App({ backend = defaultBackend }: AppProps) {
-  const [appInfo, setAppInfo] = useState<AppInfo>();
   const [profiles, setProfiles] = useState<ShellProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [sessions, setSessions] = useState<OpenSession[]>([]);
@@ -336,11 +334,10 @@ function App({ backend = defaultBackend }: AppProps) {
   useEffect(() => {
     let mounted = true;
     void Promise.all([backend.appInfo(), backend.listShellProfiles()])
-      .then(([info, availableProfiles]) => {
+      .then(([, availableProfiles]) => {
         if (!mounted) {
           return;
         }
-        setAppInfo(info);
         setProfiles(availableProfiles);
         setSelectedProfileId(
           (current) => current || availableProfiles[0]?.id || "",
@@ -429,22 +426,6 @@ function App({ backend = defaultBackend }: AppProps) {
     },
     [activeSessionId, backend, sessions],
   );
-
-  const runClipboardAction = (action: "copy" | "paste") => {
-    const terminal = activeSessionId
-      ? terminals.current.get(activeSessionId)
-      : undefined;
-    if (!terminal) {
-      return;
-    }
-    void terminal[action]().catch(() =>
-      setError(
-        action === "copy"
-          ? "Could not copy the selection."
-          : "Could not paste into the terminal.",
-      ),
-    );
-  };
 
   const requestHostConnection = useCallback(
     async (target: SshTarget) => {
@@ -717,10 +698,13 @@ function App({ backend = defaultBackend }: AppProps) {
     <main className="app-shell">
       <UnifiedTitleBar
         activeSessionId={activeSessionId}
+        appearanceOpen={appearanceOpen}
+        appearanceTriggerRef={appearanceTrigger}
         connectionsOpen={connectionsOpen}
         connectionsTriggerRef={connectionsTrigger}
         launcherOpen={launcherOpen}
         onCloseSession={closeSession}
+        onOpenAppearance={() => setAppearanceOpen(true)}
         onOpenConnections={() => openConnections("search")}
         onOpenQuickConnect={() => openConnections("quickConnect")}
         onOpenSession={(profileId) => void openSession(profileId)}
@@ -741,66 +725,89 @@ function App({ backend = defaultBackend }: AppProps) {
         terminalEventsReady={terminalEventsReady}
       />
 
-      <div className="flex min-h-0 flex-1">
-        <div className="terminal-workspace">
-          <div className="session-info">
-            <Monitor
-              size={14}
-              className="shrink-0 text-[var(--muted-foreground)]"
-            />
-            <span className="min-w-0 truncate text-[var(--strong-foreground)]">
-              {activeSession ? activeSession.title : "No active session"}
-            </span>
-            <span className="session-kind">
-              {activeSession?.kind.type === "ssh"
-                ? "SSH"
-                : activeSession
-                  ? "Local"
-                  : "Ready"}
-            </span>
-            {activeSession ? (
-              <span
-                className={`session-badge ${activeSession.status === "connected" ? "is-connected" : ""}`}
-              >
-                <span className={`status-dot status-${activeSession.status}`} />
-                {sessionStatusLabels[activeSession.status]}
-              </span>
-            ) : null}
-          </div>
-          <section className="terminal-stage">
-            {sessions.length === 0 ? (
-              <div className="empty-terminal">
-                <div>
-                  <Terminal className="empty-terminal-icon" size={32} />
-                  <p className="text-sm text-[var(--strong-foreground)]">
-                    No open sessions
-                  </p>
-                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                    Choose a shell and open a tab. Shortcut: Ctrl+Shift+T.
-                  </p>
+      <div className="terminal-workspace">
+        <section className="terminal-stage">
+          {sessions.length === 0 ? (
+            <div className="empty-terminal">
+              <div>
+                <Terminal className="empty-terminal-icon" size={32} />
+                <p className="text-sm text-[var(--strong-foreground)]">
+                  No open sessions
+                </p>
+                <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                  Open a local shell or connect to a saved host.
+                </p>
+                <div className="empty-terminal-actions">
+                  <button
+                    className="control-primary"
+                    disabled={
+                      !selectedProfileId || opening || !terminalEventsReady
+                    }
+                    onClick={() => void openSession()}
+                    type="button"
+                  >
+                    Open default shell
+                  </button>
+                  <button
+                    className="control-ghost"
+                    onClick={() => openConnections("search")}
+                    type="button"
+                  >
+                    Open connections
+                  </button>
                 </div>
               </div>
-            ) : null}
-            {sessions.map((session) => (
-              <TerminalSurface
-                active={session.id === activeSessionId}
-                backend={backend}
-                key={session.id}
-                onError={reportError}
-                onReady={registerTerminal}
-                sessionId={session.id}
-                profile={activeAppearanceProfile(appearance)}
-                scheme={schemeForProfile(
-                  appearance,
-                  activeAppearanceProfile(appearance),
-                )}
-                terminalBackgroundOpacity={
-                  activeAppearanceProfile(appearance).terminalBackgroundOpacity
-                }
-              />
-            ))}
-          </section>
-        </div>
+            </div>
+          ) : null}
+          {sessions.map((session) => (
+            <TerminalSurface
+              active={session.id === activeSessionId}
+              backend={backend}
+              key={session.id}
+              onError={reportError}
+              onReady={registerTerminal}
+              sessionId={session.id}
+              profile={activeAppearanceProfile(appearance)}
+              scheme={schemeForProfile(
+                appearance,
+                activeAppearanceProfile(appearance),
+              )}
+              terminalBackgroundOpacity={
+                activeAppearanceProfile(appearance).terminalBackgroundOpacity
+              }
+            />
+          ))}
+          {error ||
+          (activeSession &&
+            (activeSession.status !== "connected" ||
+              activeSession?.exitCode !== undefined ||
+              activeSession?.reason)) ? (
+            <div
+              aria-live="polite"
+              className="workspace-feedback"
+              role="status"
+            >
+              <span>
+                {error ??
+                  `${sessionStatusLabels[activeSession?.status ?? "disconnected"]}${activeSession?.exitCode !== undefined ? ` · exit code ${activeSession?.exitCode}` : ""}${activeSession?.reason ? ` · ${activeSession?.reason}` : ""}`}
+              </span>
+              {activeSession?.kind.type === "ssh" &&
+              (activeSession.status === "failed" ||
+                activeSession.status === "disconnected") ? (
+                <button
+                  className="control-ghost"
+                  onClick={() => {
+                    const target = sshTargets.current.get(activeSession.id);
+                    if (target) void requestHostConnection(target);
+                  }}
+                  type="button"
+                >
+                  Reconnect
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
       </div>
 
       {connectionsOpen ? (
@@ -827,72 +834,6 @@ function App({ backend = defaultBackend }: AppProps) {
           refreshToken={hostsRefreshToken}
         />
       ) : null}
-
-      <footer className="statusbar">
-        <button
-          aria-label="Appearance settings"
-          aria-pressed={appearanceOpen}
-          className="control-icon"
-          onClick={() => setAppearanceOpen(true)}
-          ref={appearanceTrigger}
-          title="Appearance settings"
-          type="button"
-        >
-          <Settings size={16} />
-        </button>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="text-[var(--muted-foreground)]">
-            {appInfo ? `${appInfo.name} ${appInfo.version}` : "Starting core…"}
-          </span>
-          {activeSession ? (
-            <span role="status">
-              {sessionStatusLabels[activeSession.status]}
-              {activeSession.exitCode !== undefined
-                ? ` · exit code ${activeSession.exitCode}`
-                : ""}
-              {activeSession.reason ? ` · ${activeSession.reason}` : ""}
-            </span>
-          ) : null}
-          {error ? (
-            <span className="truncate text-[var(--danger)]">{error}</span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1">
-          {activeSession?.kind.type === "ssh" &&
-          (activeSession.status === "failed" ||
-            activeSession.status === "disconnected") ? (
-            <button
-              className="rounded px-2 py-1 text-[var(--primary)] hover:bg-[var(--control-hover)]"
-              onClick={() => {
-                const target = sshTargets.current.get(activeSession.id);
-                if (target) void requestHostConnection(target);
-              }}
-              type="button"
-            >
-              Reconnect
-            </button>
-          ) : null}
-          <button
-            className="control-ghost"
-            disabled={!activeSession}
-            onClick={() => runClipboardAction("copy")}
-            type="button"
-          >
-            Copy
-          </button>
-          <button
-            className="control-ghost"
-            disabled={!activeSession || activeSession.status !== "connected"}
-            onClick={() => runClipboardAction("paste")}
-            type="button"
-          >
-            Paste
-          </button>
-          <span className="ml-2 hidden text-[var(--muted-foreground)] sm:inline">
-            Ctrl+Tab switches tabs
-          </span>
-        </div>
-      </footer>
 
       {appearanceOpen
         ? (() => {

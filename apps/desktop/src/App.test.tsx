@@ -247,7 +247,6 @@ describe("local terminal workspace", () => {
   it("loads core information and detected shell profiles", async () => {
     render(<App backend={backend} />);
 
-    expect(await screen.findByText("OwnTerm 0.1.0-test")).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Open session launcher" }),
     ).toBeInTheDocument();
@@ -255,6 +254,25 @@ describe("local terminal workspace", () => {
       screen.getByRole("button", { name: "Expand connections" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  });
+
+  it("offers primary shell and connection actions from the empty workspace", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Open connections" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Connections" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close connections" }));
+    await user.click(
+      screen.getByRole("button", { name: "Open default shell" }),
+    );
+    expect(
+      await screen.findByRole("tab", { name: "PowerShell 1" }),
+    ).toBeInTheDocument();
   });
 
   it("opens local profiles and drawer intentions from the accessible session launcher", async () => {
