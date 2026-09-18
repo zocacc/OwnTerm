@@ -358,14 +358,6 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, sessions],
   );
 
-  useEffect(() => {
-    const profile = activeAppearanceProfile(appearance);
-    document.documentElement.dataset.material =
-      appearance.windowOpacityApplied && profile.useAcrylic
-        ? "acrylic"
-        : "solid";
-  }, [appearance]);
-
   const openSession = useCallback(
     async (profileId = selectedProfileId) => {
       if (!profileId || openingRef.current || !terminalEventsReady) {
@@ -702,6 +694,9 @@ function App({ backend = defaultBackend }: AppProps) {
     [appearance, saveAppearance],
   );
 
+  const activeAppearance = activeAppearanceProfile(appearance);
+  const activeScheme = schemeForProfile(appearance, activeAppearance);
+
   return (
     <main className="app-shell">
       <UnifiedTitleBar
@@ -775,13 +770,10 @@ function App({ backend = defaultBackend }: AppProps) {
               onError={reportError}
               onReady={registerTerminal}
               sessionId={session.id}
-              profile={activeAppearanceProfile(appearance)}
-              scheme={schemeForProfile(
-                appearance,
-                activeAppearanceProfile(appearance),
-              )}
+              profile={activeAppearance}
+              scheme={activeScheme}
               terminalBackgroundOpacity={
-                activeAppearanceProfile(appearance).terminalBackgroundOpacity
+                activeAppearance.terminalBackgroundOpacity
               }
             />
           ))}

@@ -17,9 +17,9 @@ Validar o shell terminal-first como um fluxo integrado, cobrindo regressões fun
 - [x] Auditar teclado, foco, roles, names, estados e `aria-live`.
 - [ ] Validar janela normal, mínima, maximizada e restaurada.
 - [ ] Validar PowerShell, CMD, WSL detectado e SSH em build Windows.
-- [x] Validar Acrylic, fallback opaco, reduced transparency/motion e DPI.
+- [ ] Validar Acrylic, fallback opaco, reduced transparency/motion e DPI.
 - [ ] Executar lint, typecheck, testes frontend, testes Rust relevantes e build.
-- [x] Registrar screenshots e checklist manual no PR da entrega.
+- [ ] Registrar screenshots e checklist manual no PR da entrega.
 - [x] Atualizar documentação se a implementação exigir desvio da spec.
 
 ## Evidência Windows
