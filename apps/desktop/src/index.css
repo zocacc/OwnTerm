@@ -4,14 +4,12 @@
 :root {
   color-scheme: dark;
   --background: #191d26;
-  --titlebar: rgb(17 20 27 / 42%);
-  --sidebar-surface: rgb(29 33 43 / 42%);
-  --toolbar: rgb(22 25 33 / 32%);
-  --statusbar: rgb(23 26 34 / 46%);
-  --surface: var(--sidebar-surface);
-  --surface-solid: #222630;
-  --terminal: rgb(12 15 21 / 32%);
-  --panel: #242833;
+  --titlebar: #171a22;
+  --drawer: #20242e;
+  --menu: #222630;
+  --dialog: #242833;
+  --feedback: #222630;
+  --terminal: #0c0f15;
   --foreground: #d4d6df;
   --strong-foreground: #edf0f6;
   --muted-foreground: #989da9;
@@ -22,6 +20,11 @@
   --danger: #ed858a;
   --border: rgb(255 255 255 / 12%);
   --hairline: rgb(255 255 255 / 7%);
+  --surface: var(--drawer);
+  --sidebar-surface: var(--drawer);
+  --surface-solid: var(--menu);
+  --panel: var(--dialog);
+  --toolbar: var(--titlebar);
   --control-surface: rgb(10 13 19 / 24%);
   --control-hover: rgb(255 255 255 / 7%);
   --subtle-surface: rgb(255 255 255 / 5%);
@@ -32,7 +35,7 @@
   --control-focus-border: rgb(172 134 223 / 65%);
   --control-focus-surface: rgb(20 23 32 / 62%);
   color: var(--foreground);
-  background: transparent;
+  background: var(--background);
   font-family: "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -41,10 +44,36 @@
 /* Only expose the desktop after the native Acrylic request succeeds. */
 :root[data-material="acrylic"] {
   --background: rgb(18 21 29 / 26%);
+  --titlebar: rgb(17 20 27 / 54%);
+  --drawer: rgb(29 33 43 / 74%);
+  --menu: rgb(34 38 48 / 88%);
+  --dialog: rgb(36 40 51 / 92%);
+  --feedback: rgb(34 38 48 / 90%);
+  --terminal: rgb(12 15 21 / 82%);
+}
+:root[data-material="acrylic"] .titlebar,
+:root[data-material="acrylic"] .connections-drawer,
+:root[data-material="acrylic"] .session-launcher-menu,
+:root[data-material="acrylic"] .dialog,
+:root[data-material="acrylic"] .workspace-feedback {
+  backdrop-filter: blur(18px) saturate(130%);
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   :root[data-material="acrylic"] {
     --background: #191d26;
+    --titlebar: #171a22;
+    --drawer: #20242e;
+    --menu: #222630;
+    --dialog: #242833;
+    --feedback: #222630;
+    --terminal: #0c0f15;
+  }
+  :root[data-material="acrylic"] .titlebar,
+  :root[data-material="acrylic"] .connections-drawer,
+  :root[data-material="acrylic"] .session-launcher-menu,
+  :root[data-material="acrylic"] .dialog,
+  :root[data-material="acrylic"] .workspace-feedback {
+    backdrop-filter: none;
   }
 }
 
@@ -281,7 +310,7 @@ select:focus-visible {
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface-solid);
+  background: var(--menu);
   box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
 }
 .session-launcher-menu > button {
@@ -361,7 +390,7 @@ select:focus-visible {
   width: min(360px, 90vw);
   min-width: 280px;
   border-right: 1px solid var(--hairline);
-  background: var(--sidebar-surface);
+  background: var(--drawer);
   box-shadow: 18px 0 42px rgb(0 0 0 / 28%);
   transition: transform 180ms ease-out;
 }
@@ -605,7 +634,7 @@ select:focus-visible {
   padding: 8px 10px;
   border: 1px solid var(--hairline);
   border-radius: 6px;
-  background: var(--surface-solid);
+  background: var(--feedback);
   box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
   color: var(--foreground);
   font-size: 12px;

@@ -358,6 +358,14 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, sessions],
   );
 
+  useEffect(() => {
+    const profile = activeAppearanceProfile(appearance);
+    document.documentElement.dataset.material =
+      appearance.windowOpacityApplied && profile.useAcrylic
+        ? "acrylic"
+        : "solid";
+  }, [appearance]);
+
   const openSession = useCallback(
     async (profileId = selectedProfileId) => {
       if (!profileId || openingRef.current || !terminalEventsReady) {
