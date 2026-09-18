@@ -3,27 +3,35 @@ import {
   PanelLeft,
   Plus,
   Server,
+  Settings,
   Terminal,
   X,
 } from "lucide-react";
-import type { KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent, type RefObject } from "react";
 import type { SessionDescriptor, ShellProfile } from "../services/backend";
 import { sessionStatusLabels } from "../session-status";
 import { WindowControls } from "./WindowControls";
 
 type UnifiedTitleBarProps = {
+  appearanceOpen: boolean;
+  appearanceTriggerRef?: RefObject<HTMLButtonElement | null>;
   connectionsOpen: boolean;
+  connectionsTriggerRef?: RefObject<HTMLButtonElement | null>;
+  launcherOpen: boolean;
   onCloseSession(sessionId: string): void;
-  onOpenSession(): void;
+  onOpenAppearance(): void;
+  onOpenConnections(): void;
+  onOpenQuickConnect(): void;
+  onOpenSession(profileId?: string): void;
   onSelectSession(sessionId: string): void;
   onToggleConnections(): void;
+  onToggleLauncher(): void;
   opening: boolean;
   profiles: ShellProfile[];
   selectedProfileId: string;
   sessions: SessionDescriptor[];
   terminalEventsReady: boolean;
   activeSessionId?: string;
-  onSelectedProfileChange(profileId: string): void;
 };
 
 type ConnectionDrawerTriggerProps = Pick<
@@ -36,8 +44,11 @@ type SessionTabsProps = Pick<
 >;
 type NewSessionActionsProps = Pick<
   UnifiedTitleBarProps,
+  | "launcherOpen"
+  | "onOpenConnections"
+  | "onOpenQuickConnect"
   | "onOpenSession"
-  | "onSelectedProfileChange"
+  | "onToggleLauncher"
   | "opening"
   | "profiles"
   | "selectedProfileId"
@@ -46,8 +57,10 @@ type NewSessionActionsProps = Pick<
 
 function ConnectionDrawerTrigger({
   connectionsOpen,
+  connectionsTriggerRef,
   onToggleConnections,
-}: ConnectionDrawerTriggerProps) {
+}: ConnectionDrawerTriggerProps &
+  Pick<UnifiedTitleBarProps, "connectionsTriggerRef">) {
   const label = connectionsOpen ? "Collapse connections" : "Expand connections";
 
   return (
@@ -56,6 +69,7 @@ function ConnectionDrawerTrigger({
       aria-pressed={connectionsOpen}
       className="titlebar-connections control-icon"
       onClick={onToggleConnections}
+      ref={connectionsTriggerRef}
       title={label}
       type="button"
     >
@@ -170,13 +184,63 @@ function SessionTabs({
 }
 
 function NewSessionActions({
+  launcherOpen,
+  onOpenConnections,
+  onOpenQuickConnect,
   onOpenSession,
-  onSelectedProfileChange,
+  onToggleLauncher,
   opening,
   profiles,
   selectedProfileId,
   terminalEventsReady,
 }: NewSessionActionsProps) {
+  const launcherTrigger = useRef<HTMLButtonElement>(null);
+  const disabled = opening || !terminalEventsReady;
+  const closeLauncher = () => {
+    onToggleLauncher();
+    window.requestAnimationFrame(() => launcherTrigger.current?.focus());
+  };
+  const moveMenuFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        '[role="menuitem"]:not(:disabled)',
+      ),
+    );
+    const current = items.indexOf(event.target as HTMLButtonElement);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeLauncher();
+      return;
+    }
+    if (
+      event.key === "Enter" ||
+      event.key === " " ||
+      event.key === "Spacebar"
+    ) {
+      event.preventDefault();
+      (event.target as HTMLButtonElement).click();
+      return;
+    }
+    if (items.length === 0 || current < 0) return;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : event.key === "ArrowDown"
+            ? (current + 1) % items.length
+            : event.key === "ArrowUp"
+              ? (current - 1 + items.length) % items.length
+              : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    items[next]?.focus();
+  };
+  const select = (action: () => void) => {
+    action();
+    onToggleLauncher();
+  };
+
   return (
     <div className="tab-actions">
       <button
@@ -184,36 +248,88 @@ function NewSessionActions({
           opening ? "Opening…" : terminalEventsReady ? "New tab" : "Preparing…"
         }
         className="control-icon"
-        disabled={!selectedProfileId || opening || !terminalEventsReady}
-        onClick={onOpenSession}
+        disabled={!selectedProfileId || disabled}
+        onClick={() => onOpenSession()}
         title="New tab (Ctrl+Shift+T)"
         type="button"
       >
         <Plus size={17} />
       </button>
-      <div className="shell-picker" title="Shell profile">
-        <ChevronDown aria-hidden="true" size={16} />
-        <label className="sr-only" htmlFor="shell-profile">
-          Shell profile
-        </label>
-        <select
-          disabled={profiles.length === 0}
-          id="shell-profile"
-          onChange={(event) => onSelectedProfileChange(event.target.value)}
-          value={selectedProfileId}
+      <button
+        aria-controls="session-launcher-menu"
+        aria-expanded={launcherOpen}
+        aria-haspopup="menu"
+        aria-label="Open session launcher"
+        className="control-icon"
+        disabled={!terminalEventsReady}
+        onClick={onToggleLauncher}
+        ref={launcherTrigger}
+        title="Open session launcher (Ctrl+Shift+P)"
+        type="button"
+      >
+        <ChevronDown size={16} />
+      </button>
+      {launcherOpen ? (
+        <div
+          aria-label="Session launcher"
+          className="session-launcher-menu"
+          id="session-launcher-menu"
+          onKeyDown={moveMenuFocus}
+          role="menu"
         >
-          {profiles.length === 0 ? (
-            <option>No shell available</option>
-          ) : (
-            profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))
-          )}
-        </select>
-      </div>
+          {profiles.map((profile, index) => (
+            <button
+              autoFocus={index === 0}
+              disabled={disabled}
+              key={profile.id}
+              onClick={() => select(() => onOpenSession(profile.id))}
+              role="menuitem"
+              type="button"
+            >
+              <Terminal size={14} /> {profile.name} <span>Local shell</span>
+            </button>
+          ))}
+          <button
+            autoFocus={profiles.length === 0}
+            onClick={() => select(onOpenConnections)}
+            role="menuitem"
+            type="button"
+          >
+            <PanelLeft size={14} /> Connections…
+          </button>
+          <button
+            onClick={() => select(onOpenQuickConnect)}
+            role="menuitem"
+            type="button"
+          >
+            <Server size={14} /> Quick Connect…
+          </button>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function AppearanceTrigger({
+  appearanceOpen,
+  appearanceTriggerRef,
+  onOpenAppearance,
+}: Pick<
+  UnifiedTitleBarProps,
+  "appearanceOpen" | "appearanceTriggerRef" | "onOpenAppearance"
+>) {
+  return (
+    <button
+      aria-label="Appearance settings"
+      aria-pressed={appearanceOpen}
+      className="control-icon"
+      onClick={onOpenAppearance}
+      ref={appearanceTriggerRef}
+      title="Appearance settings"
+      type="button"
+    >
+      <Settings size={16} />
+    </button>
   );
 }
 
@@ -226,6 +342,7 @@ export function UnifiedTitleBar(props: UnifiedTitleBarProps) {
     <header className="titlebar">
       <ConnectionDrawerTrigger
         connectionsOpen={props.connectionsOpen}
+        connectionsTriggerRef={props.connectionsTriggerRef}
         onToggleConnections={props.onToggleConnections}
       />
       <SessionTabs
@@ -235,14 +352,22 @@ export function UnifiedTitleBar(props: UnifiedTitleBarProps) {
         sessions={props.sessions}
       />
       <NewSessionActions
+        launcherOpen={props.launcherOpen}
+        onOpenConnections={props.onOpenConnections}
+        onOpenQuickConnect={props.onOpenQuickConnect}
         onOpenSession={props.onOpenSession}
-        onSelectedProfileChange={props.onSelectedProfileChange}
+        onToggleLauncher={props.onToggleLauncher}
         opening={props.opening}
         profiles={props.profiles}
         selectedProfileId={props.selectedProfileId}
         terminalEventsReady={props.terminalEventsReady}
       />
       <TitlebarDragRegion />
+      <AppearanceTrigger
+        appearanceOpen={props.appearanceOpen}
+        appearanceTriggerRef={props.appearanceTriggerRef}
+        onOpenAppearance={props.onOpenAppearance}
+      />
       <WindowControls />
     </header>
   );

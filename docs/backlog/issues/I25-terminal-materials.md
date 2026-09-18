@@ -1,6 +1,6 @@
 # I25 — Consolidar Acrylic, tokens e fallback visual
 
-- **Status:** planned
+- **Status:** in progress
 - **GitHub:** [#61](https://github.com/zocacc/OwnTerm/issues/61)
 - **Dependências:** I21, I22, I24
 **Epic:** [E11 — Shell terminal-first](../epics/E11-terminal-first-shell.md)
@@ -11,13 +11,13 @@ Aplicar uma hierarquia visual contínua e legível ao novo shell, usando Acrylic
 
 ## Escopo
 
-- [ ] Revisar tokens de title bar, drawer, backdrop, terminal, menu, feedback e diálogos.
-- [ ] Tornar o terminal mais sólido que chrome/gaveta sem usar cartão aninhado.
-- [ ] Aplicar blur/material somente após confirmação do backend de janela.
-- [ ] Manter fallback opaco como padrão seguro.
-- [ ] Validar `prefers-reduced-transparency`, forced colors e reduced motion.
-- [ ] Remover tokens/classes órfãos de activity rail, session info e status bar.
-- [ ] Garantir contraste de texto, foco, seleção e estados operacionais.
+- [x] Revisar tokens de title bar, drawer, backdrop, terminal, menu, feedback e diálogos.
+- [x] Tornar o terminal mais sólido que chrome/gaveta sem usar cartão aninhado.
+- [x] Aplicar blur/material somente após confirmação do backend de janela.
+- [x] Manter fallback opaco como padrão seguro.
+- [x] Validar `prefers-reduced-transparency`, forced colors e reduced motion.
+- [x] Remover tokens/classes órfãos de activity rail, session info e status bar.
+- [x] Garantir contraste de texto, foco, seleção e estados operacionais.
 - [ ] Ajustar tabs, drawer e menus para `800×600` e escalas de DPI suportadas.
 - [ ] Atualizar mockup/evidência visual versionada se o repositório continuar usando esses assets como referência.
 
@@ -27,12 +27,12 @@ Editor de tema, color schemes configuráveis, background image, controle de blur
 
 ## Critérios de aceite
 
-- [ ] Acrylic e fallback preservam a mesma hierarquia e medidas.
-- [ ] Fundo externo não compromete legibilidade do terminal.
-- [ ] Forced colors mantém foco e ações distinguíveis.
-- [ ] Reduced transparency remove dependência de blur/translucidez.
-- [ ] Nenhum bloco opaco desnecessário interrompe a superfície do terminal.
-- [ ] Não restam estilos utilizados somente pelo layout removido.
+- [x] Acrylic e fallback preservam a mesma hierarquia e medidas.
+- [x] Fundo externo não compromete legibilidade do terminal.
+- [x] Forced colors mantém foco e ações distinguíveis.
+- [x] Reduced transparency remove dependência de blur/translucidez.
+- [x] Nenhum bloco opaco desnecessário interrompe a superfície do terminal.
+- [x] Não restam estilos utilizados somente pelo layout removido.
 
 ## Testes
 

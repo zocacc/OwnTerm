@@ -4,14 +4,12 @@
 :root {
   color-scheme: dark;
   --background: #191d26;
-  --titlebar: rgb(17 20 27 / 42%);
-  --sidebar-surface: rgb(29 33 43 / 42%);
-  --toolbar: rgb(22 25 33 / 32%);
-  --statusbar: rgb(23 26 34 / 46%);
-  --surface: var(--sidebar-surface);
-  --surface-solid: #222630;
-  --terminal: rgb(12 15 21 / 32%);
-  --panel: #242833;
+  --titlebar: #171a22;
+  --drawer: #20242e;
+  --menu: #222630;
+  --dialog: #242833;
+  --feedback: #222630;
+  --terminal: #0c0f15;
   --foreground: #d4d6df;
   --strong-foreground: #edf0f6;
   --muted-foreground: #989da9;
@@ -22,6 +20,11 @@
   --danger: #ed858a;
   --border: rgb(255 255 255 / 12%);
   --hairline: rgb(255 255 255 / 7%);
+  --surface: var(--drawer);
+  --sidebar-surface: var(--drawer);
+  --surface-solid: var(--menu);
+  --panel: var(--dialog);
+  --toolbar: var(--titlebar);
   --control-surface: rgb(10 13 19 / 24%);
   --control-hover: rgb(255 255 255 / 7%);
   --subtle-surface: rgb(255 255 255 / 5%);
@@ -32,7 +35,7 @@
   --control-focus-border: rgb(172 134 223 / 65%);
   --control-focus-surface: rgb(20 23 32 / 62%);
   color: var(--foreground);
-  background: transparent;
+  background: var(--background);
   font-family: "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -41,10 +44,36 @@
 /* Only expose the desktop after the native Acrylic request succeeds. */
 :root[data-material="acrylic"] {
   --background: rgb(18 21 29 / 26%);
+  --titlebar: rgb(17 20 27 / 54%);
+  --drawer: rgb(29 33 43 / 74%);
+  --menu: rgb(34 38 48 / 88%);
+  --dialog: rgb(36 40 51 / 92%);
+  --feedback: rgb(34 38 48 / 90%);
+  --terminal: rgb(12 15 21 / 82%);
+}
+:root[data-material="acrylic"] .titlebar,
+:root[data-material="acrylic"] .connections-drawer,
+:root[data-material="acrylic"] .session-launcher-menu,
+:root[data-material="acrylic"] .dialog,
+:root[data-material="acrylic"] .workspace-feedback {
+  backdrop-filter: blur(18px) saturate(130%);
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   :root[data-material="acrylic"] {
     --background: #191d26;
+    --titlebar: #171a22;
+    --drawer: #20242e;
+    --menu: #222630;
+    --dialog: #242833;
+    --feedback: #222630;
+    --terminal: #0c0f15;
+  }
+  :root[data-material="acrylic"] .titlebar,
+  :root[data-material="acrylic"] .connections-drawer,
+  :root[data-material="acrylic"] .session-launcher-menu,
+  :root[data-material="acrylic"] .dialog,
+  :root[data-material="acrylic"] .workspace-feedback {
+    backdrop-filter: none;
   }
 }
 
@@ -268,32 +297,46 @@ select:focus-visible {
   gap: 3px;
   padding: 0 9px;
   flex-shrink: 0;
-}
-.shell-picker {
-  width: 28px;
-  height: 28px;
   position: relative;
-  display: grid;
-  place-items: center;
-  border-radius: 5px;
 }
-.shell-picker:hover {
-  background: var(--control-hover);
-}
-.shell-picker select {
+.session-launcher-menu {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  cursor: pointer;
-  opacity: 0;
+  z-index: 70;
+  top: calc(100% + 4px);
+  right: 6px;
+  display: grid;
+  width: min(17rem, calc(100vw - 12px));
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--menu);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
 }
-.shell-picker:focus-within {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-.shell-picker option {
-  background: var(--surface-solid);
+.session-launcher-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: 5px;
   color: var(--foreground);
+  font-size: 12px;
+  text-align: left;
+}
+.session-launcher-menu > button:hover,
+.session-launcher-menu > button:focus-visible {
+  background: var(--control-hover);
+  outline: none;
+}
+.session-launcher-menu > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.session-launcher-menu > button span {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 11px;
 }
 .titlebar-space {
   flex: 1;
@@ -331,43 +374,32 @@ select:focus-visible {
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-.activity-rail {
+.connections-drawer-backdrop {
+  position: fixed;
+  inset: 40px 0 0;
+  z-index: 40;
+  background: rgb(4 6 10 / 34%);
+  backdrop-filter: blur(2px);
+}
+.connections-drawer {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 52px;
-  flex-shrink: 0;
-  padding: 20px 0;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(360px, 90vw);
+  min-width: 280px;
   border-right: 1px solid var(--hairline);
-  background: var(--toolbar);
-}
-.rail-button {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  color: var(--muted-foreground);
-}
-.rail-button[aria-pressed="true"] {
-  color: var(--primary);
-  background: rgb(8 10 15 / 35%);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 3%);
-}
-.rail-button:hover {
-  background: var(--control-hover);
-}
-.appearance-button {
-  margin-top: auto;
+  background: var(--drawer);
+  box-shadow: 18px 0 42px rgb(0 0 0 / 28%);
+  transition: transform 180ms ease-out;
 }
 .connections-sidebar {
   display: flex;
-  flex-direction: column;
-  width: 264px;
   min-width: 0;
-  flex-shrink: 0;
-  border-right: 1px solid var(--hairline);
-  background: var(--sidebar-surface);
+  flex: 1;
+  flex-direction: column;
+  background: transparent;
 }
 .connections-header {
   padding: 18px 16px 8px;
@@ -556,96 +588,21 @@ select:focus-visible {
 }
 .terminal-workspace {
   display: flex;
-  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   flex: 1;
   background: var(--terminal);
 }
-.session-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 34px;
-  margin: 20px 16px 6px;
-  padding: 4px 8px;
-  background: rgb(255 255 255 / 3%);
-  border: 1px solid rgb(255 255 255 / 4%);
-  border-radius: 6px;
-  font-size: 12px;
-}
-.session-kind {
-  margin-left: auto;
-  padding: 2px 7px;
-  border: 1px solid var(--hairline);
-  border-radius: 5px;
-  color: var(--muted-foreground);
-  font-size: 10px;
-}
-.session-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 7px;
-  border: 1px solid var(--hairline);
-  border-radius: 5px;
-  color: var(--muted-foreground);
-  font-size: 10px;
-}
-.session-badge.is-connected {
-  color: var(--online);
-  background: rgb(80 199 131 / 4%);
-  border-color: rgb(80 199 131 / 10%);
-}
 .terminal-stage {
   position: relative;
+  min-width: 0;
   min-height: 0;
   flex: 1;
-  padding: 0 4px 4px;
+  padding: 8px;
 }
 .terminal-surface {
-  transition: background-color 120ms ease;
-}
-.appearance-dialog {
-  width: min(32rem, 100%);
-}
-.appearance-dialog-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.appearance-dialog-heading p {
-  margin: 0.35rem 0 0;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-}
-.appearance-dialog label > span {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.appearance-dialog output {
-  color: var(--strong-foreground);
-  font-variant-numeric: tabular-nums;
-}
-.appearance-dialog input[type="range"] {
-  width: 100%;
-  accent-color: var(--primary);
-}
-.appearance-warning {
-  margin: 0.75rem 0 0;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--warning) 9%, transparent);
-  color: var(--warning);
-  font-size: 0.75rem;
-}
-.appearance-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
+  border-radius: 6px;
+  overflow: hidden;
 }
 .empty-terminal {
   display: grid;
@@ -659,30 +616,39 @@ select:focus-visible {
   color: var(--muted-foreground);
   opacity: 0.5;
 }
-.statusbar {
+.empty-terminal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.workspace-feedback {
+  position: absolute;
+  z-index: 10;
+  right: 16px;
+  bottom: 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  gap: 16px;
-  min-height: 32px;
-  padding: 0 12px;
-  border-top: 1px solid var(--hairline);
-  background: var(--statusbar);
-  color: var(--muted-foreground);
-  font-size: 10px;
+  gap: 8px;
+  max-width: min(38rem, calc(100% - 32px));
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--feedback);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
+  color: var(--foreground);
+  font-size: 12px;
 }
-.statusbar button {
-  font-size: 10px;
+.workspace-feedback > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dialog {
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
 }
 @media (max-width: 900px) {
-  .connections-sidebar {
-    width: 240px;
-  }
   .session-tab {
     flex-basis: 145px;
   }
@@ -696,6 +662,9 @@ select:focus-visible {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .connections-drawer {
+    transition: none;
+  }
   *,
   *::before,
   *::after {

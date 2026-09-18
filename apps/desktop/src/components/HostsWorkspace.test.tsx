@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Backend, Host, HostGroup } from "../services/backend";
@@ -208,20 +202,32 @@ describe("Hosts workspace", () => {
     );
   });
 
-  it("focuses Host search and Quick Connect through documented shortcuts", async () => {
+  it("focuses Host search and Quick Connect from a drawer focus request", async () => {
     const { backend } = backendFixture();
-    render(
+    const onFocusTargetHandled = vi.fn();
+    const view = render(
       <HostsWorkspace
         backend={backend}
+        focusTarget="search"
+        onFocusTargetHandled={onFocusTargetHandled}
         onOpenLocal={vi.fn()}
         onRequestConnection={vi.fn()}
       />,
     );
     await screen.findByText("No saved connections.");
-    fireEvent.keyDown(window, { ctrlKey: true, key: "f" });
     expect(screen.getByLabelText("Search hosts")).toHaveFocus();
-    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "c" });
+
+    view.rerender(
+      <HostsWorkspace
+        backend={backend}
+        focusTarget="quickConnect"
+        onFocusTargetHandled={onFocusTargetHandled}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
     expect(screen.getByLabelText("Quick Connect")).toHaveFocus();
+    expect(onFocusTargetHandled).toHaveBeenCalledTimes(2);
   });
 
   it("moves focus into dialogs and restores it when they close", async () => {

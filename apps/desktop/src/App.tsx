@@ -1,13 +1,12 @@
-import { Terminal, Monitor, Settings, X } from "lucide-react";
+import { Terminal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConnectionsDrawer } from "./components/ConnectionsDrawer";
 import { UnifiedTitleBar } from "./components/UnifiedTitleBar";
 import { sessionStatusLabels } from "./session-status";
 import { Button } from "./components/ui/button";
 import { useDialogFocus } from "./components/useDialogFocus";
-import { HostsWorkspace } from "./components/HostsWorkspace";
 import {
   defaultBackend,
-  type AppInfo,
   type AppearanceSettings,
   type TerminalAppearanceProfile,
   type TerminalColorScheme,
@@ -107,7 +106,6 @@ function schemeForProfile(
 }
 
 function App({ backend = defaultBackend }: AppProps) {
-  const [appInfo, setAppInfo] = useState<AppInfo>();
   const [profiles, setProfiles] = useState<ShellProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [sessions, setSessions] = useState<OpenSession[]>([]);
@@ -116,7 +114,12 @@ function App({ backend = defaultBackend }: AppProps) {
   const [opening, setOpening] = useState(false);
   const [terminalEventsReady, setTerminalEventsReady] = useState(false);
   const [hostsRefreshToken, setHostsRefreshToken] = useState(0);
-  const [connectionsOpen, setConnectionsOpen] = useState(true);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [launcherOpen, setLauncherOpen] = useState(false);
+  const [connectionsFocusTarget, setConnectionsFocusTarget] = useState<
+    "search" | "quickConnect"
+  >();
+  const [connectionsOverlayOpen, setConnectionsOverlayOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [appearance, setAppearance] = useState(defaultAppearance);
   const [systemFonts, setSystemFonts] = useState<string[]>([
@@ -134,6 +137,9 @@ function App({ backend = defaultBackend }: AppProps) {
   );
   const credentialInput = useRef<HTMLInputElement>(null);
   const appearanceTrigger = useRef<HTMLButtonElement>(null);
+  const connectionsTrigger = useRef<HTMLButtonElement>(null);
+  const connectionsRestoreTimer = useRef<number | undefined>(undefined);
+  const openingRef = useRef(false);
   const appearanceSaveVersion = useRef(0);
   const sshTargets = useRef(new Map<string, SshTarget>());
   const terminals = useRef(new Map<string, TerminalHandle>());
@@ -328,11 +334,10 @@ function App({ backend = defaultBackend }: AppProps) {
   useEffect(() => {
     let mounted = true;
     void Promise.all([backend.appInfo(), backend.listShellProfiles()])
-      .then(([info, availableProfiles]) => {
+      .then(([, availableProfiles]) => {
         if (!mounted) {
           return;
         }
-        setAppInfo(info);
         setProfiles(availableProfiles);
         setSelectedProfileId(
           (current) => current || availableProfiles[0]?.id || "",
@@ -353,34 +358,40 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, sessions],
   );
 
-  const openSession = useCallback(async () => {
-    if (!selectedProfileId || opening || !terminalEventsReady) {
-      return;
-    }
-    setOpening(true);
-    setError(undefined);
-    try {
-      const descriptor = await backend.startLocalSession(
-        selectedProfileId,
-        24,
-        80,
-      );
-      closedSessions.current.delete(descriptor.id);
-      const pending = pendingStatus.current.get(descriptor.id);
-      pendingStatus.current.delete(descriptor.id);
-      setSessions((current) => [
-        ...current,
-        pending
-          ? { ...descriptor, status: pending.status, reason: pending.reason }
-          : descriptor,
-      ]);
-      setActiveSessionId(descriptor.id);
-    } catch {
-      setError("Could not open the selected shell.");
-    } finally {
-      setOpening(false);
-    }
-  }, [backend, opening, selectedProfileId, terminalEventsReady]);
+  const openSession = useCallback(
+    async (profileId = selectedProfileId) => {
+      if (!profileId || openingRef.current || !terminalEventsReady) {
+        return false;
+      }
+      openingRef.current = true;
+      setOpening(true);
+      setError(undefined);
+      try {
+        const descriptor = await backend.startLocalSession(profileId, 24, 80);
+        closedSessions.current.delete(descriptor.id);
+        const pending = pendingStatus.current.get(descriptor.id);
+        pendingStatus.current.delete(descriptor.id);
+        setSessions((current) => [
+          ...current,
+          pending
+            ? { ...descriptor, status: pending.status, reason: pending.reason }
+            : descriptor,
+        ]);
+        setActiveSessionId(descriptor.id);
+        window.requestAnimationFrame(() =>
+          terminals.current.get(descriptor.id)?.focus(),
+        );
+        return true;
+      } catch {
+        setError("Could not open the selected shell.");
+        return false;
+      } finally {
+        openingRef.current = false;
+        setOpening(false);
+      }
+    },
+    [backend, selectedProfileId, terminalEventsReady],
+  );
 
   const closeSession = useCallback(
     (sessionId: string) => {
@@ -416,46 +427,10 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, backend, sessions],
   );
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "t") {
-        event.preventDefault();
-        void openSession();
-      }
-      if (event.ctrlKey && event.key === "Tab" && sessions.length > 1) {
-        event.preventDefault();
-        const currentIndex = sessions.findIndex(
-          (session) => session.id === activeSessionId,
-        );
-        const direction = event.shiftKey ? -1 : 1;
-        const nextIndex =
-          (currentIndex + direction + sessions.length) % sessions.length;
-        setActiveSessionId(sessions[nextIndex]?.id);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeSessionId, openSession, sessions]);
-
-  const runClipboardAction = (action: "copy" | "paste") => {
-    const terminal = activeSessionId
-      ? terminals.current.get(activeSessionId)
-      : undefined;
-    if (!terminal) {
-      return;
-    }
-    void terminal[action]().catch(() =>
-      setError(
-        action === "copy"
-          ? "Could not copy the selection."
-          : "Could not paste into the terminal.",
-      ),
-    );
-  };
-
   const requestHostConnection = useCallback(
     async (target: SshTarget) => {
-      if (opening || !terminalEventsReady) return;
+      if (openingRef.current || !terminalEventsReady) return false;
+      openingRef.current = true;
       setOpening(true);
       setError(undefined);
       try {
@@ -476,15 +451,116 @@ function App({ backend = defaultBackend }: AppProps) {
           setHostsRefreshToken((value) => value + 1);
         }
         setActiveSessionId(descriptor.id);
+        return true;
       } catch (reason) {
         setError("Could not start the SSH connection: " + String(reason));
+        return false;
       } finally {
+        openingRef.current = false;
         setOpening(false);
       }
     },
-    [backend, opening, terminalEventsReady],
+    [backend, terminalEventsReady],
   );
 
+  const openConnections = useCallback(
+    (focusTarget: "search" | "quickConnect" = "search") => {
+      window.clearTimeout(connectionsRestoreTimer.current);
+      setConnectionsFocusTarget(focusTarget);
+      setConnectionsOpen(true);
+    },
+    [],
+  );
+
+  const closeConnections = useCallback((restoreFocus = true) => {
+    setConnectionsOpen(false);
+    setConnectionsFocusTarget(undefined);
+    if (restoreFocus) {
+      connectionsRestoreTimer.current = window.setTimeout(() =>
+        connectionsTrigger.current?.focus(),
+      );
+    }
+  }, []);
+
+  const openLocalFromDrawer = useCallback(async () => {
+    if (await openSession()) closeConnections(false);
+  }, [closeConnections, openSession]);
+
+  const requestConnectionFromDrawer = useCallback(
+    async (target: SshTarget) => {
+      if (await requestHostConnection(target)) closeConnections(false);
+    },
+    [closeConnections, requestHostConnection],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (event.ctrlKey && !event.shiftKey && key === "b") {
+        event.preventDefault();
+        setLauncherOpen(false);
+        if (connectionsOpen) closeConnections();
+        else openConnections();
+        return;
+      }
+      if (event.ctrlKey && !event.shiftKey && key === "f") {
+        event.preventDefault();
+        setLauncherOpen(false);
+        openConnections("search");
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "c") {
+        event.preventDefault();
+        setLauncherOpen(false);
+        openConnections("quickConnect");
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "p") {
+        event.preventDefault();
+        setLauncherOpen(true);
+        return;
+      }
+      if (event.key === "Escape" && launcherOpen) {
+        event.preventDefault();
+        setLauncherOpen(false);
+        return;
+      }
+      if (
+        event.key === "Escape" &&
+        connectionsOpen &&
+        !connectionsOverlayOpen
+      ) {
+        event.preventDefault();
+        closeConnections();
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "t") {
+        event.preventDefault();
+        void openSession();
+      }
+      if (event.ctrlKey && event.key === "Tab" && sessions.length > 1) {
+        event.preventDefault();
+        const currentIndex = sessions.findIndex(
+          (session) => session.id === activeSessionId,
+        );
+        const direction = event.shiftKey ? -1 : 1;
+        const nextIndex =
+          (currentIndex + direction + sessions.length) % sessions.length;
+        setActiveSessionId(sessions[nextIndex]?.id);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    activeSessionId,
+    closeConnections,
+    connectionsOpen,
+    connectionsOverlayOpen,
+    launcherOpen,
+    openConnections,
+    openSession,
+    sessions,
+  ]);
   const respondToTrust = useCallback(
     async (accept: boolean) => {
       if (!trustPrompt) return;
@@ -618,19 +694,33 @@ function App({ backend = defaultBackend }: AppProps) {
     [appearance, saveAppearance],
   );
 
+  const activeAppearance = activeAppearanceProfile(appearance);
+  const activeScheme = schemeForProfile(appearance, activeAppearance);
+
   return (
     <main className="app-shell">
       <UnifiedTitleBar
         activeSessionId={activeSessionId}
+        appearanceOpen={appearanceOpen}
+        appearanceTriggerRef={appearanceTrigger}
         connectionsOpen={connectionsOpen}
+        connectionsTriggerRef={connectionsTrigger}
+        launcherOpen={launcherOpen}
         onCloseSession={closeSession}
-        onOpenSession={() => void openSession()}
+        onOpenAppearance={() => setAppearanceOpen(true)}
+        onOpenConnections={() => openConnections("search")}
+        onOpenQuickConnect={() => openConnections("quickConnect")}
+        onOpenSession={(profileId) => void openSession(profileId)}
         onSelectSession={(sessionId) => {
           setActiveSessionId(sessionId);
           terminals.current.get(sessionId)?.focus();
         }}
-        onSelectedProfileChange={setSelectedProfileId}
-        onToggleConnections={() => setConnectionsOpen((open) => !open)}
+        onToggleLauncher={() => setLauncherOpen((open) => !open)}
+        onToggleConnections={() => {
+          setLauncherOpen(false);
+          if (connectionsOpen) closeConnections();
+          else openConnections();
+        }}
         opening={opening}
         profiles={profiles}
         selectedProfileId={selectedProfileId}
@@ -638,155 +728,112 @@ function App({ backend = defaultBackend }: AppProps) {
         terminalEventsReady={terminalEventsReady}
       />
 
-      <div className="flex min-h-0 flex-1">
-        <nav aria-label="Workspace" className="activity-rail">
-          <button
-            aria-label="Appearance settings"
-            aria-pressed={appearanceOpen}
-            className="rail-button appearance-button"
-            onClick={() => setAppearanceOpen(true)}
-            ref={appearanceTrigger}
-            title="Appearance settings"
-            type="button"
-          >
-            <Settings className="size-4" />
-          </button>
-        </nav>
-        {connectionsOpen ? (
-          <HostsWorkspace
-            backend={backend}
-            onOpenLocal={() => void openSession()}
-            refreshToken={hostsRefreshToken}
-            activeHostId={
-              activeSession?.kind.type === "ssh"
-                ? activeSession.kind.hostId
-                : undefined
-            }
-            connectedHostIds={sessions
-              .filter((session) => session.status === "connected")
-              .flatMap((session) => {
-                const hostId =
-                  session.kind.type === "ssh" ? session.kind.hostId : undefined;
-                return hostId ? [hostId] : [];
-              })}
-            onRequestConnection={requestHostConnection}
-          />
-        ) : null}
-        <div className="terminal-workspace">
-          <div className="session-info">
-            <Monitor
-              size={14}
-              className="shrink-0 text-[var(--muted-foreground)]"
-            />
-            <span className="min-w-0 truncate text-[var(--strong-foreground)]">
-              {activeSession ? activeSession.title : "No active session"}
-            </span>
-            <span className="session-kind">
-              {activeSession?.kind.type === "ssh"
-                ? "SSH"
-                : activeSession
-                  ? "Local"
-                  : "Ready"}
-            </span>
-            {activeSession ? (
-              <span
-                className={`session-badge ${activeSession.status === "connected" ? "is-connected" : ""}`}
-              >
-                <span className={`status-dot status-${activeSession.status}`} />
-                {sessionStatusLabels[activeSession.status]}
-              </span>
-            ) : null}
-          </div>
-          <section className="terminal-stage">
-            {sessions.length === 0 ? (
-              <div className="empty-terminal">
-                <div>
-                  <Terminal className="empty-terminal-icon" size={32} />
-                  <p className="text-sm text-[var(--strong-foreground)]">
-                    No open sessions
-                  </p>
-                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                    Choose a shell and open a tab. Shortcut: Ctrl+Shift+T.
-                  </p>
+      <div className="terminal-workspace">
+        <section className="terminal-stage">
+          {sessions.length === 0 ? (
+            <div className="empty-terminal">
+              <div>
+                <Terminal className="empty-terminal-icon" size={32} />
+                <p className="text-sm text-[var(--strong-foreground)]">
+                  No open sessions
+                </p>
+                <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                  Open a local shell or connect to a saved host.
+                </p>
+                <div className="empty-terminal-actions">
+                  <button
+                    className="control-primary"
+                    disabled={
+                      !selectedProfileId || opening || !terminalEventsReady
+                    }
+                    onClick={() => void openSession()}
+                    type="button"
+                  >
+                    Open default shell
+                  </button>
+                  <button
+                    className="control-ghost"
+                    onClick={() => openConnections("search")}
+                    type="button"
+                  >
+                    Open connections
+                  </button>
                 </div>
               </div>
-            ) : null}
-            {sessions.map((session) => (
-              <TerminalSurface
-                active={session.id === activeSessionId}
-                backend={backend}
-                key={session.id}
-                onError={reportError}
-                onReady={registerTerminal}
-                sessionId={session.id}
-                profile={activeAppearanceProfile(appearance)}
-                scheme={schemeForProfile(
-                  appearance,
-                  activeAppearanceProfile(appearance),
-                )}
-                terminalBackgroundOpacity={
-                  activeAppearanceProfile(appearance).terminalBackgroundOpacity
-                }
-              />
-            ))}
-          </section>
-        </div>
+            </div>
+          ) : null}
+          {sessions.map((session) => (
+            <TerminalSurface
+              active={session.id === activeSessionId}
+              backend={backend}
+              key={session.id}
+              onError={reportError}
+              onReady={registerTerminal}
+              sessionId={session.id}
+              profile={activeAppearance}
+              scheme={activeScheme}
+              terminalBackgroundOpacity={
+                activeAppearance.terminalBackgroundOpacity
+              }
+            />
+          ))}
+          {error ||
+          (activeSession &&
+            (activeSession.status !== "connected" ||
+              activeSession?.exitCode !== undefined ||
+              activeSession?.reason)) ? (
+            <div
+              aria-live="polite"
+              className="workspace-feedback"
+              role="status"
+            >
+              <span>
+                {error ??
+                  `${sessionStatusLabels[activeSession?.status ?? "disconnected"]}${activeSession?.exitCode !== undefined ? ` · exit code ${activeSession?.exitCode}` : ""}${activeSession?.reason ? ` · ${activeSession?.reason}` : ""}`}
+              </span>
+              {activeSession?.kind.type === "ssh" &&
+              (activeSession.status === "failed" ||
+                activeSession.status === "disconnected") ? (
+                <button
+                  className="control-ghost"
+                  onClick={() => {
+                    const target = sshTargets.current.get(activeSession.id);
+                    if (target) void requestHostConnection(target);
+                  }}
+                  type="button"
+                >
+                  Reconnect
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
       </div>
 
-      <footer className="statusbar">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="text-[var(--muted-foreground)]">
-            {appInfo ? `${appInfo.name} ${appInfo.version}` : "Starting core…"}
-          </span>
-          {activeSession ? (
-            <span role="status">
-              {sessionStatusLabels[activeSession.status]}
-              {activeSession.exitCode !== undefined
-                ? ` · exit code ${activeSession.exitCode}`
-                : ""}
-              {activeSession.reason ? ` · ${activeSession.reason}` : ""}
-            </span>
-          ) : null}
-          {error ? (
-            <span className="truncate text-[var(--danger)]">{error}</span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1">
-          {activeSession?.kind.type === "ssh" &&
-          (activeSession.status === "failed" ||
-            activeSession.status === "disconnected") ? (
-            <button
-              className="rounded px-2 py-1 text-[var(--primary)] hover:bg-[var(--control-hover)]"
-              onClick={() => {
-                const target = sshTargets.current.get(activeSession.id);
-                if (target) void requestHostConnection(target);
-              }}
-              type="button"
-            >
-              Reconnect
-            </button>
-          ) : null}
-          <button
-            className="control-ghost"
-            disabled={!activeSession}
-            onClick={() => runClipboardAction("copy")}
-            type="button"
-          >
-            Copy
-          </button>
-          <button
-            className="control-ghost"
-            disabled={!activeSession || activeSession.status !== "connected"}
-            onClick={() => runClipboardAction("paste")}
-            type="button"
-          >
-            Paste
-          </button>
-          <span className="ml-2 hidden text-[var(--muted-foreground)] sm:inline">
-            Ctrl+Tab switches tabs
-          </span>
-        </div>
-      </footer>
+      {connectionsOpen ? (
+        <ConnectionsDrawer
+          activeHostId={
+            activeSession?.kind.type === "ssh"
+              ? activeSession.kind.hostId
+              : undefined
+          }
+          backend={backend}
+          connectedHostIds={sessions
+            .filter((session) => session.status === "connected")
+            .flatMap((session) =>
+              session.kind.type === "ssh" ? [session.kind.hostId] : [],
+            )}
+          focusTarget={connectionsFocusTarget}
+          onClose={closeConnections}
+          onFocusTargetHandled={() => setConnectionsFocusTarget(undefined)}
+          onOpenLocal={() => void openLocalFromDrawer()}
+          onOverlayStateChange={setConnectionsOverlayOpen}
+          onRequestConnection={(target) =>
+            void requestConnectionFromDrawer(target)
+          }
+          refreshToken={hostsRefreshToken}
+        />
+      ) : null}
 
       {appearanceOpen
         ? (() => {

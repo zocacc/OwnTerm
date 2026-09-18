@@ -35,6 +35,9 @@ type PortbilityDialogState = {
 type Props = {
   backend: Backend;
   onOpenLocal: () => void;
+  onOverlayStateChange?: (open: boolean) => void;
+  onFocusTargetHandled?: () => void;
+  focusTarget?: "search" | "quickConnect";
   refreshToken?: number;
   activeHostId?: string;
   connectedHostIds?: string[];
@@ -59,6 +62,9 @@ export function HostsWorkspace({
   backend,
   onOpenLocal,
   onRequestConnection,
+  onOverlayStateChange,
+  onFocusTargetHandled,
+  focusTarget,
   refreshToken,
   activeHostId,
   connectedHostIds = [],
@@ -86,6 +92,21 @@ export function HostsWorkspace({
   const passwordInput = useRef<HTMLInputElement>(null);
   const passphraseInput = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!focusTarget) return;
+    (focusTarget === "search"
+      ? searchInput
+      : quickConnectInput
+    ).current?.focus();
+    onFocusTargetHandled?.();
+  }, [focusTarget, onFocusTargetHandled]);
+
+  useEffect(() => {
+    const overlayOpen = Boolean(draft || portability);
+    onOverlayStateChange?.(overlayOpen);
+    return () => onOverlayStateChange?.(false);
+  }, [draft, onOverlayStateChange, portability]);
+
   const reload = useCallback(async () => {
     if (!backend.listHosts || !backend.listHostGroups) return;
     try {
@@ -107,21 +128,6 @@ export function HostsWorkspace({
     const timer = window.setTimeout(() => void reload(), 120);
     return () => window.clearTimeout(timer);
   }, [reload, refreshToken]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        searchInput.current?.focus();
-      }
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        quickConnectInput.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
 
   const visibleHosts = useMemo(
     () => hosts.filter((host) => !favoritesOnly || host.favorite),
@@ -324,7 +330,7 @@ export function HostsWorkspace({
     ));
 
   return (
-    <aside aria-label="Hosts" className="connections-sidebar">
+    <section aria-label="Hosts" className="connections-sidebar">
       <div className="connections-header">
         <div className="connections-heading">
           <h2>Connections</h2>
@@ -806,6 +812,6 @@ export function HostsWorkspace({
           </section>
         </div>
       ) : null}
-    </aside>
+    </section>
   );
 }
