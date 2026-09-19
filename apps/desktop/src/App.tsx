@@ -154,6 +154,13 @@ function App({ backend = defaultBackend }: AppProps) {
   );
 
   const reportError = useCallback((message: string) => setError(message), []);
+  const handleMaterialChange = useCallback((acrylicApplied: boolean) => {
+    setAppearance((current) =>
+      current.acrylicApplied === acrylicApplied
+        ? current
+        : { ...current, acrylicApplied },
+    );
+  }, []);
 
   const registerTerminal = useCallback(
     (sessionId: string, handle?: TerminalHandle) => {
@@ -707,6 +714,7 @@ function App({ backend = defaultBackend }: AppProps) {
         connectionsTriggerRef={connectionsTrigger}
         launcherOpen={launcherOpen}
         onCloseSession={closeSession}
+        onMaterialChange={handleMaterialChange}
         onOpenAppearance={() => setAppearanceOpen(true)}
         onOpenSession={(profileId) => void openSession(profileId)}
         onSelectSession={(sessionId) => {

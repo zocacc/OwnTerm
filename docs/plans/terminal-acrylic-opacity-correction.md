@@ -1,6 +1,6 @@
 # Plano — corrigir transparência e Acrylic do terminal
 
-Estado: correção implementada; validação visual Windows ainda pendente.
+Estado: correção implementada; teste renderer no CI e validação visual Windows ainda pendentes.
 
 ## Escopo e referência
 

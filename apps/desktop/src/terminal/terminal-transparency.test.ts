@@ -15,6 +15,10 @@ const terminalCss = readFileSync(
   resolve(process.cwd(), "src/terminal/terminal.css"),
   "utf8",
 );
+const applicationCss = readFileSync(
+  resolve(process.cwd(), "src/index.css"),
+  "utf8",
+);
 
 describe("terminal transparency composition", () => {
   afterEach(() => {
@@ -53,5 +57,14 @@ describe("terminal transparency composition", () => {
 
     terminal.dispose();
     styles.remove();
+  });
+
+  it("paints a solid application fallback when native Acrylic is unavailable", () => {
+    expect(applicationCss).toMatch(
+      /:root\[data-material="opaque"\][\s\S]*?background:\s*var\(--background\)/,
+    );
+    expect(applicationCss).toMatch(
+      /:root\[data-material="opaque"\]\s+body[\s\S]*?background:\s*var\(--background\)/,
+    );
   });
 });

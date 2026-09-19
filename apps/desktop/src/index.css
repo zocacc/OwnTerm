@@ -94,6 +94,14 @@ body {
   overflow: hidden;
   background: transparent;
 }
+:root:not([data-material]),
+:root[data-material="opaque"] {
+  background: var(--background);
+}
+:root:not([data-material]) body,
+:root[data-material="opaque"] body {
+  background: var(--background);
+}
 button,
 input,
 textarea,
