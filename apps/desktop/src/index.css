@@ -154,14 +154,6 @@ button {
   background: var(--danger);
 }
 
-.xterm {
-  height: 100%;
-}
-.xterm .xterm-viewport {
-  scrollbar-color: color-mix(in oklch, var(--primary) 30%, transparent)
-    transparent;
-}
-
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,

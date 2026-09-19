@@ -80,6 +80,8 @@ const defaultAppearance: AppearanceSettings = {
   windowOpacitySupport: "unsupported",
   windowOpacityApplied: false,
   windowOpacityWarning: null,
+  acrylicApplied: false,
+  acrylicWarning: null,
   defaultsApplied: false,
   activeProfileId: defaultProfile.id,
   profiles: [defaultProfile],
@@ -365,6 +367,12 @@ function App({ backend = defaultBackend }: AppProps) {
       String(windowAlpha),
     );
   }, [appearance]);
+
+  useEffect(() => {
+    document.documentElement.dataset.material = appearance.acrylicApplied
+      ? "acrylic"
+      : "opaque";
+  }, [appearance.acrylicApplied]);
 
   useEffect(() => {
     if (!activeSessionId) return;
@@ -963,6 +971,11 @@ function App({ backend = defaultBackend }: AppProps) {
                   {appearance.windowOpacityWarning ? (
                     <p className="appearance-warning" role="status">
                       {appearance.windowOpacityWarning}
+                    </p>
+                  ) : null}
+                  {appearance.acrylicWarning ? (
+                    <p className="appearance-warning" role="status">
+                      {appearance.acrylicWarning}
                     </p>
                   ) : null}
                   <label htmlFor="terminal-background-opacity">

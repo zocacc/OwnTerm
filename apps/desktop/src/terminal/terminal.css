@@ -1,0 +1,11 @@
+.xterm {
+  height: 100%;
+}
+
+.xterm .xterm-viewport {
+  /* xterm 6 keeps this legacy layer black even when the theme background has
+     alpha. The themed scrollable layer must compose directly with the window. */
+  background-color: transparent !important;
+  scrollbar-color: color-mix(in oklch, var(--primary) 30%, transparent)
+    transparent;
+}

@@ -79,6 +79,8 @@ class TestBackend implements Backend {
     windowOpacitySupport: "unsupported",
     windowOpacityApplied: false,
     windowOpacityWarning: null,
+    acrylicApplied: true,
+    acrylicWarning: null,
     defaultsApplied: false,
     activeProfileId: "migrated-appearance",
     profiles: [
@@ -705,5 +707,26 @@ describe("local terminal workspace", () => {
     expect(
       document.documentElement.style.getPropertyValue("--window-opacity"),
     ).toBe("0.55");
+  });
+
+  it("uses the opaque CSS fallback when native Acrylic is unavailable", async () => {
+    const user = userEvent.setup();
+    backend.appearance = {
+      ...backend.appearance,
+      acrylicApplied: false,
+      acrylicWarning:
+        "Acrylic is unavailable; using the opaque material fallback.",
+    };
+    render(<App backend={backend} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Appearance settings" }),
+    );
+    expect(
+      screen.getByText(
+        "Acrylic is unavailable; using the opaque material fallback.",
+      ),
+    ).toBeInTheDocument();
+    expect(document.documentElement.dataset.material).toBe("opaque");
   });
 });

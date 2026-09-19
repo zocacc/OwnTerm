@@ -134,6 +134,8 @@ export type AppearanceSettings = {
   windowOpacitySupport: "supported" | "unsupported";
   windowOpacityApplied: boolean;
   windowOpacityWarning: string | null;
+  acrylicApplied: boolean;
+  acrylicWarning: string | null;
   defaultsApplied: boolean;
   activeProfileId: string;
   profiles: TerminalAppearanceProfile[];

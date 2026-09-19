@@ -5,6 +5,7 @@ import type {
   TerminalColorScheme,
 } from "../services/backend";
 import { createTerminal, terminalTheme } from "./create-terminal";
+import "./terminal.css";
 
 export type TerminalHandle = {
   write(data: number[]): void;

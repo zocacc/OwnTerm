@@ -720,6 +720,8 @@ struct AppearanceSettingsDto {
     window_opacity_support: &'static str,
     window_opacity_applied: bool,
     window_opacity_warning: Option<&'static str>,
+    acrylic_applied: bool,
+    acrylic_warning: Option<&'static str>,
     defaults_applied: bool,
     active_profile_id: String,
     profiles: Vec<TerminalAppearanceProfile>,
@@ -833,6 +835,8 @@ fn reset_native_window_opacity(window: &tauri::WebviewWindow, state: &DesktopSta
 fn appearance_dto(
     settings: AppearanceSettings,
     defaults_applied: bool,
+    acrylic_requested: bool,
+    acrylic_applied: bool,
     catalog: TerminalAppearanceCatalog,
 ) -> AppearanceSettingsDto {
     AppearanceSettingsDto {
@@ -843,6 +847,9 @@ fn appearance_dto(
         window_opacity_support: "supported",
         window_opacity_applied: true,
         window_opacity_warning: None,
+        acrylic_applied,
+        acrylic_warning: (acrylic_requested && !acrylic_applied)
+            .then_some("Acrylic is unavailable; using the opaque material fallback."),
         defaults_applied,
         active_profile_id: catalog.active_profile_id,
         profiles: catalog.profiles,
@@ -897,8 +904,15 @@ fn get_appearance_settings(
         AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
             .map_err(|e| e.to_string())?;
     reset_native_window_opacity(&window, &state);
-    apply_profile_material(&window, profile.use_acrylic);
-    Ok(appearance_dto(effective, defaults_applied, catalog))
+    let acrylic_requested = profile.use_acrylic;
+    let acrylic_applied = apply_profile_material(&window, acrylic_requested);
+    Ok(appearance_dto(
+        effective,
+        defaults_applied,
+        acrylic_requested,
+        acrylic_applied,
+        catalog,
+    ))
 }
 
 #[tauri::command]
@@ -967,20 +981,31 @@ fn save_appearance_settings(
         })
         .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
     reset_native_window_opacity(&window, &state);
-    apply_profile_material(&window, profile.use_acrylic);
-    Ok(appearance_dto(settings, false, catalog))
+    let acrylic_requested = profile.use_acrylic;
+    let acrylic_applied = apply_profile_material(&window, acrylic_requested);
+    Ok(appearance_dto(
+        settings,
+        false,
+        acrylic_requested,
+        acrylic_applied,
+        catalog,
+    ))
 }
 
-fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) {
+fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) -> bool {
     #[cfg(target_os = "windows")]
-    if use_acrylic {
-        let _ = window_material(window);
+    return if use_acrylic {
+        window_material(window).acrylic
     } else {
         let _ = window_vibrancy::clear_acrylic(window);
         let _ = window_vibrancy::clear_blur(window);
-    }
+        false
+    };
     #[cfg(not(target_os = "windows"))]
-    let _ = (window, use_acrylic);
+    {
+        let _ = (window, use_acrylic);
+        false
+    }
 }
 
 fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
@@ -989,11 +1014,8 @@ fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
         // Windows can reset the DWM backdrop when the window enters or exits
         // fullscreen. This function is intentionally idempotent so the
         // frontend may invoke it again after a size transition.
-        // `apply_acrylic` ignores its tint on Windows 11 and adds a system
-        // backdrop tint below the whole WebView. That second color layer makes
-        // a 55% xterm background look practically opaque. A neutral blur
-        // supplies the backdrop while xterm/CSS own all color and alpha.
-        let acrylic = window_vibrancy::apply_blur(window, Some((0, 0, 0, 0))).is_ok();
+        let _ = window_vibrancy::clear_blur(window);
+        let acrylic = window_vibrancy::apply_acrylic(window, Some((20, 23, 30, 150))).is_ok();
         WindowAppearance {
             custom_titlebar: true,
             acrylic,
@@ -1010,8 +1032,24 @@ fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
 }
 
 #[tauri::command]
-fn prepare_window_chrome(window: tauri::WebviewWindow) -> WindowAppearance {
-    window_material(&window)
+fn prepare_window_chrome(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> WindowAppearance {
+    let use_acrylic = appearance_settings_from_store(&state)
+        .ok()
+        .and_then(|(settings, _)| appearance_catalog_from_store(&state, settings).ok())
+        .and_then(|catalog| {
+            active_profile(&catalog)
+                .ok()
+                .map(|profile| profile.use_acrylic)
+        })
+        .unwrap_or(true);
+    let acrylic = apply_profile_material(&window, use_acrylic);
+    WindowAppearance {
+        custom_titlebar: cfg!(target_os = "windows"),
+        acrylic,
+    }
 }
 
 #[tauri::command]
@@ -1028,10 +1066,10 @@ fn refresh_window_material(
             .and_then(|catalog| active_profile(catalog).ok());
         reset_native_window_opacity(&window, &state);
         let use_acrylic = profile.map(|profile| profile.use_acrylic).unwrap_or(true);
-        apply_profile_material(&window, use_acrylic);
+        let acrylic = apply_profile_material(&window, use_acrylic);
         return WindowAppearance {
             custom_titlebar: cfg!(target_os = "windows"),
-            acrylic: use_acrylic,
+            acrylic,
         };
     }
     window_material(&window)

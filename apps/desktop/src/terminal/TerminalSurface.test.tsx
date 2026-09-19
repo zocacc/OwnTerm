@@ -19,18 +19,23 @@ const terminalMocks = vi.hoisted(() => {
         return { dispose: vi.fn() };
       }),
       open: vi.fn(),
+      options: {},
       write: vi.fn(),
     },
     fitAddon: { fit: vi.fn() },
   };
 });
 
-vi.mock("./create-terminal", () => ({
-  createTerminal: () => ({
-    terminal: terminalMocks.terminal,
-    fitAddon: terminalMocks.fitAddon,
-  }),
-}));
+vi.mock("./create-terminal", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./create-terminal")>();
+  return {
+    ...actual,
+    createTerminal: () => ({
+      terminal: terminalMocks.terminal,
+      fitAddon: terminalMocks.fitAddon,
+    }),
+  };
+});
 
 let resizeCallback: ResizeObserverCallback;
 
@@ -123,7 +128,9 @@ describe("TerminalSurface", () => {
       />,
     );
     expect(terminalMocks.terminal.open).toHaveBeenCalledTimes(1);
-    expect(terminalMocks.terminal.open).toHaveBeenCalledTimes(1);
+    expect(terminalMocks.terminal.options).toMatchObject({
+      theme: { background: "rgba(12, 15, 21, 0.64)" },
+    });
     expect(terminalMocks.terminal.focus).toHaveBeenCalledTimes(1);
     act(() => {
       terminalMocks.state.input?.("d");

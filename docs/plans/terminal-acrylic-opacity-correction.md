@@ -1,6 +1,6 @@
 # Plano — corrigir transparência e Acrylic do terminal
 
-Estado: diagnóstico concluído; correção de produto ainda não implementada.
+Estado: correção implementada; validação visual Windows ainda pendente.
 
 ## Escopo e referência
 
