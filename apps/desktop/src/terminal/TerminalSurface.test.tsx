@@ -19,18 +19,23 @@ const terminalMocks = vi.hoisted(() => {
         return { dispose: vi.fn() };
       }),
       open: vi.fn(),
+      options: {},
       write: vi.fn(),
     },
     fitAddon: { fit: vi.fn() },
   };
 });
 
-vi.mock("./create-terminal", () => ({
-  createTerminal: () => ({
-    terminal: terminalMocks.terminal,
-    fitAddon: terminalMocks.fitAddon,
-  }),
-}));
+vi.mock("./create-terminal", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./create-terminal")>();
+  return {
+    ...actual,
+    createTerminal: () => ({
+      terminal: terminalMocks.terminal,
+      fitAddon: terminalMocks.fitAddon,
+    }),
+  };
+});
 
 let resizeCallback: ResizeObserverCallback;
 
@@ -92,20 +97,40 @@ describe("TerminalSurface", () => {
   it("bridges xterm input, output, resize and clipboard without interpreting bytes", async () => {
     const backend = testBackend();
     let handle: TerminalHandle | undefined;
+    const onError = vi.fn();
+    const onReady = (_sessionId: string, nextHandle?: TerminalHandle) => {
+      handle = nextHandle;
+    };
 
-    render(
+    const view = render(
       <TerminalSurface
         active
         backend={backend}
-        onError={vi.fn()}
-        onReady={(_sessionId, nextHandle) => {
-          handle = nextHandle;
-        }}
+        onError={onError}
+        onReady={onReady}
         sessionId="session-1"
+        terminalBackgroundOpacity={82}
       />,
     );
 
     expect(handle).toBeDefined();
+    expect(
+      document.querySelector("[data-testid=terminal-session-1]"),
+    ).not.toHaveAttribute("style");
+    view.rerender(
+      <TerminalSurface
+        active
+        backend={backend}
+        onError={onError}
+        onReady={onReady}
+        sessionId="session-1"
+        terminalBackgroundOpacity={64}
+      />,
+    );
+    expect(terminalMocks.terminal.open).toHaveBeenCalledTimes(1);
+    expect(terminalMocks.terminal.options).toMatchObject({
+      theme: { background: "rgba(12, 15, 21, 0.64)" },
+    });
     expect(terminalMocks.terminal.focus).toHaveBeenCalledTimes(1);
     act(() => {
       terminalMocks.state.input?.("d");

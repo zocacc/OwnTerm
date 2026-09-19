@@ -1,15 +1,18 @@
+import { Terminal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConnectionsDrawer } from "./components/ConnectionsDrawer";
+import { UnifiedTitleBar } from "./components/UnifiedTitleBar";
+import { sessionStatusLabels } from "./session-status";
 import { Button } from "./components/ui/button";
 import { useDialogFocus } from "./components/useDialogFocus";
-import { HostsWorkspace } from "./components/HostsWorkspace";
-import ownTermLogo from "./assets/svg/ownterm-logo.svg";
 import {
   defaultBackend,
-  type AppInfo,
+  type AppearanceSettings,
+  type TerminalAppearanceProfile,
+  type TerminalColorScheme,
   type Backend,
   type SessionDescriptor,
   type SessionCredentialRequiredEvent,
-  type SessionStatus,
   type SessionStatusEvent,
   type SessionTrustRequiredEvent,
   type ShellProfile,
@@ -30,17 +33,81 @@ type OpenSession = SessionDescriptor & {
 
 type SshTarget = { hostId?: string; destination?: string };
 
-const statusLabels: Record<SessionStatus, string> = {
-  starting: "Iniciando",
-  awaiting_trust: "Aguardando confiança",
-  awaiting_credential: "Aguardando credencial",
-  connected: "Conectado",
-  disconnected: "Encerrado",
-  failed: "Falhou",
+const defaultScheme: TerminalColorScheme = {
+  id: "ownterm-default",
+  name: "OwnTerm Default",
+  background: "#0c0f15",
+  foreground: "#f4f2f8",
+  cursor: "#b9a7ff",
+  selectionBackground: "#6750a455",
+  ansi: [
+    "#151820",
+    "#ff6b81",
+    "#50c878",
+    "#f0c674",
+    "#7aa2f7",
+    "#b9a7ff",
+    "#78dce8",
+    "#d7dae0",
+    "#4b5263",
+    "#ff8294",
+    "#70e1a8",
+    "#ffe08a",
+    "#94b6ff",
+    "#d3bdff",
+    "#9feaf9",
+    "#ffffff",
+  ],
+  builtIn: true,
 };
+const defaultProfile: TerminalAppearanceProfile = {
+  id: "migrated-appearance",
+  name: "Migrated appearance",
+  colorSchemeId: defaultScheme.id,
+  fontFamily: "JetBrains Mono, Cascadia Mono, Consolas, monospace",
+  fontSize: 14,
+  windowOpacity: 92,
+  terminalBackgroundOpacity: 82,
+  useAcrylic: true,
+  builtIn: false,
+};
+const appearanceBounds = {
+  windowOpacity: { min: 0, max: 100 },
+  terminalBackgroundOpacity: { min: 55, max: 100 },
+} as const;
+const defaultAppearance: AppearanceSettings = {
+  ...defaultProfile,
+  windowOpacitySupport: "unsupported",
+  windowOpacityApplied: false,
+  windowOpacityWarning: null,
+  acrylicApplied: false,
+  acrylicWarning: null,
+  defaultsApplied: false,
+  activeProfileId: defaultProfile.id,
+  profiles: [defaultProfile],
+  colorSchemes: [defaultScheme],
+};
+function activeAppearanceProfile(appearance: AppearanceSettings) {
+  return (
+    appearance.profiles.find(
+      (profile) => profile.id === appearance.activeProfileId,
+    ) ??
+    appearance.profiles[0] ??
+    defaultProfile
+  );
+}
+function schemeForProfile(
+  appearance: AppearanceSettings,
+  profile: TerminalAppearanceProfile,
+) {
+  return (
+    appearance.colorSchemes.find(
+      (scheme) => scheme.id === profile.colorSchemeId,
+    ) ?? defaultScheme
+  );
+}
 
 function App({ backend = defaultBackend }: AppProps) {
-  const [appInfo, setAppInfo] = useState<AppInfo>();
   const [profiles, setProfiles] = useState<ShellProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [sessions, setSessions] = useState<OpenSession[]>([]);
@@ -49,6 +116,20 @@ function App({ backend = defaultBackend }: AppProps) {
   const [opening, setOpening] = useState(false);
   const [terminalEventsReady, setTerminalEventsReady] = useState(false);
   const [hostsRefreshToken, setHostsRefreshToken] = useState(0);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [launcherOpen, setLauncherOpen] = useState(false);
+  const [connectionsFocusTarget, setConnectionsFocusTarget] = useState<
+    "search" | "quickConnect"
+  >();
+  const [connectionsOverlayOpen, setConnectionsOverlayOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [appearance, setAppearance] = useState(defaultAppearance);
+  const [systemFonts, setSystemFonts] = useState<string[]>([
+    "Cascadia Mono",
+    "Consolas",
+    "JetBrains Mono",
+    "Fira Code",
+  ]);
   const [trustPrompt, setTrustPrompt] = useState<SessionTrustRequiredEvent>();
   const [credentialPrompt, setCredentialPrompt] =
     useState<SessionCredentialRequiredEvent>();
@@ -57,13 +138,29 @@ function App({ backend = defaultBackend }: AppProps) {
     Boolean(credentialPrompt),
   );
   const credentialInput = useRef<HTMLInputElement>(null);
+  const appearanceTrigger = useRef<HTMLButtonElement>(null);
+  const connectionsTrigger = useRef<HTMLButtonElement>(null);
+  const connectionsRestoreTimer = useRef<number | undefined>(undefined);
+  const openingRef = useRef(false);
+  const appearanceSaveVersion = useRef(0);
   const sshTargets = useRef(new Map<string, SshTarget>());
   const terminals = useRef(new Map<string, TerminalHandle>());
   const pendingOutput = useRef(new Map<string, number[][]>());
   const pendingStatus = useRef(new Map<string, SessionStatusEvent>());
   const closedSessions = useRef(new Set<string>());
+  const appearanceDialogRef = useDialogFocus<HTMLElement>(
+    appearanceOpen,
+    appearanceTrigger,
+  );
 
   const reportError = useCallback((message: string) => setError(message), []);
+  const handleMaterialChange = useCallback((acrylicApplied: boolean) => {
+    setAppearance((current) =>
+      current.acrylicApplied === acrylicApplied
+        ? current
+        : { ...current, acrylicApplied },
+    );
+  }, []);
 
   const registerTerminal = useCallback(
     (sessionId: string, handle?: TerminalHandle) => {
@@ -207,10 +304,7 @@ function App({ backend = defaultBackend }: AppProps) {
       })
       .catch((error: unknown) => {
         if (mounted) {
-          setError(
-            "Não foi possível preparar os eventos do terminal: " +
-              String(error),
-          );
+          setError("Could not prepare terminal events: " + String(error));
         }
       });
 
@@ -224,12 +318,35 @@ function App({ backend = defaultBackend }: AppProps) {
 
   useEffect(() => {
     let mounted = true;
+    if (backend.listSystemFonts) {
+      void backend
+        .listSystemFonts()
+        .then((fonts) => {
+          if (mounted && fonts.length) setSystemFonts(fonts);
+        })
+        .catch(() => undefined);
+    }
+    if (!backend.getAppearanceSettings) return;
+    void backend
+      .getAppearanceSettings()
+      .then((settings) => {
+        if (mounted) setAppearance(settings);
+      })
+      .catch(() => {
+        if (mounted) setError("Could not load appearance preferences.");
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [backend]);
+
+  useEffect(() => {
+    let mounted = true;
     void Promise.all([backend.appInfo(), backend.listShellProfiles()])
-      .then(([info, availableProfiles]) => {
+      .then(([, availableProfiles]) => {
         if (!mounted) {
           return;
         }
-        setAppInfo(info);
         setProfiles(availableProfiles);
         setSelectedProfileId(
           (current) => current || availableProfiles[0]?.id || "",
@@ -237,7 +354,7 @@ function App({ backend = defaultBackend }: AppProps) {
       })
       .catch(() => {
         if (mounted) {
-          setError("Não foi possível iniciar o core do OwnTerm.");
+          setError("Could not start the OwnTerm core.");
         }
       });
     return () => {
@@ -250,34 +367,61 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, sessions],
   );
 
-  const openSession = useCallback(async () => {
-    if (!selectedProfileId || opening || !terminalEventsReady) {
-      return;
-    }
-    setOpening(true);
-    setError(undefined);
-    try {
-      const descriptor = await backend.startLocalSession(
-        selectedProfileId,
-        24,
-        80,
-      );
-      closedSessions.current.delete(descriptor.id);
-      const pending = pendingStatus.current.get(descriptor.id);
-      pendingStatus.current.delete(descriptor.id);
-      setSessions((current) => [
-        ...current,
-        pending
-          ? { ...descriptor, status: pending.status, reason: pending.reason }
-          : descriptor,
-      ]);
-      setActiveSessionId(descriptor.id);
-    } catch {
-      setError("Não foi possível abrir o shell selecionado.");
-    } finally {
-      setOpening(false);
-    }
-  }, [backend, opening, selectedProfileId, terminalEventsReady]);
+  useEffect(() => {
+    const windowAlpha = activeAppearanceProfile(appearance).windowOpacity / 100;
+    document.documentElement.style.setProperty(
+      "--window-opacity",
+      String(windowAlpha),
+    );
+  }, [appearance]);
+
+  useEffect(() => {
+    document.documentElement.dataset.material = appearance.acrylicApplied
+      ? "acrylic"
+      : "opaque";
+  }, [appearance.acrylicApplied]);
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    window.requestAnimationFrame(() =>
+      terminals.current.get(activeSessionId)?.fit(),
+    );
+  }, [activeSessionId, connectionsOpen]);
+
+  const openSession = useCallback(
+    async (profileId = selectedProfileId) => {
+      if (!profileId || openingRef.current || !terminalEventsReady) {
+        return false;
+      }
+      openingRef.current = true;
+      setOpening(true);
+      setError(undefined);
+      try {
+        const descriptor = await backend.startLocalSession(profileId, 24, 80);
+        closedSessions.current.delete(descriptor.id);
+        const pending = pendingStatus.current.get(descriptor.id);
+        pendingStatus.current.delete(descriptor.id);
+        setSessions((current) => [
+          ...current,
+          pending
+            ? { ...descriptor, status: pending.status, reason: pending.reason }
+            : descriptor,
+        ]);
+        setActiveSessionId(descriptor.id);
+        window.requestAnimationFrame(() =>
+          terminals.current.get(descriptor.id)?.focus(),
+        );
+        return true;
+      } catch {
+        setError("Could not open the selected shell.");
+        return false;
+      } finally {
+        openingRef.current = false;
+        setOpening(false);
+      }
+    },
+    [backend, selectedProfileId, terminalEventsReady],
+  );
 
   const closeSession = useCallback(
     (sessionId: string) => {
@@ -313,46 +457,10 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, backend, sessions],
   );
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "t") {
-        event.preventDefault();
-        void openSession();
-      }
-      if (event.ctrlKey && event.key === "Tab" && sessions.length > 1) {
-        event.preventDefault();
-        const currentIndex = sessions.findIndex(
-          (session) => session.id === activeSessionId,
-        );
-        const direction = event.shiftKey ? -1 : 1;
-        const nextIndex =
-          (currentIndex + direction + sessions.length) % sessions.length;
-        setActiveSessionId(sessions[nextIndex]?.id);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeSessionId, openSession, sessions]);
-
-  const runClipboardAction = (action: "copy" | "paste") => {
-    const terminal = activeSessionId
-      ? terminals.current.get(activeSessionId)
-      : undefined;
-    if (!terminal) {
-      return;
-    }
-    void terminal[action]().catch(() =>
-      setError(
-        action === "copy"
-          ? "Não foi possível copiar a seleção."
-          : "Não foi possível colar no terminal.",
-      ),
-    );
-  };
-
   const requestHostConnection = useCallback(
     async (target: SshTarget) => {
-      if (opening || !terminalEventsReady) return;
+      if (openingRef.current || !terminalEventsReady) return false;
+      openingRef.current = true;
       setOpening(true);
       setError(undefined);
       try {
@@ -373,15 +481,93 @@ function App({ backend = defaultBackend }: AppProps) {
           setHostsRefreshToken((value) => value + 1);
         }
         setActiveSessionId(descriptor.id);
+        return true;
       } catch (reason) {
-        setError("Não foi possível iniciar a conexão SSH: " + String(reason));
+        setError("Could not start the SSH connection: " + String(reason));
+        return false;
       } finally {
+        openingRef.current = false;
         setOpening(false);
       }
     },
-    [backend, opening, terminalEventsReady],
+    [backend, terminalEventsReady],
   );
 
+  const openConnections = useCallback(() => {
+    window.clearTimeout(connectionsRestoreTimer.current);
+    setConnectionsFocusTarget("search");
+    setConnectionsOpen(true);
+  }, []);
+
+  const closeConnections = useCallback((restoreFocus = true) => {
+    setConnectionsOpen(false);
+    setConnectionsFocusTarget(undefined);
+    if (restoreFocus) {
+      connectionsRestoreTimer.current = window.setTimeout(() =>
+        connectionsTrigger.current?.focus(),
+      );
+    }
+  }, []);
+
+  const openLocalFromDrawer = useCallback(async () => {
+    if (await openSession()) closeConnections(false);
+  }, [closeConnections, openSession]);
+
+  const requestConnectionFromDrawer = useCallback(
+    async (target: SshTarget) => {
+      if (await requestHostConnection(target)) closeConnections(false);
+    },
+    [closeConnections, requestHostConnection],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (event.ctrlKey && event.shiftKey && key === "p") {
+        event.preventDefault();
+        setLauncherOpen(true);
+        return;
+      }
+      if (event.key === "Escape" && launcherOpen) {
+        event.preventDefault();
+        setLauncherOpen(false);
+        return;
+      }
+      if (
+        event.key === "Escape" &&
+        connectionsOpen &&
+        !connectionsOverlayOpen
+      ) {
+        event.preventDefault();
+        closeConnections();
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "t") {
+        event.preventDefault();
+        void openSession();
+      }
+      if (event.ctrlKey && event.key === "Tab" && sessions.length > 1) {
+        event.preventDefault();
+        const currentIndex = sessions.findIndex(
+          (session) => session.id === activeSessionId,
+        );
+        const direction = event.shiftKey ? -1 : 1;
+        const nextIndex =
+          (currentIndex + direction + sessions.length) % sessions.length;
+        setActiveSessionId(sessions[nextIndex]?.id);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    activeSessionId,
+    closeConnections,
+    connectionsOpen,
+    connectionsOverlayOpen,
+    launcherOpen,
+    openSession,
+    sessions,
+  ]);
   const respondToTrust = useCallback(
     async (accept: boolean) => {
       if (!trustPrompt) return;
@@ -390,9 +576,7 @@ function App({ backend = defaultBackend }: AppProps) {
       try {
         await backend.confirmSshTrust(sessionId, accept);
       } catch (reason) {
-        setError(
-          "Não foi possível confirmar a identidade do Host: " + String(reason),
-        );
+        setError("Could not confirm the Host identity: " + String(reason));
       }
     },
     [backend, trustPrompt],
@@ -408,190 +592,528 @@ function App({ backend = defaultBackend }: AppProps) {
       try {
         await backend.provideSshCredential(sessionId, secret);
       } catch (reason) {
-        setError("Não foi possível enviar a credencial: " + String(reason));
+        setError("Could not provide the credential: " + String(reason));
       }
     },
     [backend, credentialPrompt],
   );
 
-  return (
-    <main className="flex h-screen min-h-[480px] flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4">
-        <div className="flex items-center gap-3">
-          <img alt="" className="size-7 rounded-md" src={ownTermLogo} />
-          <div>
-            <h1 className="text-sm font-semibold leading-none">OwnTerm</h1>
-            <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-              terminal local
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="sr-only" htmlFor="shell-profile">
-            Shell
-          </label>
-          <select
-            className="h-8 max-w-56 rounded-md border border-[var(--border)] bg-[var(--surface-solid)] px-2 text-xs outline-none focus:border-[var(--primary)]"
-            disabled={profiles.length === 0}
-            id="shell-profile"
-            onChange={(event) => setSelectedProfileId(event.target.value)}
-            value={selectedProfileId}
-          >
-            {profiles.length === 0 ? (
-              <option>Nenhum shell disponível</option>
-            ) : (
-              profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))
-            )}
-          </select>
-          <Button
-            className="h-8 py-1 text-xs"
-            disabled={!selectedProfileId || opening || !terminalEventsReady}
-            onClick={() => void openSession()}
-          >
-            {opening
-              ? "Abrindo…"
-              : terminalEventsReady
-                ? "Nova aba"
-                : "Preparando terminal…"}
-          </Button>
-        </div>
-      </header>
+  const closeAppearance = useCallback(() => {
+    setAppearanceOpen(false);
+    window.setTimeout(() => {
+      const terminal = activeSessionId
+        ? terminals.current.get(activeSessionId)
+        : undefined;
+      if (terminal) terminal.focus();
+    });
+  }, [activeSessionId]);
 
-      <div className="flex min-h-0 flex-1">
-        <HostsWorkspace
-          backend={backend}
-          onOpenLocal={() => void openSession()}
-          refreshToken={hostsRefreshToken}
-          onRequestConnection={requestHostConnection}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <nav
-            aria-label="Sessões locais"
-            className="flex h-10 shrink-0 items-end gap-1 overflow-x-auto border-b border-[var(--border)] bg-black/10 px-2 pt-1"
-          >
-            {sessions.map((session) => (
-              <div
-                className={
-                  session.id === activeSessionId
-                    ? "flex h-9 min-w-40 items-center gap-2 rounded-t-md border border-b-0 border-[var(--border)] bg-[var(--terminal)] px-3"
-                    : "flex h-9 min-w-40 items-center gap-2 rounded-t-md px-3 text-[var(--muted-foreground)] hover:bg-white/5"
-                }
-                key={session.id}
-              >
+  const saveAppearance = useCallback(
+    (next: AppearanceSettings) => {
+      const active = activeAppearanceProfile(next);
+      const requested = {
+        ...next,
+        windowOpacity: active.windowOpacity,
+        terminalBackgroundOpacity: active.terminalBackgroundOpacity,
+      };
+      setAppearance(requested);
+      const version = ++appearanceSaveVersion.current;
+      if (!backend.saveAppearanceSettings) return;
+      void backend
+        .saveAppearanceSettings(requested)
+        .then((saved) => {
+          if (version === appearanceSaveVersion.current) setAppearance(saved);
+        })
+        .catch(() => {
+          if (version === appearanceSaveVersion.current)
+            setError("Could not save appearance preferences.");
+        });
+    },
+    [backend],
+  );
+
+  const updateActiveProfile = useCallback(
+    (update: Partial<TerminalAppearanceProfile>) => {
+      const active = activeAppearanceProfile(appearance);
+      saveAppearance({
+        ...appearance,
+        profiles: appearance.profiles.map((profile) =>
+          profile.id === active.id ? { ...profile, ...update } : profile,
+        ),
+      });
+    },
+    [appearance, saveAppearance],
+  );
+
+  const selectAppearanceProfile = useCallback(
+    (id: string) => {
+      const selected = appearance.profiles.find((profile) => profile.id === id);
+      if (!selected) return;
+      saveAppearance({
+        ...appearance,
+        activeProfileId: id,
+        windowOpacity: selected.windowOpacity,
+        terminalBackgroundOpacity: selected.terminalBackgroundOpacity,
+      });
+    },
+    [appearance, saveAppearance],
+  );
+
+  const duplicateAppearanceProfile = useCallback(() => {
+    const source = activeAppearanceProfile(appearance);
+    const id = `profile-${crypto.randomUUID()}`;
+    const copy = { ...source, id, name: `${source.name} copy`, builtIn: false };
+    saveAppearance({
+      ...appearance,
+      activeProfileId: id,
+      profiles: [...appearance.profiles, copy],
+      windowOpacity: copy.windowOpacity,
+      terminalBackgroundOpacity: copy.terminalBackgroundOpacity,
+    });
+  }, [appearance, saveAppearance]);
+
+  const duplicateColorScheme = useCallback(() => {
+    const profile = activeAppearanceProfile(appearance);
+    const source = schemeForProfile(appearance, profile);
+    const id = `scheme-${crypto.randomUUID()}`;
+    const copy = { ...source, id, name: `${source.name} copy`, builtIn: false };
+    saveAppearance({
+      ...appearance,
+      colorSchemes: [...appearance.colorSchemes, copy],
+      profiles: appearance.profiles.map((item) =>
+        item.id === profile.id ? { ...item, colorSchemeId: id } : item,
+      ),
+    });
+  }, [appearance, saveAppearance]);
+
+  const updateActiveScheme = useCallback(
+    (update: Partial<TerminalColorScheme>) => {
+      const profile = activeAppearanceProfile(appearance);
+      const scheme = schemeForProfile(appearance, profile);
+      if (scheme.builtIn) return;
+      saveAppearance({
+        ...appearance,
+        colorSchemes: appearance.colorSchemes.map((item) =>
+          item.id === scheme.id ? { ...item, ...update } : item,
+        ),
+      });
+    },
+    [appearance, saveAppearance],
+  );
+
+  const activeAppearance = activeAppearanceProfile(appearance);
+  const activeScheme = schemeForProfile(appearance, activeAppearance);
+
+  return (
+    <main className="app-shell">
+      <UnifiedTitleBar
+        activeSessionId={activeSessionId}
+        appearanceOpen={appearanceOpen}
+        appearanceTriggerRef={appearanceTrigger}
+        connectionsOpen={connectionsOpen}
+        connectionsTriggerRef={connectionsTrigger}
+        launcherOpen={launcherOpen}
+        onCloseSession={closeSession}
+        onMaterialChange={handleMaterialChange}
+        onOpenAppearance={() => setAppearanceOpen(true)}
+        onOpenSession={(profileId) => void openSession(profileId)}
+        onSelectSession={(sessionId) => {
+          setActiveSessionId(sessionId);
+          terminals.current.get(sessionId)?.focus();
+        }}
+        onToggleLauncher={() => setLauncherOpen((open) => !open)}
+        onToggleConnections={() => {
+          setLauncherOpen(false);
+          if (connectionsOpen) closeConnections();
+          else openConnections();
+        }}
+        opening={opening}
+        profiles={profiles}
+        selectedProfileId={selectedProfileId}
+        sessions={sessions}
+        terminalEventsReady={terminalEventsReady}
+      />
+
+      <div className="terminal-workspace">
+        <section className="terminal-stage">
+          {sessions.length === 0 ? (
+            <div className="empty-terminal">
+              <div>
+                <Terminal className="empty-terminal-icon" size={32} />
+                <p className="text-sm text-[var(--strong-foreground)]">
+                  No open sessions
+                </p>
+                <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                  Open the default shell with Ctrl+Shift+T or the + button.
+                </p>
+                <div className="empty-terminal-actions">
+                  <button
+                    className="control-primary"
+                    disabled={
+                      !selectedProfileId || opening || !terminalEventsReady
+                    }
+                    onClick={() => void openSession()}
+                    type="button"
+                  >
+                    Open default shell
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {sessions.map((session) => (
+            <TerminalSurface
+              active={session.id === activeSessionId}
+              backend={backend}
+              key={session.id}
+              onError={reportError}
+              onReady={registerTerminal}
+              sessionId={session.id}
+              profile={activeAppearance}
+              scheme={activeScheme}
+              terminalBackgroundOpacity={
+                activeAppearance.terminalBackgroundOpacity
+              }
+            />
+          ))}
+          {error ||
+          (activeSession &&
+            (activeSession.status !== "connected" ||
+              activeSession?.exitCode !== undefined ||
+              activeSession?.reason)) ? (
+            <div
+              aria-live="polite"
+              className="workspace-feedback"
+              role="status"
+            >
+              <span>
+                {error ??
+                  `${sessionStatusLabels[activeSession?.status ?? "disconnected"]}${activeSession?.exitCode !== undefined ? ` · exit code ${activeSession?.exitCode}` : ""}${activeSession?.reason ? ` · ${activeSession?.reason}` : ""}`}
+              </span>
+              {activeSession?.kind.type === "ssh" &&
+              (activeSession.status === "failed" ||
+                activeSession.status === "disconnected") ? (
                 <button
-                  aria-current={
-                    session.id === activeSessionId ? "page" : undefined
-                  }
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
+                  className="control-ghost"
                   onClick={() => {
-                    setActiveSessionId(session.id);
-                    terminals.current.get(session.id)?.focus();
+                    const target = sshTargets.current.get(activeSession.id);
+                    if (target) void requestHostConnection(target);
                   }}
                   type="button"
                 >
-                  <span
-                    className={`status-dot status-${session.status}`}
-                    title={statusLabels[session.status]}
-                  />
-                  <span className="truncate">{session.title}</span>
+                  Reconnect
                 </button>
-                <button
-                  aria-label={`Fechar ${session.title}`}
-                  className="rounded px-1 text-base leading-none hover:bg-white/10 hover:text-white"
-                  onClick={() => closeSession(session.id)}
-                  type="button"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </nav>
-
-          <section className="relative min-h-0 flex-1 bg-[var(--terminal)]">
-            {sessions.length === 0 ? (
-              <div className="grid h-full place-items-center p-8 text-center">
-                <div>
-                  <p className="font-mono text-sm text-[var(--primary)]">
-                    Nenhuma sessão aberta
-                  </p>
-                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                    Escolha um shell e abra uma aba. Atalho: Ctrl+Shift+T.
-                  </p>
-                </div>
-              </div>
-            ) : null}
-            {sessions.map((session) => (
-              <TerminalSurface
-                active={session.id === activeSessionId}
-                backend={backend}
-                key={session.id}
-                onError={reportError}
-                onReady={registerTerminal}
-                sessionId={session.id}
-              />
-            ))}
-          </section>
-        </div>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
       </div>
 
-      <footer className="flex min-h-8 shrink-0 items-center justify-between gap-4 border-t border-[var(--border)] bg-[var(--surface-solid)] px-3 text-[11px]">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="text-[var(--muted-foreground)]">
-            {appInfo ? `${appInfo.name} ${appInfo.version}` : "Iniciando core…"}
-          </span>
-          {activeSession ? (
-            <span role="status">
-              {statusLabels[activeSession.status]}
-              {activeSession.exitCode !== undefined
-                ? ` · código ${activeSession.exitCode}`
-                : ""}
-              {activeSession.reason ? ` · ${activeSession.reason}` : ""}
-            </span>
-          ) : null}
-          {error ? (
-            <span className="truncate text-[var(--danger)]">{error}</span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1">
-          {activeSession?.kind.type === "ssh" &&
-          (activeSession.status === "failed" ||
-            activeSession.status === "disconnected") ? (
-            <button
-              className="rounded px-2 py-1 text-[var(--primary)] hover:bg-white/5"
-              onClick={() => {
-                const target = sshTargets.current.get(activeSession.id);
-                if (target) void requestHostConnection(target);
-              }}
-              type="button"
-            >
-              Reconectar
-            </button>
-          ) : null}
-          <button
-            className="rounded px-2 py-1 text-[var(--muted-foreground)] hover:bg-white/5 hover:text-white disabled:opacity-40"
-            disabled={!activeSession}
-            onClick={() => runClipboardAction("copy")}
-            type="button"
-          >
-            Copiar
-          </button>
-          <button
-            className="rounded px-2 py-1 text-[var(--muted-foreground)] hover:bg-white/5 hover:text-white disabled:opacity-40"
-            disabled={!activeSession || activeSession.status !== "connected"}
-            onClick={() => runClipboardAction("paste")}
-            type="button"
-          >
-            Colar
-          </button>
-          <span className="ml-2 hidden text-[var(--muted-foreground)] sm:inline">
-            Ctrl+Tab alterna abas
-          </span>
-        </div>
-      </footer>
+      {connectionsOpen ? (
+        <ConnectionsDrawer
+          activeHostId={
+            activeSession?.kind.type === "ssh"
+              ? activeSession.kind.hostId
+              : undefined
+          }
+          backend={backend}
+          connectedHostIds={sessions
+            .filter((session) => session.status === "connected")
+            .flatMap((session) =>
+              session.kind.type === "ssh" ? [session.kind.hostId] : [],
+            )}
+          focusTarget={connectionsFocusTarget}
+          onClose={closeConnections}
+          onFocusTargetHandled={() => setConnectionsFocusTarget(undefined)}
+          onOpenLocal={() => void openLocalFromDrawer()}
+          onOverlayStateChange={setConnectionsOverlayOpen}
+          onRequestConnection={(target) =>
+            void requestConnectionFromDrawer(target)
+          }
+          refreshToken={hostsRefreshToken}
+        />
+      ) : null}
+
+      {appearanceOpen
+        ? (() => {
+            const profile = activeAppearanceProfile(appearance);
+            const scheme = schemeForProfile(appearance, profile);
+            return (
+              <div className="dialog-backdrop" role="presentation">
+                <section
+                  aria-describedby="appearance-description"
+                  aria-labelledby="appearance-title"
+                  aria-modal="true"
+                  className="dialog appearance-dialog"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") closeAppearance();
+                  }}
+                  ref={appearanceDialogRef}
+                  role="dialog"
+                >
+                  <div className="appearance-dialog-heading">
+                    <div>
+                      <h2 className="font-semibold" id="appearance-title">
+                        Appearance
+                      </h2>
+                      <p id="appearance-description">
+                        Profiles are local and apply to open and future sessions
+                        immediately.
+                      </p>
+                    </div>
+                    <button
+                      aria-label="Close appearance settings"
+                      className="control-icon"
+                      onClick={closeAppearance}
+                      type="button"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <label htmlFor="appearance-profile">
+                    <span>Visual profile</span>
+                    <select
+                      id="appearance-profile"
+                      value={profile.id}
+                      onChange={(event) =>
+                        selectAppearanceProfile(event.target.value)
+                      }
+                    >
+                      {appearance.profiles.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="appearance-profile-actions">
+                    <Button
+                      onClick={duplicateAppearanceProfile}
+                      variant="secondary"
+                    >
+                      Duplicate profile
+                    </Button>
+                  </div>
+                  <label htmlFor="profile-name">
+                    <span>Profile name</span>
+                    <input
+                      className="field"
+                      id="profile-name"
+                      value={profile.name}
+                      onChange={(event) =>
+                        updateActiveProfile({ name: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label htmlFor="color-scheme">
+                    <span>Color scheme</span>
+                    <select
+                      id="color-scheme"
+                      value={profile.colorSchemeId}
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          colorSchemeId: event.target.value,
+                        })
+                      }
+                    >
+                      {appearance.colorSchemes.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label htmlFor="font-family">
+                    <span>Font family</span>
+                    <input
+                      className="field"
+                      id="font-family"
+                      list="monospaced-fonts"
+                      value={profile.fontFamily}
+                      onChange={(event) =>
+                        updateActiveProfile({ fontFamily: event.target.value })
+                      }
+                    />
+                    <datalist id="monospaced-fonts">
+                      {systemFonts.map((font) => (
+                        <option key={font} value={font} />
+                      ))}
+                    </datalist>
+                  </label>
+                  <label htmlFor="font-size">
+                    <span>
+                      Font size <output>{profile.fontSize}px</output>
+                    </span>
+                    <input
+                      aria-valuetext={`${profile.fontSize}px`}
+                      id="font-size"
+                      max="32"
+                      min="6"
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          fontSize: Number(event.target.value),
+                        })
+                      }
+                      type="range"
+                      value={profile.fontSize}
+                    />
+                  </label>
+                  <label htmlFor="window-opacity">
+                    <span>
+                      Window opacity <output>{profile.windowOpacity}%</output>
+                    </span>
+                    <input
+                      aria-valuetext={`${profile.windowOpacity}%`}
+                      id="window-opacity"
+                      max={appearanceBounds.windowOpacity.max}
+                      min={appearanceBounds.windowOpacity.min}
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          windowOpacity: Number(event.target.value),
+                        })
+                      }
+                      type="range"
+                      value={profile.windowOpacity}
+                    />
+                  </label>
+                  {appearance.windowOpacityWarning ? (
+                    <p className="appearance-warning" role="status">
+                      {appearance.windowOpacityWarning}
+                    </p>
+                  ) : null}
+                  {appearance.acrylicWarning ? (
+                    <p className="appearance-warning" role="status">
+                      {appearance.acrylicWarning}
+                    </p>
+                  ) : null}
+                  <label htmlFor="terminal-background-opacity">
+                    <span>
+                      Terminal background opacity{" "}
+                      <output>{profile.terminalBackgroundOpacity}%</output>
+                    </span>
+                    <input
+                      aria-valuetext={`${profile.terminalBackgroundOpacity}%`}
+                      id="terminal-background-opacity"
+                      max={appearanceBounds.terminalBackgroundOpacity.max}
+                      min={appearanceBounds.terminalBackgroundOpacity.min}
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          terminalBackgroundOpacity: Number(event.target.value),
+                        })
+                      }
+                      type="range"
+                      value={profile.terminalBackgroundOpacity}
+                    />
+                  </label>
+                  <label className="appearance-check" htmlFor="use-acrylic">
+                    <input
+                      checked={profile.useAcrylic}
+                      id="use-acrylic"
+                      onChange={(event) =>
+                        updateActiveProfile({
+                          useAcrylic: event.target.checked,
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    Use Windows acrylic when available
+                  </label>
+                  <div className="appearance-colors">
+                    <div>
+                      <span>Scheme preview</span>
+                      <div
+                        className="appearance-swatch"
+                        style={{
+                          background: scheme.background,
+                          color: scheme.foreground,
+                        }}
+                      >
+                        <i style={{ background: scheme.cursor }} />
+                        Aa
+                      </div>
+                    </div>
+                    <Button onClick={duplicateColorScheme} variant="secondary">
+                      Duplicate scheme
+                    </Button>
+                  </div>
+                  {!scheme.builtIn ? (
+                    <div className="scheme-editor">
+                      <label htmlFor="scheme-name">
+                        <span>Scheme name</span>
+                        <input
+                          className="field"
+                          id="scheme-name"
+                          value={scheme.name}
+                          onChange={(event) =>
+                            updateActiveScheme({ name: event.target.value })
+                          }
+                        />
+                      </label>
+                      {(
+                        [
+                          "background",
+                          "foreground",
+                          "cursor",
+                          "selectionBackground",
+                        ] as const
+                      ).map((field) => (
+                        <label key={field}>
+                          <span>{field}</span>
+                          <input
+                            aria-label={field}
+                            type="color"
+                            value={scheme[field]}
+                            onChange={(event) =>
+                              updateActiveScheme({
+                                [field]: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                      <div className="ansi-colors">
+                        {scheme.ansi.map((color, index) => (
+                          <label key={index}>
+                            <span>ANSI {index}</span>
+                            <input
+                              aria-label={`ANSI ${index}`}
+                              type="color"
+                              value={color}
+                              onChange={(event) => {
+                                const ansi = [...scheme.ansi];
+                                ansi[index] = event.target.value;
+                                updateActiveScheme({ ansi });
+                              }}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="appearance-hint">
+                      Built-in schemes are read-only. Duplicate one to edit
+                      every ANSI color.
+                    </p>
+                  )}
+                  <div className="appearance-dialog-actions">
+                    <Button
+                      onClick={() =>
+                        updateActiveProfile({
+                          windowOpacity: 92,
+                          terminalBackgroundOpacity: 82,
+                        })
+                      }
+                      variant="secondary"
+                    >
+                      Reset defaults
+                    </Button>
+                    <Button onClick={closeAppearance}>Done</Button>
+                  </div>
+                </section>
+              </div>
+            );
+          })()
+        : null}
 
       {trustPrompt ? (
         <div className="dialog-backdrop" role="presentation">
@@ -603,14 +1125,14 @@ function App({ backend = defaultBackend }: AppProps) {
             role="dialog"
           >
             <h2 className="font-semibold" id="ssh-trust-title">
-              Confirmar identidade do Host
+              Confirm Host identity
             </h2>
             <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-              Primeiro acesso a {trustPrompt.destination}:{trustPrompt.port}.
-              Confirme a impressão digital por um canal confiável.
+              First connection to {trustPrompt.destination}:{trustPrompt.port}.
+              Confirm the fingerprint through a trusted channel.
             </p>
-            <dl className="mt-3 rounded border border-[var(--border)] bg-black/20 p-3 font-mono text-xs">
-              <dt className="text-[var(--muted-foreground)]">Algoritmo</dt>
+            <dl className="mt-3 rounded border border-[var(--border)] bg-[var(--control-surface)] p-3 font-mono text-xs">
+              <dt className="text-[var(--muted-foreground)]">Algorithm</dt>
               <dd>{trustPrompt.algorithm}</dd>
               <dt className="mt-2 text-[var(--muted-foreground)]">
                 Fingerprint
@@ -623,10 +1145,10 @@ function App({ backend = defaultBackend }: AppProps) {
                 onClick={() => void respondToTrust(false)}
                 type="button"
               >
-                Rejeitar
+                Reject
               </button>
               <Button onClick={() => void respondToTrust(true)} type="button">
-                Confiar e conectar
+                Trust and connect
               </Button>
             </div>
           </section>
@@ -648,15 +1170,15 @@ function App({ backend = defaultBackend }: AppProps) {
           >
             <h2 className="font-semibold" id="ssh-credential-title">
               {credentialPrompt.kind === "password"
-                ? "Senha SSH"
-                : "Frase secreta da chave"}
+                ? "SSH password"
+                : "Key passphrase"}
             </h2>
             <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-              A credencial será usada somente nesta tentativa e não será mantida
-              no estado da interface.
+              The credential is used only for this attempt and is never retained
+              in interface state.
             </p>
             <input
-              aria-label="Credencial SSH"
+              aria-label="SSH credential"
               autoComplete="current-password"
               autoFocus
               className="field mt-4"
@@ -669,9 +1191,9 @@ function App({ backend = defaultBackend }: AppProps) {
                 onClick={() => void provideCredential(false)}
                 type="button"
               >
-                Cancelar
+                Cancel
               </button>
-              <Button type="submit">Conectar</Button>
+              <Button type="submit">Connect</Button>
             </div>
           </form>
         </div>

@@ -3134,10 +3134,13 @@ dependencies = [
  "ownterm-storage-sqlite",
  "ownterm-terminal",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "time",
  "uuid",
+ "window-vibrancy",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

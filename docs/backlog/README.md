@@ -21,5 +21,13 @@
 | 6 | E06 SSH | I09 | I06, I04, I08, I16 |
 | 7 | E07 Portabilidade | I10 | I06, I08 |
 | 8 | E08 Hardening/release | I11 | I07–I10 |
+| 9 | E10 Garantia de CI/CD | I17–I19 | I11 |
+| 10 | E11 Shell terminal-first | I21–I26 | I08; execução I21 → I22–I24 → I25 → I26 |
+| 11 | E12 Aparência configurável (histórico) | I27–I30 | I08, I16, I19 |
+| 12 | E13 Correções terminal-first | I31–I34 | I21–I25, I27–I30 |
 
 `I03`, `I04` e `I05` podem ocorrer em paralelo. Nenhuma integração em `main` deve ocorrer diretamente da feature: a sequência local é `feature → develop → main`.
+
+No E11, `I22`, `I23` e `I24` podem avançar em paralelo após I21 quando não alterarem os mesmos trechos do AppShell. I25 consolida os materiais depois da estrutura; I26 fecha a regressão integrada.
+
+No E13, I31, I32 e I33 tratam respectivamente de fullscreen, acionador da gaveta e isolamento de opacidade. I34 coleta a evidência Windows depois da integração.

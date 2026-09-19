@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Backend, Host, HostGroup } from "../services/backend";
@@ -61,10 +55,10 @@ describe("Hosts workspace", () => {
         onRequestConnection={vi.fn()}
       />,
     );
-    await screen.findByText("Nenhum Host cadastrado.");
+    await screen.findByText("No saved connections.");
     await userEvent.click(
       screen.getByRole("button", {
-        name: "Ignorar importação e abrir shell local",
+        name: "Open a local shell",
       }),
     );
     expect(openLocal).toHaveBeenCalledOnce();
@@ -80,11 +74,11 @@ describe("Hosts workspace", () => {
         onRequestConnection={vi.fn()}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Novo" }));
-    await user.type(screen.getByLabelText("Nome"), "Gateway");
-    await user.type(screen.getByLabelText("Endereço"), "gateway.example.com");
-    await user.type(screen.getByLabelText(/^Senha/), "super-secret");
-    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await user.click(screen.getByRole("button", { name: "New" }));
+    await user.type(screen.getByLabelText("Name"), "Gateway");
+    await user.type(screen.getByLabelText("Address"), "gateway.example.com");
+    await user.type(screen.getByLabelText(/^Password/), "super-secret");
+    await user.click(screen.getByRole("button", { name: "Save" }));
     expect(backend.saveHost).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Gateway", password: "super-secret" }),
     );
@@ -114,7 +108,7 @@ describe("Hosts workspace", () => {
     );
     await user.click(await screen.findByRole("button", { name: /^Router/ }));
     await user.type(screen.getByLabelText("Quick Connect"), "root@edge:2222");
-    await user.click(screen.getByRole("button", { name: "Conectar" }));
+    await user.click(screen.getByRole("button", { name: "Connect" }));
     expect(connect).toHaveBeenNthCalledWith(1, { hostId: "host-1" });
     expect(connect).toHaveBeenNthCalledWith(2, {
       destination: "root@edge:2222",
@@ -143,11 +137,11 @@ describe("Hosts workspace", () => {
       />,
     );
     await screen.findByText("Database");
-    await user.type(screen.getByLabelText("Buscar Hosts"), "production");
+    await user.type(screen.getByLabelText("Search hosts"), "production");
     await waitFor(() =>
       expect(backend.listHosts).toHaveBeenLastCalledWith("production"),
     );
-    await user.click(screen.getByRole("button", { name: "Excluir Database" }));
+    await user.click(screen.getByRole("button", { name: "Delete Database" }));
     expect(window.confirm).toHaveBeenCalled();
     expect(backend.deleteHost).toHaveBeenCalledWith("host-1");
   });
@@ -187,13 +181,16 @@ describe("Hosts workspace", () => {
         onRequestConnection={vi.fn()}
       />,
     );
-    await user.click(await screen.findByRole("button", { name: "Importar" }));
-    await user.type(screen.getByLabelText("Conteúdo"), "Host edge");
-    await user.click(screen.getByRole("button", { name: "Analisar" }));
+    await user.click(
+      screen.getByRole("button", { name: "Connection actions" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Import" }));
+    await user.type(screen.getByLabelText("Content"), "Host edge");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
     expect(
       await screen.findByText(/edge \(edge.example:22\)/),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Aplicar seleção" }));
+    await user.click(screen.getByRole("button", { name: "Apply selection" }));
     expect(portability.applyImport).toHaveBeenCalledWith([], {}, [
       {
         host: expect.objectContaining({ name: "edge" }),
@@ -201,24 +198,36 @@ describe("Hosts workspace", () => {
       },
     ]);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Configure credenciais",
+      "Configure credentials",
     );
   });
 
-  it("focuses Host search and Quick Connect through documented shortcuts", async () => {
+  it("focuses Host search and Quick Connect from a drawer focus request", async () => {
     const { backend } = backendFixture();
-    render(
+    const onFocusTargetHandled = vi.fn();
+    const view = render(
       <HostsWorkspace
         backend={backend}
+        focusTarget="search"
+        onFocusTargetHandled={onFocusTargetHandled}
         onOpenLocal={vi.fn()}
         onRequestConnection={vi.fn()}
       />,
     );
-    await screen.findByText("Nenhum Host cadastrado.");
-    fireEvent.keyDown(window, { ctrlKey: true, key: "f" });
-    expect(screen.getByLabelText("Buscar Hosts")).toHaveFocus();
-    fireEvent.keyDown(window, { ctrlKey: true, shiftKey: true, key: "c" });
+    await screen.findByText("No saved connections.");
+    expect(screen.getByLabelText("Search hosts")).toHaveFocus();
+
+    view.rerender(
+      <HostsWorkspace
+        backend={backend}
+        focusTarget="quickConnect"
+        onFocusTargetHandled={onFocusTargetHandled}
+        onOpenLocal={vi.fn()}
+        onRequestConnection={vi.fn()}
+      />,
+    );
     expect(screen.getByLabelText("Quick Connect")).toHaveFocus();
+    expect(onFocusTargetHandled).toHaveBeenCalledTimes(2);
   });
 
   it("moves focus into dialogs and restores it when they close", async () => {
@@ -231,12 +240,15 @@ describe("Hosts workspace", () => {
         onRequestConnection={vi.fn()}
       />,
     );
-    const newHost = await screen.findByRole("button", { name: "Novo" });
+    const newHost = await screen.findByRole("button", { name: "New" });
     await user.click(newHost);
-    expect(screen.getByLabelText("Nome")).toHaveFocus();
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(screen.getByLabelText("Buscar Hosts")).toHaveFocus();
-    await user.click(screen.getByRole("button", { name: "Importar" }));
-    expect(screen.getByLabelText("Conteúdo")).toHaveFocus();
+    expect(screen.getByLabelText("Name")).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByLabelText("Search hosts")).toHaveFocus();
+    await user.click(
+      screen.getByRole("button", { name: "Connection actions" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    expect(screen.getByLabelText("Content")).toHaveFocus();
   });
 });

@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod appearance;
 pub mod diagnostics;
 pub mod platform;
 pub mod portability;

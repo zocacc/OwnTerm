@@ -24,7 +24,25 @@ _Avoid_: fingerprint aceita, known_hosts do OpenSSH
 Uma opção detectada para iniciar um shell local, com identidade, comando e disponibilidade. PowerShell e CMD são perfis obrigatórios; WSL só existe quando detectado.
 _Avoid_: terminal, aba
 
+## Entrega
+
+**PR Gate**:
+Uma validação automatizada obrigatória para integrar uma Pull Request na sua branch de destino. Um PR Gate produz um resultado verificável, mas não é um artefato distribuível.
+_Avoid_: CI opcional, teste informativo
+
+**Integration Evidence**:
+O instalador validado gerado para o commit já integrado em `develop` e retido para triagem. Não é uma Release nem implica que o binário tenha assinatura.
+_Avoid_: release, publicação
+
+**Release**:
+Uma distribuição versionada deliberadamente disponibilizada a usuários. Gerar ou reter uma Integration Evidence não cria uma Release.
+_Avoid_: artefato de CI, build verde
+
 ## Runtime
+
+**App Shell**:
+A composição visível do OwnTerm que organiza Hosts, abas de Session, superfície de terminal e estado operacional. Não é a moldura nativa da janela nem uma Session.
+_Avoid_: frontend, layout, janela
 
 **Session**:
 Uma execução ativa, local ou SSH, associada a um terminal e mantida somente em runtime. Encerrar uma Session não exclui seu Host ou Shell Profile.
@@ -41,3 +59,15 @@ _Avoid_: aceitar sempre, ignorar fingerprint
 **Workspace Export**:
 Um arquivo JSON versionado que transporta configurações permitidas do OwnTerm. Nunca transporta senhas, passphrases, conteúdo de chaves ou fingerprints confiadas.
 _Avoid_: backup de credenciais, clonagem completa
+
+**Terminal Appearance Profile**:
+Uma configuração visual local e global para as Sessions: fonte, esquema de cores, opacidade da janela, opacidade do fundo do terminal e Acrylic. Não é um **Shell Profile** e não define comando algum.
+_Avoid_: shell profile, conexão, tema de Host
+
+**Terminal Color Scheme**:
+Uma paleta reutilizável de fundo, foreground, cursor, seleção e 16 cores ANSI, escolhida por um Terminal Appearance Profile.
+_Avoid_: perfil de shell, credencial
+
+**Appearance Preference**:
+Uma preferência visual local que controla a opacidade da janela do OwnTerm ou do fundo das Sessions. Ela pertence à instalação em uso e não acompanha um Workspace Export.
+_Avoid_: tema, configuração de Host, transparência de credencial

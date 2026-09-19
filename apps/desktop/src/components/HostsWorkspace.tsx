@@ -7,10 +7,23 @@ import type {
   ImportPreview,
   ImportAction,
 } from "../services/backend";
+import {
+  Download,
+  Plus,
+  Star,
+  Upload,
+  Server,
+  Search,
+  Pencil,
+  X,
+  Clock,
+  Folder,
+} from "lucide-react";
+import { ActionMenu } from "./ActionMenu";
 import { Button } from "./ui/button";
 import { useDialogFocus } from "./useDialogFocus";
 
-type PortabilityDialogState = {
+type PortbilityDialogState = {
   mode: "import" | "export";
   source: "openssh" | "workspace";
   content: string;
@@ -22,7 +35,12 @@ type PortabilityDialogState = {
 type Props = {
   backend: Backend;
   onOpenLocal: () => void;
+  onOverlayStateChange?: (open: boolean) => void;
+  onFocusTargetHandled?: () => void;
+  focusTarget?: "search" | "quickConnect";
   refreshToken?: number;
+  activeHostId?: string;
+  connectedHostIds?: string[];
   onRequestConnection: (target: {
     hostId?: string;
     destination?: string;
@@ -44,7 +62,12 @@ export function HostsWorkspace({
   backend,
   onOpenLocal,
   onRequestConnection,
+  onOverlayStateChange,
+  onFocusTargetHandled,
+  focusTarget,
   refreshToken,
+  activeHostId,
+  connectedHostIds = [],
 }: Props) {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [groups, setGroups] = useState<HostGroup[]>([]);
@@ -55,7 +78,7 @@ export function HostsWorkspace({
   const [draft, setDraft] = useState<SaveHostRequest>();
   const [newGroup, setNewGroup] = useState("");
   const [error, setError] = useState<string>();
-  const [portability, setPortability] = useState<PortabilityDialogState>();
+  const [portability, setPortbility] = useState<PortbilityDialogState>();
   const searchInput = useRef<HTMLInputElement>(null);
   const quickConnectInput = useRef<HTMLInputElement>(null);
   const hostDialogRef = useDialogFocus<HTMLFormElement>(
@@ -68,6 +91,21 @@ export function HostsWorkspace({
   );
   const passwordInput = useRef<HTMLInputElement>(null);
   const passphraseInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    (focusTarget === "search"
+      ? searchInput
+      : quickConnectInput
+    ).current?.focus();
+    onFocusTargetHandled?.();
+  }, [focusTarget, onFocusTargetHandled]);
+
+  useEffect(() => {
+    const overlayOpen = Boolean(draft || portability);
+    onOverlayStateChange?.(overlayOpen);
+    return () => onOverlayStateChange?.(false);
+  }, [draft, onOverlayStateChange, portability]);
 
   const reload = useCallback(async () => {
     if (!backend.listHosts || !backend.listHostGroups) return;
@@ -82,7 +120,7 @@ export function HostsWorkspace({
       setRecentHosts(nextRecent);
       setError(undefined);
     } catch {
-      setError("Não foi possível carregar os Hosts.");
+      setError("Could not load Hosts.");
     }
   }, [backend, search]);
 
@@ -90,21 +128,6 @@ export function HostsWorkspace({
     const timer = window.setTimeout(() => void reload(), 120);
     return () => window.clearTimeout(timer);
   }, [reload, refreshToken]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        searchInput.current?.focus();
-      }
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        quickConnectInput.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
 
   const visibleHosts = useMemo(
     () => hosts.filter((host) => !favoritesOnly || host.favorite),
@@ -124,15 +147,12 @@ export function HostsWorkspace({
       setDraft(undefined);
       await reload();
     } catch (reason) {
-      setError(`Não foi possível salvar o Host: ${String(reason)}`);
+      setError(`Could not save the Host: ${String(reason)}`);
     }
   }
 
   async function removeHost(host: Host) {
-    if (
-      !backend.deleteHost ||
-      !window.confirm(`Excluir o Host “${host.name}”?`)
-    )
+    if (!backend.deleteHost || !window.confirm(`Delete Host “${host.name}”?`))
       return;
     await backend.deleteHost(host.id);
     await reload();
@@ -162,7 +182,7 @@ export function HostsWorkspace({
 
   async function renameGroup(group: HostGroup) {
     if (!backend.saveHostGroup) return;
-    const name = window.prompt("Nome do grupo", group.name)?.trim();
+    const name = window.prompt("Group name", group.name)?.trim();
     if (!name || name === group.name) return;
     await backend.saveHostGroup({
       id: group.id,
@@ -175,7 +195,7 @@ export function HostsWorkspace({
   async function removeGroup(group: HostGroup) {
     if (!backend.deleteHostGroup) return;
     const confirmed = window.confirm(
-      `Excluir o grupo “”? Hosts associados serão movidos para Sem grupo.`,
+      `Delete group “”? Associated Hosts will be moved to Ungrouped.`,
     );
     if (!confirmed) return;
     await backend.deleteHostGroup(group.id, true);
@@ -196,14 +216,14 @@ export function HostsWorkspace({
       privateKeyPath: host.privateKeyPath,
     });
 
-  async function previewPortability() {
+  async function previewPortbility() {
     if (!portability?.content.trim() || !backend.previewImport) return;
     try {
       const preview = await backend.previewImport(
         portability.source,
         portability.content,
       );
-      setPortability({
+      setPortbility({
         ...portability,
         preview,
         actions: preview.entries.map((entry) => entry.defaultAction),
@@ -211,11 +231,11 @@ export function HostsWorkspace({
       });
       setError(undefined);
     } catch (reason) {
-      setError(`Não foi possível analisar a importação: ${String(reason)}`);
+      setError(`Could not analyze the import: ${String(reason)}`);
     }
   }
 
-  async function applyPortability() {
+  async function applyPortbility() {
     if (!portability?.preview || !backend.applyImport) return;
     try {
       const result = await backend.applyImport(
@@ -226,181 +246,231 @@ export function HostsWorkspace({
           action: portability.actions[index] ?? entry.defaultAction,
         })),
       );
-      setPortability({
+      setPortbility({
         ...portability,
-        result: `${result.applied} Host(s) importado(s).${result.credentialsToConfigure ? ` Configure credenciais para ${result.credentialsToConfigure} Host(s).` : ""}`,
+        result: `${result.applied} Host(s) imported.${result.credentialsToConfigure ? ` Configure credentials for ${result.credentialsToConfigure} Host(s).` : ""}`,
       });
       await reload();
     } catch (reason) {
-      setError(`Não foi possível aplicar a importação: ${String(reason)}`);
+      setError(`Could not apply the import: ${String(reason)}`);
     }
   }
 
-  async function exportPortability() {
+  async function exportPortbility() {
     if (!backend.exportWorkspace) return;
     try {
       const content = await backend.exportWorkspace();
-      setPortability({
+      setPortbility({
         mode: "export",
         source: "workspace",
         content,
         actions: [],
-        result: "Exportação pronta para copiar e salvar como JSON.",
+        result: "Export is ready to copy and save as JSON.",
       });
     } catch (reason) {
-      setError(`Não foi possível exportar os Hosts: ${String(reason)}`);
+      setError(`Could not export Hosts: ${String(reason)}`);
     }
   }
 
   const rows = (items: Host[]) =>
     items.map((host) => (
       <div
-        className="host-row"
+        className={`host-row ${activeHostId === host.id ? "is-selected" : ""}`}
         key={host.id}
         onDoubleClick={() => onRequestConnection({ hostId: host.id })}
       >
         <button
-          className="min-w-0 flex-1 text-left"
+          title={`${host.username ? `${host.username}@` : ""}${host.address}:${host.port}`}
+          className="host-link"
+          aria-current={activeHostId === host.id ? "true" : undefined}
           onClick={() => onRequestConnection({ hostId: host.id })}
           type="button"
         >
-          <span className="block truncate text-xs font-medium">
-            {host.name}
+          <Server size={18} className="host-icon" aria-hidden="true" />
+          <span className="host-label">
+            <span className="host-name">{host.name}</span>
+            <span className="host-address">
+              {host.username ? `${host.username}@` : ""}
+              {host.address}:{host.port}
+            </span>
           </span>
-          <span className="block truncate text-[11px] text-[var(--muted-foreground)]">
-            {host.username ? `${host.username}@` : ""}
-            {host.address}:{host.port}
-          </span>
+          <span
+            className={`host-connection-dot ${connectedHostIds.includes(host.id) ? "is-connected" : ""}`}
+            title={
+              connectedHostIds.includes(host.id)
+                ? "Connected session"
+                : "No connected session"
+            }
+          />
         </button>
-        <button
-          aria-label={`${host.favorite ? "Remover" : "Adicionar"} ${host.name} dos favoritos`}
-          onClick={() => void toggleFavorite(host)}
-          type="button"
-        >
-          {host.favorite ? "★" : "☆"}
-        </button>
-        <button
-          aria-label={`Editar ${host.name}`}
-          onClick={() => edit(host)}
-          type="button"
-        >
-          ✎
-        </button>
-        <button
-          aria-label={`Excluir ${host.name}`}
-          onClick={() => void removeHost(host)}
-          type="button"
-        >
-          ×
-        </button>
+        <div className="host-actions">
+          <button
+            aria-label={`${host.favorite ? "Remove" : "Add"} ${host.name} to favorites`}
+            onClick={() => void toggleFavorite(host)}
+            type="button"
+          >
+            <Star size={13} fill={host.favorite ? "currentColor" : "none"} />
+          </button>
+          <button
+            aria-label={`Edit ${host.name}`}
+            onClick={() => edit(host)}
+            type="button"
+          >
+            <Pencil size={13} />
+          </button>
+          <button
+            aria-label={`Delete ${host.name}`}
+            onClick={() => void removeHost(host)}
+            type="button"
+          >
+            <X size={13} />
+          </button>
+        </div>
       </div>
     ));
 
   return (
-    <aside
-      aria-label="Hosts"
-      className="flex w-80 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)]"
-    >
-      <div className="border-b border-[var(--border)] p-3">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.16em]">
-            Hosts
-          </h2>
-          <div className="flex gap-1">
+    <section aria-label="Hosts" className="connections-sidebar">
+      <div className="connections-header">
+        <div className="connections-heading">
+          <h2>Connections</h2>
+          <div className="flex items-center gap-1">
             <button
-              className="px-1 text-xs text-[var(--muted-foreground)]"
-              onClick={() =>
-                setPortability({
-                  mode: "import",
-                  source: "openssh",
-                  content: "",
-                  actions: [],
-                })
-              }
-              type="button"
-            >
-              Importar
-            </button>
-            <button
-              className="px-1 text-xs text-[var(--muted-foreground)]"
-              onClick={() => void exportPortability()}
-              type="button"
-            >
-              Exportar
-            </button>
-            <Button
-              className="h-7 px-2 text-xs"
+              aria-label="New"
+              title="New connection"
+              className="control-icon"
               onClick={() => setDraft({ ...emptyDraft })}
+              type="button"
             >
-              Novo
-            </Button>
+              <Plus size={17} />
+            </button>
+            <ActionMenu label="Connection actions">
+              <button
+                onClick={() =>
+                  setPortbility({
+                    mode: "import",
+                    source: "openssh",
+                    content: "",
+                    actions: [],
+                  })
+                }
+                type="button"
+              >
+                <Upload size={14} />
+                Import
+              </button>
+              <button onClick={() => void exportPortbility()} type="button">
+                <Download size={14} />
+                Export
+              </button>
+              <label className="menu-checkbox">
+                <input
+                  checked={favoritesOnly}
+                  onChange={(event) => setFavoritesOnly(event.target.checked)}
+                  type="checkbox"
+                />
+                Favorites only
+              </label>
+            </ActionMenu>
           </div>
         </div>
-        <input
-          aria-label="Buscar Hosts"
-          className="field"
-          ref={searchInput}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar nome, endereço, usuário, grupo ou tag"
-          value={search}
-        />
-        <label className="mt-2 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+        <div className="host-search">
+          <Search size={14} aria-hidden="true" />
           <input
-            checked={favoritesOnly}
-            onChange={(event) => setFavoritesOnly(event.target.checked)}
-            type="checkbox"
-          />{" "}
-          Somente favoritos
-        </label>
+            aria-label="Search hosts"
+            ref={searchInput}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search hosts…"
+            value={search}
+          />
+          <kbd>Ctrl F</kbd>
+        </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {recentHosts.length > 0 ? (
-          <section className="mb-3" aria-label="Hosts recentes">
-            <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-[var(--muted-foreground)]">
-              Recentes
+      <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
+        {visibleHosts.some((host) => host.favorite) ? (
+          <section className="mb-4" aria-label="Favorite connections">
+            <div className="host-section-heading">
+              <Star size={13} /> Favorites
             </div>
-            {rows(recentHosts)}
+            {rows(visibleHosts.filter((host) => host.favorite))}
+          </section>
+        ) : null}
+        {!favoritesOnly &&
+        recentHosts.some(
+          (host) =>
+            !host.favorite &&
+            visibleHosts.some((visible) => visible.id === host.id),
+        ) ? (
+          <section className="mb-3" aria-label="Recent connections">
+            <div className="host-section-heading">
+              <Clock size={13} /> Recent
+            </div>
+            {rows(
+              recentHosts.filter(
+                (host) =>
+                  !host.favorite &&
+                  visibleHosts.some((visible) => visible.id === host.id),
+              ),
+            )}
           </section>
         ) : null}
         {groups.map((group) => (
           <section className="mb-3" key={group.id}>
-            <div className="flex items-center justify-between px-2 py-1 text-[11px] uppercase tracking-wider text-[var(--muted-foreground)]">
+            <div className="host-section-heading justify-between">
               <span>{group.name}</span>
               <div className="flex gap-2">
                 <button
-                  aria-label={"Renomear grupo " + group.name}
+                  aria-label={"Rename group " + group.name}
                   onClick={() => void renameGroup(group)}
                   type="button"
                 >
-                  ✎
+                  <Pencil size={13} />
                 </button>
                 <button
-                  aria-label={"Excluir grupo " + group.name}
+                  aria-label={"Delete group " + group.name}
                   onClick={() => void removeGroup(group)}
                   type="button"
                 >
-                  ×
+                  <X size={13} />
                 </button>
               </div>
             </div>
-            {rows(visibleHosts.filter((host) => host.groupId === group.id))}
+            {rows(
+              visibleHosts.filter(
+                (host) => host.groupId === group.id && !host.favorite,
+              ),
+            )}
           </section>
         ))}
-        <section>
-          <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-[var(--muted-foreground)]">
-            Sem grupo
-          </div>
-          {rows(visibleHosts.filter((host) => !host.groupId))}
-        </section>
+        {visibleHosts.some(
+          (host) =>
+            !host.groupId &&
+            !host.favorite &&
+            !recentHosts.some((recent) => recent.id === host.id),
+        ) ? (
+          <section>
+            <div className="host-section-heading">
+              <Folder size={13} /> Ungrouped
+            </div>
+            {rows(
+              visibleHosts.filter(
+                (host) =>
+                  !host.groupId &&
+                  !host.favorite &&
+                  !recentHosts.some((recent) => recent.id === host.id),
+              ),
+            )}
+          </section>
+        ) : null}
         {visibleHosts.length === 0 ? (
           <div className="m-2 rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted-foreground)]">
-            <p>Nenhum Host cadastrado.</p>
+            <p>No saved connections.</p>
             <button
               className="mt-2 text-[var(--primary)]"
               onClick={onOpenLocal}
               type="button"
             >
-              Ignorar importação e abrir shell local
+              Open a local shell
             </button>
           </div>
         ) : null}
@@ -410,7 +480,7 @@ export function HostsWorkspace({
           </p>
         ) : null}
       </div>
-      <div className="border-t border-[var(--border)] p-3">
+      <div className="connections-footer">
         <form
           className="flex gap-2"
           onSubmit={(event) => {
@@ -424,11 +494,15 @@ export function HostsWorkspace({
             className="field"
             ref={quickConnectInput}
             onChange={(event) => setQuickConnect(event.target.value)}
-            placeholder="usuário@host:porta"
+            placeholder="user@host:port"
             value={quickConnect}
           />
-          <Button className="h-8 px-2 text-xs" type="submit">
-            Conectar
+          <Button
+            variant="secondary"
+            className="h-8 px-2 text-xs"
+            type="submit"
+          >
+            Connect
           </Button>
         </form>
         <form
@@ -439,10 +513,10 @@ export function HostsWorkspace({
           }}
         >
           <input
-            aria-label="Novo grupo"
+            aria-label="New group"
             className="field"
             onChange={(event) => setNewGroup(event.target.value)}
-            placeholder="Novo grupo"
+            placeholder="New group"
             value={newGroup}
           />
           <button className="px-2 text-[var(--primary)]" type="submit">
@@ -453,7 +527,7 @@ export function HostsWorkspace({
       {draft ? (
         <div className="dialog-backdrop" role="presentation">
           <form
-            aria-label="Formulário de Host"
+            aria-label="Host form"
             ref={hostDialogRef}
             aria-modal="true"
             className="dialog"
@@ -464,10 +538,10 @@ export function HostsWorkspace({
             }}
           >
             <h3 className="mb-4 font-semibold">
-              {draft.id ? "Editar Host" : "Novo Host"}
+              {draft.id ? "Edit Host" : "New Host"}
             </h3>
             <label>
-              Nome
+              Name
               <input
                 autoFocus
                 className="field"
@@ -479,7 +553,7 @@ export function HostsWorkspace({
               />
             </label>
             <label>
-              Endereço
+              Address
               <input
                 className="field"
                 required
@@ -491,7 +565,7 @@ export function HostsWorkspace({
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label>
-                Usuário
+                User
                 <input
                   className="field"
                   value={draft.username ?? ""}
@@ -501,7 +575,7 @@ export function HostsWorkspace({
                 />
               </label>
               <label>
-                Porta
+                Port
                 <input
                   className="field"
                   max="65535"
@@ -516,7 +590,7 @@ export function HostsWorkspace({
               </label>
             </div>
             <label>
-              Grupo
+              Group
               <select
                 className="field"
                 value={draft.groupId ?? ""}
@@ -527,7 +601,7 @@ export function HostsWorkspace({
                   })
                 }
               >
-                <option value="">Sem grupo</option>
+                <option value="">Ungrouped</option>
                 {groups.map((group) => (
                   <option key={group.id} value={group.id}>
                     {group.name}
@@ -539,7 +613,7 @@ export function HostsWorkspace({
               Tags
               <input
                 className="field"
-                placeholder="produção, linux"
+                placeholder="production, linux"
                 value={draft.tags.join(", ")}
                 onChange={(event) =>
                   setDraft({
@@ -553,7 +627,7 @@ export function HostsWorkspace({
               />
             </label>
             <label>
-              Autenticação
+              Authentication
               <select
                 className="field"
                 value={draft.authKind ?? "password"}
@@ -565,14 +639,14 @@ export function HostsWorkspace({
                   })
                 }
               >
-                <option value="password">Senha</option>
-                <option value="private_key">Chave privada</option>
-                <option value="none">Sem credencial</option>
+                <option value="password">Password</option>
+                <option value="private_key">Private key</option>
+                <option value="none">No credential</option>
               </select>
             </label>
             {(draft.authKind ?? "password") === "password" ? (
               <label>
-                Senha{draft.id ? " (deixe vazia para manter)" : ""}
+                Password{draft.id ? " (leave blank to keep)" : ""}
                 <input
                   autoComplete="new-password"
                   className="field"
@@ -585,7 +659,7 @@ export function HostsWorkspace({
             {draft.authKind === "private_key" ? (
               <>
                 <label>
-                  Caminho da chave privada
+                  Private key path
                   <input
                     className="field"
                     required
@@ -596,7 +670,7 @@ export function HostsWorkspace({
                   />
                 </label>
                 <label>
-                  Frase secreta{draft.id ? " (deixe vazia para manter)" : ""}
+                  Passphrase{draft.id ? " (leave blank to keep)" : ""}
                   <input
                     autoComplete="new-password"
                     className="field"
@@ -615,13 +689,13 @@ export function HostsWorkspace({
                 }
                 type="checkbox"
               />{" "}
-              Favorito
+              Favorite
             </label>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setDraft(undefined)} type="button">
-                Cancelar
+                Cancel
               </button>
-              <Button type="submit">Salvar</Button>
+              <Button type="submit">Save</Button>
             </div>
           </form>
         </div>
@@ -629,20 +703,20 @@ export function HostsWorkspace({
       {portability ? (
         <div className="dialog-backdrop" role="presentation">
           <section
-            aria-label="Importar ou exportar Hosts"
+            aria-label="Import or export Hosts"
             ref={portabilityDialogRef}
             aria-modal="true"
             className="dialog"
             role="dialog"
           >
-            <h3 className="mb-3 font-semibold">Importar ou exportar Hosts</h3>
+            <h3 className="mb-3 font-semibold">Import or export Hosts</h3>
             <label>
-              Formato
+              Format
               <select
                 className="field"
                 disabled={portability.mode === "export"}
                 onChange={(event) =>
-                  setPortability({
+                  setPortbility({
                     ...portability,
                     source: event.target.value as "openssh" | "workspace",
                     preview: undefined,
@@ -657,13 +731,13 @@ export function HostsWorkspace({
               </select>
             </label>
             <label>
-              Conteúdo
+              Content
               <textarea
                 data-dialog-initial
                 autoFocus={portability.mode === "import"}
                 className="field min-h-36 font-mono text-xs"
                 onChange={(event) =>
-                  setPortability({
+                  setPortbility({
                     ...portability,
                     content: event.target.value,
                     preview: undefined,
@@ -682,27 +756,27 @@ export function HostsWorkspace({
               >
                 <span className="min-w-0 flex-1 truncate">
                   {entry.host.name} ({entry.host.address}:{entry.host.port})
-                  {entry.conflict ? " — já existe" : ""}
+                  {entry.conflict ? " — already exists" : ""}
                 </span>
                 <select
-                  aria-label={`Ação para ${entry.host.name}`}
+                  aria-label={`Action for ${entry.host.name}`}
                   className="field w-24"
                   onChange={(event) => {
                     const actions = [...portability.actions];
                     actions[index] = event.target.value as ImportAction;
-                    setPortability({ ...portability, actions });
+                    setPortbility({ ...portability, actions });
                   }}
                   value={portability.actions[index] ?? entry.defaultAction}
                 >
-                  <option value="create">Criar</option>
-                  <option value="update">Atualizar</option>
-                  <option value="skip">Pular</option>
+                  <option value="create">Create</option>
+                  <option value="update">Update</option>
+                  <option value="skip">Skip</option>
                 </select>
               </div>
             ))}
             {portability.preview?.ignored.length ? (
               <p className="mt-3 text-xs text-[var(--muted-foreground)]">
-                {portability.preview.ignored.length} diretiva(s) ignorada(s):{" "}
+                {portability.preview.ignored.length} ignored directive(s):{" "}
                 {portability.preview.ignored
                   .map((item) => item.directive)
                   .join(", ")}
@@ -714,23 +788,23 @@ export function HostsWorkspace({
               </p>
             ) : null}
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setPortability(undefined)} type="button">
-                Fechar
+              <button onClick={() => setPortbility(undefined)} type="button">
+                Close
               </button>
               {portability.mode === "import" ? (
                 <>
                   <button
-                    onClick={() => void previewPortability()}
+                    onClick={() => void previewPortbility()}
                     type="button"
                   >
-                    Analisar
+                    Analyze
                   </button>
                   <Button
                     disabled={!portability.preview}
-                    onClick={() => void applyPortability()}
+                    onClick={() => void applyPortbility()}
                     type="button"
                   >
-                    Aplicar seleção
+                    Apply selection
                   </Button>
                 </>
               ) : null}
@@ -738,6 +812,6 @@ export function HostsWorkspace({
           </section>
         </div>
       ) : null}
-    </aside>
+    </section>
   );
 }

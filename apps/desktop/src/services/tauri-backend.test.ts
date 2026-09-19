@@ -41,3 +41,33 @@ describe("portability commands", () => {
     });
   });
 });
+
+describe("appearance commands", () => {
+  it("uses typed read and write IPC payloads", async () => {
+    invoke.mockResolvedValueOnce({
+      windowOpacity: 92,
+      terminalBackgroundOpacity: 82,
+      windowOpacitySupport: "unsupported",
+      windowOpacityApplied: false,
+      windowOpacityWarning:
+        "Window opacity is unavailable; using a solid window.",
+      acrylicApplied: false,
+      acrylicWarning:
+        "Acrylic is unavailable; using the opaque material fallback.",
+      defaultsApplied: false,
+    });
+    const settings = await tauriBackend.getAppearanceSettings?.();
+    expect(settings?.windowOpacityApplied).toBe(false);
+    expect(settings?.windowOpacityWarning).toContain("solid window");
+    expect(settings?.acrylicApplied).toBe(false);
+    expect(settings?.acrylicWarning).toContain("opaque material fallback");
+    expect(invoke).toHaveBeenCalledWith("get_appearance_settings");
+    await tauriBackend.saveAppearanceSettings?.({
+      windowOpacity: 92,
+      terminalBackgroundOpacity: 82,
+    });
+    expect(invoke).toHaveBeenCalledWith("save_appearance_settings", {
+      request: { windowOpacity: 92, terminalBackgroundOpacity: 82 },
+    });
+  });
+});
