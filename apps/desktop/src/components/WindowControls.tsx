@@ -3,10 +3,10 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type Appearance = { customTitlebar: boolean; acrylic: boolean };
+type Appearance = { customTitlebar: boolean; backdropConfigured: boolean };
 
 type WindowControlsProps = {
-  onMaterialChange(acrylic: boolean): void;
+  onMaterialChange(backdropConfigured: boolean): void;
 };
 
 export function WindowControls({ onMaterialChange }: WindowControlsProps) {
@@ -19,7 +19,7 @@ export function WindowControls({ onMaterialChange }: WindowControlsProps) {
     void invoke<Appearance>("prepare_window_chrome")
       .then((appearance) => {
         if (!mounted) return;
-        onMaterialChange(appearance.acrylic);
+        onMaterialChange(appearance.backdropConfigured);
         setCustomTitlebar(appearance.customTitlebar);
       })
       .catch(() => {
@@ -41,7 +41,7 @@ export function WindowControls({ onMaterialChange }: WindowControlsProps) {
         void invoke<Appearance>("refresh_window_material")
           .then((appearance) => {
             if (disposed) return;
-            onMaterialChange(appearance.acrylic);
+            onMaterialChange(appearance.backdropConfigured);
           })
           .catch(() => {
             if (!disposed) onMaterialChange(false);

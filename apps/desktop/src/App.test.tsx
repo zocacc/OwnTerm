@@ -79,8 +79,8 @@ class TestBackend implements Backend {
     windowOpacitySupport: "unsupported",
     windowOpacityApplied: false,
     windowOpacityWarning: null,
-    acrylicApplied: true,
-    acrylicWarning: null,
+    backdropConfigured: true,
+    backdropWarning: null,
     defaultsApplied: false,
     activeProfileId: "migrated-appearance",
     profiles: [
@@ -638,15 +638,18 @@ describe("local terminal workspace", () => {
       screen.getByRole("button", { name: "Appearance settings" }),
     );
     const dialog = screen.getByRole("dialog", { name: "Appearance" });
-    expect(dialog).toHaveTextContent("Window opacity 92%");
+    expect(dialog).toHaveTextContent("Interface opacity 92%");
     expect(dialog).toHaveTextContent("Terminal background opacity 82%");
     expect(
       screen.getByRole("button", { name: "Close appearance settings" }),
     ).toHaveFocus();
 
-    fireEvent.change(screen.getByRole("slider", { name: /Window opacity/ }), {
-      target: { value: "100" },
-    });
+    fireEvent.change(
+      screen.getByRole("slider", { name: /Interface opacity/ }),
+      {
+        target: { value: "100" },
+      },
+    );
     expect(backend.appearanceSaves.at(-1)).toMatchObject({
       windowOpacity: 100,
       terminalBackgroundOpacity: 82,
@@ -701,21 +704,24 @@ describe("local terminal workspace", () => {
     await user.click(
       await screen.findByRole("button", { name: "Appearance settings" }),
     );
-    fireEvent.change(screen.getByRole("slider", { name: /Window opacity/ }), {
-      target: { value: "55" },
-    });
+    fireEvent.change(
+      screen.getByRole("slider", { name: /Interface opacity/ }),
+      {
+        target: { value: "55" },
+      },
+    );
     expect(
       document.documentElement.style.getPropertyValue("--window-opacity"),
     ).toBe("0.55");
   });
 
-  it("uses the opaque CSS fallback when native Acrylic is unavailable", async () => {
+  it("uses the opaque CSS fallback when native Windows backdrop is unavailable", async () => {
     const user = userEvent.setup();
     backend.appearance = {
       ...backend.appearance,
-      acrylicApplied: false,
-      acrylicWarning:
-        "Acrylic is unavailable; using the opaque material fallback.",
+      backdropConfigured: false,
+      backdropWarning:
+        "Windows backdrop is unavailable; using the opaque material fallback.",
     };
     render(<App backend={backend} />);
 
@@ -724,7 +730,7 @@ describe("local terminal workspace", () => {
     );
     expect(
       screen.getByText(
-        "Acrylic is unavailable; using the opaque material fallback.",
+        "Windows backdrop is unavailable; using the opaque material fallback.",
       ),
     ).toBeInTheDocument();
     expect(document.documentElement.dataset.material).toBe("opaque");

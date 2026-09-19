@@ -18,7 +18,7 @@ Execute esta matriz no artefato Windows gerado pelo CI, sem registrar hosts, com
 | SSH | Quick Connect, trust, credencial e falha | Foco no diálogo, segredo não exposto e Reconnect acessível | [ ] |
 | Janela | Normal, 800x600, maximizada, restaurada | Terminal preenche toda área abaixo da titlebar, sem moldura; controles não sobrepõem | [ ] |
 | Opacidades | Janela/terminal: 100/55, 55/100, 55/55 e 100/100; reiniciar entre extremos | Cada slider preserva o outro; xterm segue legível e independente do chrome | [ ] |
-| Material | Acrylic, fallback opaco e transparência reduzida | Terminal legível; fallback não usa blur; foco visível | [ ] |
+| Material | Backdrop blur neutro, fallback opaco e transparência reduzida | Terminal legível; fallback não usa blur; foco visível | [ ] |
 | DPI | 100%, 150% e 200% | Texto, controles e gaveta permanecem utilizáveis | [ ] |
 
 Anexe ao PR apenas screenshots sanitizados dos estados: vazio, sessão fullscreen, gaveta aberta, launcher, falha/reconnect, as quatro combinações de opacidade e fallback opaco.

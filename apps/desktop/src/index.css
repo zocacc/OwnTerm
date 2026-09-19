@@ -42,8 +42,8 @@
   text-rendering: optimizeLegibility;
 }
 
-/* Only expose the desktop after the native Acrylic request succeeds. */
-:root[data-material="acrylic"] {
+/* Only expose the desktop after the native Windows backdrop request succeeds. */
+:root[data-material="backdrop"] {
   --background: rgb(18 21 29 / 26%);
   --titlebar: rgb(17 20 27 / 54%);
   --drawer: rgb(29 33 43 / 74%);
@@ -52,15 +52,15 @@
   --feedback: rgb(34 38 48 / 90%);
   --terminal: rgb(12 15 21 / 82%);
 }
-:root[data-material="acrylic"] .titlebar,
-:root[data-material="acrylic"] .connections-drawer,
-:root[data-material="acrylic"] .session-launcher-menu,
-:root[data-material="acrylic"] .dialog,
-:root[data-material="acrylic"] .workspace-feedback {
+:root[data-material="backdrop"] .titlebar,
+:root[data-material="backdrop"] .connections-drawer,
+:root[data-material="backdrop"] .session-launcher-menu,
+:root[data-material="backdrop"] .dialog,
+:root[data-material="backdrop"] .workspace-feedback {
   backdrop-filter: blur(18px) saturate(130%);
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  :root[data-material="acrylic"] {
+  :root[data-material="backdrop"] {
     --background: #191d26;
     --titlebar: #171a22;
     --drawer: #20242e;
@@ -69,11 +69,11 @@
     --feedback: #222630;
     --terminal: #0c0f15;
   }
-  :root[data-material="acrylic"] .titlebar,
-  :root[data-material="acrylic"] .connections-drawer,
-  :root[data-material="acrylic"] .session-launcher-menu,
-  :root[data-material="acrylic"] .dialog,
-  :root[data-material="acrylic"] .workspace-feedback {
+  :root[data-material="backdrop"] .titlebar,
+  :root[data-material="backdrop"] .connections-drawer,
+  :root[data-material="backdrop"] .session-launcher-menu,
+  :root[data-material="backdrop"] .dialog,
+  :root[data-material="backdrop"] .workspace-feedback {
     backdrop-filter: none;
   }
 }

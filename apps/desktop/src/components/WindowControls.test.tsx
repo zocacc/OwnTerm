@@ -22,11 +22,11 @@ afterEach(() => {
 });
 
 describe("native window presentation", () => {
-  it("keeps an opaque surface when Acrylic is unavailable and wires the replacement controls", async () => {
+  it("keeps an opaque surface when Windows backdrop is unavailable and wires the replacement controls", async () => {
     const onMaterialChange = vi.fn();
     native.invoke.mockImplementation(async (command) => {
       if (command === "prepare_window_chrome")
-        return { customTitlebar: true, acrylic: false };
+        return { customTitlebar: true, backdropConfigured: false };
       // The native bar must not disappear before its replacement exists.
       expect(
         screen.getByRole("button", { name: "Close window" }),
@@ -50,14 +50,14 @@ describe("native window presentation", () => {
     expect(native.close).toHaveBeenCalledOnce();
   });
 
-  it("reapplies Acrylic after a fullscreen-sized resize", async () => {
+  it("reapplies the neutral Windows backdrop after a fullscreen-sized resize", async () => {
     const onMaterialChange = vi.fn();
     let resized: (() => void) | undefined;
     native.invoke.mockImplementation(async (command) => {
       if (command === "prepare_window_chrome")
-        return { customTitlebar: true, acrylic: true };
+        return { customTitlebar: true, backdropConfigured: true };
       if (command === "refresh_window_material")
-        return { customTitlebar: true, acrylic: true };
+        return { customTitlebar: true, backdropConfigured: true };
       return undefined;
     });
     native.onResized.mockImplementation(async (handler) => {

@@ -6,7 +6,7 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 
 ## Vocabulário e escopo
 
-- **Window Opacity** controla a opacidade da janela nativa inteira.
+- **Interface Opacity** controla somente titlebar, gaveta, menus, diálogos e feedback via CSS.
 - **Terminal Background Opacity** controla somente o fundo do canvas xterm de todas as Sessions.
 - As duas são `Appearance Preference` locais; não são tema, Host ou configuração de Session.
 - O diálogo **Appearance** é aberto pelo ícone de ajustes da activity bar e permanece disponível enquanto uma Session está ativa.
@@ -15,7 +15,7 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 
 | Preferência | Faixa | Padrão | Aplicação |
 | --- | ---: | ---: | --- |
-| Window Opacity | 70–100% | 92% | Janela nativa inteira |
+| Interface Opacity | 0–100% | 92% | Superfícies de chrome do frontend |
 | Terminal Background Opacity | 55–100% | 82% | Fundo de todas as Sessions abertas e futuras |
 
 - Sliders exibem o percentual atual, têm labels acessíveis e aplicam mudanças imediatamente.
@@ -26,15 +26,15 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 ## Plataforma e fallback
 
 - Windows 10 e Windows 11 são as plataformas formais desta entrega.
-- O mecanismo nativo de Window Opacity deve ser validado pelo spike I27 antes do contrato final de implementação.
-- No Windows, o adapter usa o `HWND` da janela, adiciona `WS_EX_LAYERED` e aplica `SetLayeredWindowAttributes` com `LWA_ALPHA`; ao voltar a 100%, restaura o estilo estendido original.
-- Se a capacidade não existir ou falhar, a janela fica sólida (100%), a preferência escolhida continua persistida e Appearance mostra um aviso não bloqueante.
+- No Windows, o adapter mantém o alpha nativo da janela em 100% e solicita um backdrop blur neutro; System Acrylic não é usado porque acrescenta tint e luminosidade sob o WebView.
+- Cor e alfa pertencem ao CSS e ao xterm. Interface Opacity nunca usa `opacity` em ancestral do terminal nem `SetLayeredWindowAttributes` para compor toda a WebView.
+- Se o backdrop não puder ser configurado, a janela recebe uma superfície opaca, a preferência continua persistida e Appearance mostra um aviso não bloqueante.
 - Linux e outras plataformas mantêm fallback sólido até haver um adapter validado; o Terminal Background Opacity continua seguro dentro do App Shell quando suportado pelo frontend.
 
 ## Persistência e portabilidade
 
-- Persistir localmente as chaves `appearance.windowOpacity` e `appearance.terminalBackgroundOpacity` como percentuais inteiros.
-- Expor contrato tipado de leitura/gravação pelo IPC Tauri, incluindo a capacidade atual de Window Opacity.
+- Persistir localmente as chaves legadas `appearance.windowOpacity` (Interface Opacity) e `appearance.terminalBackgroundOpacity` como percentuais inteiros.
+- Expor contrato tipado de leitura/gravação pelo IPC Tauri, incluindo a capacidade atual de Interface Opacity.
 - Appearance Preferences não são incluídas no Workspace Export/Import e não podem sobrescrever valores locais durante uma importação.
 
 ## Critérios de aceite

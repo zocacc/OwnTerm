@@ -59,7 +59,7 @@ describe("terminal transparency composition", () => {
     styles.remove();
   });
 
-  it("paints a solid application fallback when native Acrylic is unavailable", () => {
+  it("paints a solid application fallback when native Windows backdrop is unavailable", () => {
     expect(applicationCss).toMatch(
       /:root\[data-material="opaque"\][\s\S]*?background:\s*var\(--background\)/,
     );

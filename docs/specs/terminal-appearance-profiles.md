@@ -6,7 +6,7 @@ Permitir que a instalação escolha um perfil visual global para todas as Sessio
 
 ## Modelo
 
-- **Terminal Appearance Profile**: nome, família/tamanho de fonte, esquema de cores, Window Opacity, Terminal Background Opacity e Acrylic.
+- **Terminal Appearance Profile**: nome, família/tamanho de fonte, esquema de cores, Interface Opacity, Terminal Background Opacity e backdrop transparente.
 - **Terminal Color Scheme**: paleta reutilizável com fundo, foreground, cursor, seleção e as 16 cores ANSI.
 - Um perfil fica ativo globalmente; alterações aplicam-se a Sessions abertas e futuras sem reiniciar ou recriar o processo.
 - Os esquemas integrados são OwnTerm Default, Dracula, MaterialOcean, Moonlight II e TokyoNight. Eles são somente leitura; `Duplicate scheme` cria a cópia editável.

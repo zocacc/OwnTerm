@@ -2,6 +2,8 @@
 
 Estado: correção implementada; teste renderer no CI e validação visual Windows ainda pendentes.
 
+Atualização em `origin/develop` `20dd9b3`: evidência no Windows confirmou que o System Acrylic adiciona uma camada escura mesmo após a correção do xterm. Esta revisão substitui o material por blur neutro e renomeia o controle visual para Interface Opacity; a chave persistida `appearance.windowOpacity` permanece por compatibilidade.
+
 ## Escopo e referência
 
 - Pedido: validar por que o terminal permanece sólido e criar um plano de correção.
@@ -44,16 +46,11 @@ do arredondamento de canais do navegador. Evidências temporárias da sessão:
 `/tmp/ownterm-opacity-before.png` e `/tmp/ownterm-opacity-after.png`.
 Esse experimento comprova o bloqueio DOM/CSS, mas não valida DWM/WebView2 no Windows.
 
-A explicação anterior que atribuiu a falha à tint do Acrylic não foi demonstrada.
-Trocar `apply_acrylic` por `apply_blur` não remove a camada opaca do xterm e também
-altera o material solicitado. Não repetir essa troca como solução para o alfa.
+A validação posterior no Windows confirmou um segundo bloqueio: `apply_acrylic` usa o System Acrylic e acrescenta tint e luminosidade sob o WebView. Depois da correção da viewport do xterm, essa camada nativa ainda escurece a composição. A correção final usa `apply_blur` com cor neutra e deixa cor e alfa sob responsabilidade exclusiva do CSS e do xterm.
 
 ## Revisão Standards
 
-Nenhuma violação inequívoca de padrão documentado. Um achado heurístico,
-possível Mysterious Name: `acrylic` representa sucesso de `apply_blur` na preparação,
-mas recebe `use_acrylic` (preferência) no resize. Material solicitado, material
-aplicado e capacidade não podem compartilhar um booleano de significado variável.
+Nenhuma violação inequívoca de padrão documentado. O runtime agora usa `backdrop` e `backdropConfigured` para não apresentar o retorno do blur como prova de Acrylic efetivamente aplicado. O campo persistido `useAcrylic` permanece somente como compatibilidade de perfil.
 
 ## Revisão Spec
 
@@ -74,7 +71,7 @@ aplicado e capacidade não podem compartilhar um booleano de significado variáv
   carregado após o CSS do xterm. Preservar DOM, scroll, seleção e geometria.
 - Manter o fundo do tema na camada que o xterm já pinta; não duplicar RGBA em
   wrappers, não aplicar opacity no terminal inteiro e não alterar alpha global.
-- Verificar terminal 55% e 100%, alternando windowOpacity entre 55% e 100%:
+- Verificar terminal 55% e 100%, alternando Interface Opacity entre 55% e 100%:
   medir pixels vazios e cores computadas, com tolerância de arredondamento.
 - Trocar a preferência durante a sessão e verificar novas sessões, scrollback,
   identidade da instância e ausência de fechamento/reabertura da PTY.
@@ -89,8 +86,8 @@ aplicado e capacidade não podem compartilhar um booleano de significado variáv
 - Retornar material solicitado, material efetivamente aplicado e aviso de falha.
   Atualizar o estado visual no frontend após saves, sem esperar um resize.
 - Propagar falhas do adapter; preferência salva não é prova de aplicação nativa.
-- Restaurar Acrylic como material solicitado. Avaliar blur somente como fallback
-  explicitamente identificado e testado quando Acrylic falhar.
+- Usar blur neutro como backdrop solicitado e reservar o fallback opaco
+  explicitamente identificado e testado quando o backdrop falhar.
 - Auditar o reset legado de janela layered: evitar transições nativas em cada
   alteração de slider se não houver estado legado a restaurar. Preservar texto
   e cursor opacos e alpha nativo global em 100%.
@@ -101,7 +98,7 @@ aplicado e capacidade não podem compartilhar um booleano de significado variáv
 
 - Registrar SHA do build, versão Windows e WebView2, perfil e estado de
   transparência/acessibilidade do sistema. Não coletar comandos ou segredos SSH.
-- Executar matriz janela/terminal 100/55, 55/100, 55/55 e 100/100, com Acrylic
+- Executar matriz janela/terminal 100/55, 55/100, 55/55 e 100/100, com backdrop neutro
   ligado/desligado e fallback. Usar fundo externo contrastante identificável.
 - Repetir normal, maximizada, restaurada, após reiniciar e após trocar aba/fonte.
 - Abrir/fechar drawer dez vezes com SSH ativo; verificar dimensão, buffer e PTY.
@@ -114,7 +111,7 @@ aplicado e capacidade não podem compartilhar um booleano de significado variáv
 ## Critério de encerramento
 
 O fundo externo deve ser visível através de células sem fundo ANSI explícito
-quando terminalBackgroundOpacity for 55%, inclusive com windowOpacity em 100%.
+quando terminalBackgroundOpacity for 55%, inclusive com Interface Opacity em 100%.
 Em 100%, o fundo do terminal deve ficar sólido. Texto, cursor, estado da sessão
 e os valores persistidos dos dois controles devem permanecer independentes.
 Aplicações que pintam fundos ANSI próprios precisam ser testadas separadamente;
