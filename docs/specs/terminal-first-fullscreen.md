@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O OwnTerm deve se comportar como um terminal nativo: a `UnifiedTitleBar` é o único chrome permanente e a sessão ativa ocupa integralmente toda a área abaixo dela. A gaveta de conexões é uma sobreposição temporária. As preferências `windowOpacity` e `terminalBackgroundOpacity` são independentes.
+O OwnTerm deve se comportar como um terminal nativo: a `UnifiedTitleBar` é o único chrome permanente e a sessão ativa ocupa integralmente toda a área abaixo dela. A gaveta de conexões é uma sobreposição temporária. As preferências `chromeOpacity` e `terminalBackgroundOpacity` são independentes.
 
 ## Estrutura obrigatória
 
@@ -26,10 +26,10 @@ O `FitAddon.fit()` roda após montagem, troca de aba, resize da janela, troca de
 
 | Preferência | Intervalo | Responsabilidade | Não afeta |
 | --- | --- | --- | --- |
-| `windowOpacity` | 0–100 | composição CSS do chrome: titlebar, gaveta, menus, diálogos e feedback | `terminal.options.theme.background`, texto e cursor xterm |
+| `chromeOpacity` | 0–100 | composição CSS do chrome: titlebar, gaveta, menus, diálogos e feedback | `terminal.options.theme.background`, texto e cursor xterm |
 | `terminalBackgroundOpacity` | 55–100 | alfa RGBA exclusivo de `terminal.options.theme.background` | chrome, controles e backdrop do shell |
 
-A opacidade de janela não pode usar `opacity` em ancestral de `.xterm` nem alpha nativo em janela layered, pois ambos compõem o canvas, texto e cursor. Para compatibilidade com versões anteriores, a aplicação restaura alpha nativo a 100%; a preferência de janela é aplicada por `--window-opacity` exclusivamente aos elementos de chrome. O xterm recebe `background: rgba(...)` derivado apenas de `terminalBackgroundOpacity`.
+A opacidade da interface não pode usar `opacity` em ancestral de `.xterm` nem alpha nativo em janela layered, pois ambos compõem o canvas, texto e cursor. Para compatibilidade com versões anteriores, a aplicação restaura alpha nativo a 100%; a preferência de interface é aplicada por `--window-opacity` exclusivamente aos elementos de chrome. O xterm recebe `background: rgba(...)` derivado apenas de `terminalBackgroundOpacity`.
 
 As duas preferências são persistidas separadamente e devem atualizar sessões existentes e futuras sem reiniciar PTY ou perder scrollback.
 
@@ -38,7 +38,7 @@ As duas preferências são persistidas separadamente e devem atualizar sessões 
 1. Com a gaveta fechada, não há moldura visual entre titlebar e terminal.
 2. Após abrir/fechar a gaveta dez vezes com SSH ativo, a sessão não reconecta e mantém a área útil.
 3. Não existe `Connections` fora da gaveta nem segundo acionador dela.
-4. Janela 100% e terminal 55% mantém o fundo do terminal a 55%.
-5. Janela 55% e terminal 100% mantém o terminal sólido e legível.
+4. Interface 100% e terminal 55% mantém o fundo do terminal a 55%.
+5. Interface 55% e terminal 100% mantém o terminal sólido e legível.
 6. Mudar um slider não muda o valor persistido nem o efeito do outro.
 7. Alternar abas, redimensionar, maximizar e reiniciar preserva valores e preenchimento da área útil.

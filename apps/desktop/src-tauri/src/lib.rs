@@ -704,12 +704,13 @@ const fn status_name(status: SessionStatus) -> &'static str {
     }
 }
 
-// Presentation only: keep native decorations unless the frontend is ready.
+// The Windows configuration creates the window borderless. This command only
+// reports whether the custom controls and native backdrop are ready.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WindowAppearance {
     custom_titlebar: bool,
-    acrylic: bool,
+    backdrop_configured: bool,
 }
 
 #[derive(Serialize)]
@@ -720,8 +721,8 @@ struct AppearanceSettingsDto {
     window_opacity_support: &'static str,
     window_opacity_applied: bool,
     window_opacity_warning: Option<&'static str>,
-    acrylic_applied: bool,
-    acrylic_warning: Option<&'static str>,
+    backdrop_configured: bool,
+    backdrop_warning: Option<&'static str>,
     defaults_applied: bool,
     active_profile_id: String,
     profiles: Vec<TerminalAppearanceProfile>,
@@ -835,8 +836,8 @@ fn reset_native_window_opacity(window: &tauri::WebviewWindow, state: &DesktopSta
 fn appearance_dto(
     settings: AppearanceSettings,
     defaults_applied: bool,
-    acrylic_requested: bool,
-    acrylic_applied: bool,
+    backdrop_requested: bool,
+    backdrop_configured: bool,
     catalog: TerminalAppearanceCatalog,
 ) -> AppearanceSettingsDto {
     AppearanceSettingsDto {
@@ -847,9 +848,9 @@ fn appearance_dto(
         window_opacity_support: "supported",
         window_opacity_applied: true,
         window_opacity_warning: None,
-        acrylic_applied,
-        acrylic_warning: (acrylic_requested && !acrylic_applied)
-            .then_some("Acrylic is unavailable; using the opaque material fallback."),
+        backdrop_configured,
+        backdrop_warning: (backdrop_requested && !backdrop_configured)
+            .then_some("Windows backdrop is unavailable; using the opaque material fallback."),
         defaults_applied,
         active_profile_id: catalog.active_profile_id,
         profiles: catalog.profiles,
@@ -904,13 +905,13 @@ fn get_appearance_settings(
         AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
             .map_err(|e| e.to_string())?;
     reset_native_window_opacity(&window, &state);
-    let acrylic_requested = profile.use_acrylic;
-    let acrylic_applied = apply_profile_material(&window, acrylic_requested);
+    let backdrop_requested = profile.use_acrylic;
+    let backdrop_configured = apply_profile_material(&window, backdrop_requested);
     Ok(appearance_dto(
         effective,
         defaults_applied,
-        acrylic_requested,
-        acrylic_applied,
+        backdrop_requested,
+        backdrop_configured,
         catalog,
     ))
 }
@@ -981,13 +982,13 @@ fn save_appearance_settings(
         })
         .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
     reset_native_window_opacity(&window, &state);
-    let acrylic_requested = profile.use_acrylic;
-    let acrylic_applied = apply_profile_material(&window, acrylic_requested);
+    let backdrop_requested = profile.use_acrylic;
+    let backdrop_configured = apply_profile_material(&window, backdrop_requested);
     Ok(appearance_dto(
         settings,
         false,
-        acrylic_requested,
-        acrylic_applied,
+        backdrop_requested,
+        backdrop_configured,
         catalog,
     ))
 }
@@ -995,7 +996,7 @@ fn save_appearance_settings(
 fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) -> bool {
     #[cfg(target_os = "windows")]
     return if use_acrylic {
-        window_material(window).acrylic
+        window_material(window).backdrop_configured
     } else {
         let _ = window_vibrancy::clear_acrylic(window);
         let _ = window_vibrancy::clear_blur(window);
@@ -1008,26 +1009,28 @@ fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) -> b
     }
 }
 
+#[cfg(target_os = "windows")]
 fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
-    #[cfg(target_os = "windows")]
-    {
-        // Windows can reset the DWM backdrop when the window enters or exits
-        // fullscreen. This function is intentionally idempotent so the
-        // frontend may invoke it again after a size transition.
-        let _ = window_vibrancy::clear_blur(window);
-        let acrylic = window_vibrancy::apply_acrylic(window, Some((20, 23, 30, 150))).is_ok();
-        WindowAppearance {
-            custom_titlebar: true,
-            acrylic,
+    // System Acrylic adds its own tint/luminosity layer below the WebView,
+    // which makes the independently translucent xterm background appear
+    // almost solid. Use the neutral blur backdrop and let CSS/xterm own
+    // every color and alpha value. Clear both effects first because DWM can
+    // reset them when the window enters or exits fullscreen.
+    let _ = window_vibrancy::clear_acrylic(window);
+    let _ = window_vibrancy::clear_blur(window);
+    let backdrop_configured = match window_vibrancy::apply_blur(window, Some((0, 0, 0, 1))) {
+        Ok(()) => {
+            println!("OwnTerm: native backdrop configured");
+            true
         }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = window;
-        WindowAppearance {
-            custom_titlebar: false,
-            acrylic: false,
+        Err(error) => {
+            eprintln!("OwnTerm: native backdrop failed: {error}");
+            false
         }
+    };
+    WindowAppearance {
+        custom_titlebar: true,
+        backdrop_configured,
     }
 }
 
@@ -1045,45 +1048,11 @@ fn prepare_window_chrome(
                 .map(|profile| profile.use_acrylic)
         })
         .unwrap_or(true);
-    let acrylic = apply_profile_material(&window, use_acrylic);
+    let backdrop_configured = apply_profile_material(&window, use_acrylic);
     WindowAppearance {
         custom_titlebar: cfg!(target_os = "windows"),
-        acrylic,
+        backdrop_configured,
     }
-}
-
-#[tauri::command]
-fn refresh_window_material(
-    window: tauri::WebviewWindow,
-    state: State<'_, DesktopState>,
-) -> WindowAppearance {
-    // Maximizing/fullscreen can reset DWM material. Clear any legacy layered
-    // alpha and then reapply Acrylic without changing terminal composition.
-    if let Ok((settings, _)) = appearance_settings_from_store(&state) {
-        let catalog = appearance_catalog_from_store(&state, settings).ok();
-        let profile = catalog
-            .as_ref()
-            .and_then(|catalog| active_profile(catalog).ok());
-        reset_native_window_opacity(&window, &state);
-        let use_acrylic = profile.map(|profile| profile.use_acrylic).unwrap_or(true);
-        let acrylic = apply_profile_material(&window, use_acrylic);
-        return WindowAppearance {
-            custom_titlebar: cfg!(target_os = "windows"),
-            acrylic,
-        };
-    }
-    window_material(&window)
-}
-
-#[tauri::command]
-fn show_custom_chrome(window: tauri::WebviewWindow) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    window
-        .set_decorations(false)
-        .map_err(|error| error.to_string())?;
-    #[cfg(not(target_os = "windows"))]
-    let _ = window;
-    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1092,8 +1061,6 @@ pub fn run() {
         .manage(DesktopState::open().expect("could not initialize OwnTerm storage"))
         .invoke_handler(tauri::generate_handler![
             prepare_window_chrome,
-            refresh_window_material,
-            show_custom_chrome,
             get_appearance_settings,
             save_appearance_settings,
             list_system_fonts,
@@ -1144,6 +1111,18 @@ mod tests {
         assert_eq!(dto.status, "connected");
         assert!(matches!(dto.kind, SessionKindDto::Local { .. }));
         assert_eq!(status_name(SessionStatus::Disconnected), "disconnected");
+    }
+
+    #[test]
+    fn windows_window_starts_borderless_and_transparent() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.windows.conf.json")).unwrap();
+        let main_window = &config["app"]["windows"][0];
+
+        assert_eq!(main_window["label"], "main");
+        assert_eq!(main_window["decorations"], false);
+        assert_eq!(main_window["transparent"], true);
+        assert_eq!(main_window["shadow"], true);
     }
 }
 

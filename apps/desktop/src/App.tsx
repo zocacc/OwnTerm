@@ -80,8 +80,8 @@ const defaultAppearance: AppearanceSettings = {
   windowOpacitySupport: "unsupported",
   windowOpacityApplied: false,
   windowOpacityWarning: null,
-  acrylicApplied: false,
-  acrylicWarning: null,
+  backdropConfigured: false,
+  backdropWarning: null,
   defaultsApplied: false,
   activeProfileId: defaultProfile.id,
   profiles: [defaultProfile],
@@ -154,11 +154,11 @@ function App({ backend = defaultBackend }: AppProps) {
   );
 
   const reportError = useCallback((message: string) => setError(message), []);
-  const handleMaterialChange = useCallback((acrylicApplied: boolean) => {
+  const handleMaterialChange = useCallback((backdropConfigured: boolean) => {
     setAppearance((current) =>
-      current.acrylicApplied === acrylicApplied
+      current.backdropConfigured === backdropConfigured
         ? current
-        : { ...current, acrylicApplied },
+        : { ...current, backdropConfigured },
     );
   }, []);
 
@@ -376,10 +376,10 @@ function App({ backend = defaultBackend }: AppProps) {
   }, [appearance]);
 
   useEffect(() => {
-    document.documentElement.dataset.material = appearance.acrylicApplied
-      ? "acrylic"
+    document.documentElement.dataset.material = appearance.backdropConfigured
+      ? "backdrop"
       : "opaque";
-  }, [appearance.acrylicApplied]);
+  }, [appearance.backdropConfigured]);
 
   useEffect(() => {
     if (!activeSessionId) return;
@@ -960,7 +960,8 @@ function App({ backend = defaultBackend }: AppProps) {
                   </label>
                   <label htmlFor="window-opacity">
                     <span>
-                      Window opacity <output>{profile.windowOpacity}%</output>
+                      Interface opacity{" "}
+                      <output>{profile.windowOpacity}%</output>
                     </span>
                     <input
                       aria-valuetext={`${profile.windowOpacity}%`}
@@ -981,9 +982,9 @@ function App({ backend = defaultBackend }: AppProps) {
                       {appearance.windowOpacityWarning}
                     </p>
                   ) : null}
-                  {appearance.acrylicWarning ? (
+                  {appearance.backdropWarning ? (
                     <p className="appearance-warning" role="status">
-                      {appearance.acrylicWarning}
+                      {appearance.backdropWarning}
                     </p>
                   ) : null}
                   <label htmlFor="terminal-background-opacity">
@@ -1005,10 +1006,10 @@ function App({ backend = defaultBackend }: AppProps) {
                       value={profile.terminalBackgroundOpacity}
                     />
                   </label>
-                  <label className="appearance-check" htmlFor="use-acrylic">
+                  <label className="appearance-check" htmlFor="use-backdrop">
                     <input
                       checked={profile.useAcrylic}
-                      id="use-acrylic"
+                      id="use-backdrop"
                       onChange={(event) =>
                         updateActiveProfile({
                           useAcrylic: event.target.checked,
@@ -1016,7 +1017,7 @@ function App({ backend = defaultBackend }: AppProps) {
                       }
                       type="checkbox"
                     />
-                    Use Windows acrylic when available
+                    Use Windows transparent backdrop when available
                   </label>
                   <div className="appearance-colors">
                     <div>
