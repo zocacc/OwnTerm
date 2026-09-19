@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 
 type Appearance = { customTitlebar: boolean; acrylic: boolean };
 
-export function WindowControls() {
+type WindowControlsProps = {
+  onMaterialChange(acrylic: boolean): void;
+};
+
+export function WindowControls({ onMaterialChange }: WindowControlsProps) {
   const [customTitlebar, setCustomTitlebar] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -15,9 +19,7 @@ export function WindowControls() {
     void invoke<Appearance>("prepare_window_chrome")
       .then((appearance) => {
         if (!mounted) return;
-        document.documentElement.dataset.material = appearance.acrylic
-          ? "acrylic"
-          : "opaque";
+        onMaterialChange(appearance.acrylic);
         setCustomTitlebar(appearance.customTitlebar);
       })
       .catch(() => {
@@ -26,7 +28,7 @@ export function WindowControls() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [onMaterialChange]);
 
   useEffect(() => {
     if (!customTitlebar || !isTauri()) return;
@@ -39,12 +41,10 @@ export function WindowControls() {
         void invoke<Appearance>("refresh_window_material")
           .then((appearance) => {
             if (disposed) return;
-            document.documentElement.dataset.material = appearance.acrylic
-              ? "acrylic"
-              : "opaque";
+            onMaterialChange(appearance.acrylic);
           })
           .catch(() => {
-            if (!disposed) document.documentElement.dataset.material = "opaque";
+            if (!disposed) onMaterialChange(false);
           });
       }, 120);
     };
@@ -62,7 +62,7 @@ export function WindowControls() {
       window.clearTimeout(timer);
       unlisten?.();
     };
-  }, [customTitlebar]);
+  }, [customTitlebar, onMaterialChange]);
 
   useEffect(() => {
     if (!customTitlebar) return;

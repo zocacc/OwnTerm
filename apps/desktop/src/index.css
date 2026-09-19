@@ -3,6 +3,7 @@
 
 :root {
   color-scheme: dark;
+  --window-opacity: 1;
   --background: #191d26;
   --titlebar: #171a22;
   --drawer: #20242e;
@@ -35,7 +36,7 @@
   --control-focus-border: rgb(172 134 223 / 65%);
   --control-focus-surface: rgb(20 23 32 / 62%);
   color: var(--foreground);
-  background: var(--background);
+  background: transparent;
   font-family: "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -91,6 +92,15 @@ body {
   font-size: 13px;
   margin: 0;
   overflow: hidden;
+  background: transparent;
+}
+:root:not([data-material]),
+:root[data-material="opaque"] {
+  background: var(--background);
+}
+:root:not([data-material]) body,
+:root[data-material="opaque"] body {
+  background: var(--background);
 }
 button,
 input,
@@ -152,14 +162,6 @@ button {
   background: var(--danger);
 }
 
-.xterm {
-  height: 100%;
-}
-.xterm .xterm-viewport {
-  scrollbar-color: color-mix(in oklch, var(--primary) 30%, transparent)
-    transparent;
-}
-
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
@@ -204,7 +206,7 @@ select:focus-visible {
   width: min(30rem, 100%);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
-  background: var(--panel);
+  background: rgb(from var(--panel) r g b / var(--window-opacity));
   padding: 1.25rem;
   box-shadow: 0 24px 80px var(--dialog-shadow);
 }
@@ -222,9 +224,10 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  min-height: 480px;
+  width: 100%;
+  min-height: 0;
   overflow: hidden;
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
 }
 .titlebar {
@@ -233,8 +236,7 @@ select:focus-visible {
   flex-shrink: 0;
   height: 40px;
   padding-left: 4px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--titlebar);
+  background: rgb(from var(--titlebar) r g b / var(--window-opacity));
   user-select: none;
 }
 .titlebar-connections {
@@ -310,7 +312,7 @@ select:focus-visible {
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--menu);
+  background: rgb(from var(--menu) r g b / var(--window-opacity));
   box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
 }
 .session-launcher-menu > button {
@@ -332,6 +334,12 @@ select:focus-visible {
 .session-launcher-menu > button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+.session-launcher-empty {
+  margin: 0;
+  padding: 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
 }
 .session-launcher-menu > button span {
   margin-left: auto;
@@ -370,7 +378,7 @@ select:focus-visible {
   right: 8px;
   width: 240px;
   padding: 12px;
-  background: var(--panel);
+  background: rgb(from var(--panel) r g b / var(--window-opacity));
   border: 1px solid var(--border);
   border-radius: 6px;
 }
@@ -390,7 +398,7 @@ select:focus-visible {
   width: min(360px, 90vw);
   min-width: 280px;
   border-right: 1px solid var(--hairline);
-  background: var(--drawer);
+  background: rgb(from var(--drawer) r g b / var(--window-opacity));
   box-shadow: 18px 0 42px rgb(0 0 0 / 28%);
   transition: transform 180ms ease-out;
 }
@@ -562,7 +570,7 @@ select:focus-visible {
   z-index: 40;
   width: 168px;
   padding: 5px;
-  background: var(--panel);
+  background: rgb(from var(--panel) r g b / var(--window-opacity));
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 10px 30px var(--dialog-shadow);
@@ -591,18 +599,23 @@ select:focus-visible {
   min-width: 0;
   min-height: 0;
   flex: 1;
-  background: var(--terminal);
+  width: 100%;
+  height: 100%;
+  background: transparent;
 }
 .terminal-stage {
   position: relative;
   min-width: 0;
   min-height: 0;
   flex: 1;
-  padding: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 0;
 }
 .terminal-surface {
-  border-radius: 6px;
-  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
 }
 .empty-terminal {
   display: grid;
@@ -634,7 +647,7 @@ select:focus-visible {
   padding: 8px 10px;
   border: 1px solid var(--hairline);
   border-radius: 6px;
-  background: var(--feedback);
+  background: rgb(from var(--feedback) r g b / var(--window-opacity));
   box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
   color: var(--foreground);
   font-size: 12px;

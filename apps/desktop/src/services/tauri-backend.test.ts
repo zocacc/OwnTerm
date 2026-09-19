@@ -51,11 +51,16 @@ describe("appearance commands", () => {
       windowOpacityApplied: false,
       windowOpacityWarning:
         "Window opacity is unavailable; using a solid window.",
+      acrylicApplied: false,
+      acrylicWarning:
+        "Acrylic is unavailable; using the opaque material fallback.",
       defaultsApplied: false,
     });
     const settings = await tauriBackend.getAppearanceSettings?.();
     expect(settings?.windowOpacityApplied).toBe(false);
     expect(settings?.windowOpacityWarning).toContain("solid window");
+    expect(settings?.acrylicApplied).toBe(false);
+    expect(settings?.acrylicWarning).toContain("opaque material fallback");
     expect(invoke).toHaveBeenCalledWith("get_appearance_settings");
     await tauriBackend.saveAppearanceSettings?.({
       windowOpacity: 92,

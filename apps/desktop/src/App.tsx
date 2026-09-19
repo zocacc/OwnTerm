@@ -72,7 +72,7 @@ const defaultProfile: TerminalAppearanceProfile = {
   builtIn: false,
 };
 const appearanceBounds = {
-  windowOpacity: { min: 70, max: 100 },
+  windowOpacity: { min: 0, max: 100 },
   terminalBackgroundOpacity: { min: 55, max: 100 },
 } as const;
 const defaultAppearance: AppearanceSettings = {
@@ -80,6 +80,8 @@ const defaultAppearance: AppearanceSettings = {
   windowOpacitySupport: "unsupported",
   windowOpacityApplied: false,
   windowOpacityWarning: null,
+  acrylicApplied: false,
+  acrylicWarning: null,
   defaultsApplied: false,
   activeProfileId: defaultProfile.id,
   profiles: [defaultProfile],
@@ -152,6 +154,13 @@ function App({ backend = defaultBackend }: AppProps) {
   );
 
   const reportError = useCallback((message: string) => setError(message), []);
+  const handleMaterialChange = useCallback((acrylicApplied: boolean) => {
+    setAppearance((current) =>
+      current.acrylicApplied === acrylicApplied
+        ? current
+        : { ...current, acrylicApplied },
+    );
+  }, []);
 
   const registerTerminal = useCallback(
     (sessionId: string, handle?: TerminalHandle) => {
@@ -358,6 +367,27 @@ function App({ backend = defaultBackend }: AppProps) {
     [activeSessionId, sessions],
   );
 
+  useEffect(() => {
+    const windowAlpha = activeAppearanceProfile(appearance).windowOpacity / 100;
+    document.documentElement.style.setProperty(
+      "--window-opacity",
+      String(windowAlpha),
+    );
+  }, [appearance]);
+
+  useEffect(() => {
+    document.documentElement.dataset.material = appearance.acrylicApplied
+      ? "acrylic"
+      : "opaque";
+  }, [appearance.acrylicApplied]);
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    window.requestAnimationFrame(() =>
+      terminals.current.get(activeSessionId)?.fit(),
+    );
+  }, [activeSessionId, connectionsOpen]);
+
   const openSession = useCallback(
     async (profileId = selectedProfileId) => {
       if (!profileId || openingRef.current || !terminalEventsReady) {
@@ -463,14 +493,11 @@ function App({ backend = defaultBackend }: AppProps) {
     [backend, terminalEventsReady],
   );
 
-  const openConnections = useCallback(
-    (focusTarget: "search" | "quickConnect" = "search") => {
-      window.clearTimeout(connectionsRestoreTimer.current);
-      setConnectionsFocusTarget(focusTarget);
-      setConnectionsOpen(true);
-    },
-    [],
-  );
+  const openConnections = useCallback(() => {
+    window.clearTimeout(connectionsRestoreTimer.current);
+    setConnectionsFocusTarget("search");
+    setConnectionsOpen(true);
+  }, []);
 
   const closeConnections = useCallback((restoreFocus = true) => {
     setConnectionsOpen(false);
@@ -496,25 +523,6 @@ function App({ backend = defaultBackend }: AppProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
-      if (event.ctrlKey && !event.shiftKey && key === "b") {
-        event.preventDefault();
-        setLauncherOpen(false);
-        if (connectionsOpen) closeConnections();
-        else openConnections();
-        return;
-      }
-      if (event.ctrlKey && !event.shiftKey && key === "f") {
-        event.preventDefault();
-        setLauncherOpen(false);
-        openConnections("search");
-        return;
-      }
-      if (event.ctrlKey && event.shiftKey && key === "c") {
-        event.preventDefault();
-        setLauncherOpen(false);
-        openConnections("quickConnect");
-        return;
-      }
       if (event.ctrlKey && event.shiftKey && key === "p") {
         event.preventDefault();
         setLauncherOpen(true);
@@ -557,7 +565,6 @@ function App({ backend = defaultBackend }: AppProps) {
     connectionsOpen,
     connectionsOverlayOpen,
     launcherOpen,
-    openConnections,
     openSession,
     sessions,
   ]);
@@ -707,9 +714,8 @@ function App({ backend = defaultBackend }: AppProps) {
         connectionsTriggerRef={connectionsTrigger}
         launcherOpen={launcherOpen}
         onCloseSession={closeSession}
+        onMaterialChange={handleMaterialChange}
         onOpenAppearance={() => setAppearanceOpen(true)}
-        onOpenConnections={() => openConnections("search")}
-        onOpenQuickConnect={() => openConnections("quickConnect")}
         onOpenSession={(profileId) => void openSession(profileId)}
         onSelectSession={(sessionId) => {
           setActiveSessionId(sessionId);
@@ -738,7 +744,7 @@ function App({ backend = defaultBackend }: AppProps) {
                   No open sessions
                 </p>
                 <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                  Open a local shell or connect to a saved host.
+                  Open the default shell with Ctrl+Shift+T or the + button.
                 </p>
                 <div className="empty-terminal-actions">
                   <button
@@ -750,13 +756,6 @@ function App({ backend = defaultBackend }: AppProps) {
                     type="button"
                   >
                     Open default shell
-                  </button>
-                  <button
-                    className="control-ghost"
-                    onClick={() => openConnections("search")}
-                    type="button"
-                  >
-                    Open connections
                   </button>
                 </div>
               </div>
@@ -980,6 +979,11 @@ function App({ backend = defaultBackend }: AppProps) {
                   {appearance.windowOpacityWarning ? (
                     <p className="appearance-warning" role="status">
                       {appearance.windowOpacityWarning}
+                    </p>
+                  ) : null}
+                  {appearance.acrylicWarning ? (
+                    <p className="appearance-warning" role="status">
+                      {appearance.acrylicWarning}
                     </p>
                   ) : null}
                   <label htmlFor="terminal-background-opacity">

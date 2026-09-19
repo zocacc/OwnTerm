@@ -23,6 +23,7 @@ afterEach(() => {
 
 describe("native window presentation", () => {
   it("keeps an opaque surface when Acrylic is unavailable and wires the replacement controls", async () => {
+    const onMaterialChange = vi.fn();
     native.invoke.mockImplementation(async (command) => {
       if (command === "prepare_window_chrome")
         return { customTitlebar: true, acrylic: false };
@@ -35,7 +36,7 @@ describe("native window presentation", () => {
     native.toggleMaximize.mockResolvedValue(undefined);
     native.close.mockResolvedValue(undefined);
     native.onResized.mockResolvedValue(() => undefined);
-    render(<WindowControls />);
+    render(<WindowControls onMaterialChange={onMaterialChange} />);
     await userEvent.click(
       await screen.findByRole("button", { name: "Minimize window" }),
     );
@@ -43,13 +44,14 @@ describe("native window presentation", () => {
       screen.getByRole("button", { name: "Maximize or restore window" }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Close window" }));
-    expect(document.documentElement.dataset.material).toBe("opaque");
+    expect(onMaterialChange).toHaveBeenCalledWith(false);
     expect(native.minimize).toHaveBeenCalledOnce();
     expect(native.toggleMaximize).toHaveBeenCalledOnce();
     expect(native.close).toHaveBeenCalledOnce();
   });
 
   it("reapplies Acrylic after a fullscreen-sized resize", async () => {
+    const onMaterialChange = vi.fn();
     let resized: (() => void) | undefined;
     native.invoke.mockImplementation(async (command) => {
       if (command === "prepare_window_chrome")
@@ -62,23 +64,24 @@ describe("native window presentation", () => {
       resized = handler;
       return () => undefined;
     });
-    render(<WindowControls />);
+    render(<WindowControls onMaterialChange={onMaterialChange} />);
     await waitFor(() => expect(native.onResized).toHaveBeenCalledOnce());
     resized?.();
     await waitFor(() =>
       expect(native.invoke).toHaveBeenCalledWith("refresh_window_material"),
     );
-    expect(document.documentElement.dataset.material).toBe("acrylic");
+    expect(onMaterialChange).toHaveBeenLastCalledWith(true);
   });
 
   it("retains native chrome if presentation initialization fails", async () => {
+    const onMaterialChange = vi.fn();
     native.invoke.mockRejectedValue(new Error("unavailable"));
-    render(<WindowControls />);
+    render(<WindowControls onMaterialChange={onMaterialChange} />);
     await waitFor(() => expect(native.invoke).toHaveBeenCalledOnce());
     expect(native.invoke).not.toHaveBeenCalledWith("show_custom_chrome");
     expect(
       screen.queryByRole("button", { name: "Close window" }),
     ).not.toBeInTheDocument();
-    expect(document.documentElement.dataset.material).toBeUndefined();
+    expect(onMaterialChange).not.toHaveBeenCalled();
   });
 });
