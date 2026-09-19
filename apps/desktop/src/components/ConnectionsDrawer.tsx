@@ -37,9 +37,6 @@ export function ConnectionsDrawer({
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <header className="connections-drawer-header">
-          <h2>Connections</h2>
-        </header>
         <HostsWorkspace
           activeHostId={activeHostId}
           backend={backend}

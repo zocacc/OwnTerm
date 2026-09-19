@@ -977,6 +977,7 @@ fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) {
         let _ = window_material(window);
     } else {
         let _ = window_vibrancy::clear_acrylic(window);
+        let _ = window_vibrancy::clear_blur(window);
     }
     #[cfg(not(target_os = "windows"))]
     let _ = (window, use_acrylic);
@@ -988,7 +989,11 @@ fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
         // Windows can reset the DWM backdrop when the window enters or exits
         // fullscreen. This function is intentionally idempotent so the
         // frontend may invoke it again after a size transition.
-        let acrylic = window_vibrancy::apply_acrylic(window, Some((20, 23, 30, 150))).is_ok();
+        // `apply_acrylic` ignores its tint on Windows 11 and adds a system
+        // backdrop tint below the whole WebView. That second color layer makes
+        // a 55% xterm background look practically opaque. A neutral blur
+        // supplies the backdrop while xterm/CSS own all color and alpha.
+        let acrylic = window_vibrancy::apply_blur(window, Some((0, 0, 0, 0))).is_ok();
         WindowAppearance {
             custom_titlebar: true,
             acrylic,

@@ -365,6 +365,7 @@ describe("local terminal workspace", () => {
     });
     await user.click(trigger);
     const drawer = await screen.findByRole("dialog", { name: "Connections" });
+    expect(screen.getAllByText("Connections")).toHaveLength(1);
     expect(screen.getByLabelText("Search hosts")).toHaveFocus();
     expect(
       screen.queryByRole("button", { name: "Close connections" }),
