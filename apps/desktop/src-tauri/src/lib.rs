@@ -704,7 +704,8 @@ const fn status_name(status: SessionStatus) -> &'static str {
     }
 }
 
-// Presentation only: keep native decorations unless the frontend is ready.
+// The Windows configuration creates the window borderless. This command only
+// reports whether the custom controls and native backdrop are ready.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WindowAppearance {
@@ -1008,29 +1009,28 @@ fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) -> b
     }
 }
 
+#[cfg(target_os = "windows")]
 fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
-    #[cfg(target_os = "windows")]
-    {
-        // System Acrylic adds its own tint/luminosity layer below the WebView,
-        // which makes the independently translucent xterm background appear
-        // almost solid. Use the neutral blur backdrop and let CSS/xterm own
-        // every color and alpha value. Clear both effects first because DWM can
-        // reset them when the window enters or exits fullscreen.
-        let _ = window_vibrancy::clear_acrylic(window);
-        let _ = window_vibrancy::clear_blur(window);
-        let backdrop_configured = window_vibrancy::apply_blur(window, Some((0, 0, 0, 1))).is_ok();
-        WindowAppearance {
-            custom_titlebar: true,
-            backdrop_configured,
+    // System Acrylic adds its own tint/luminosity layer below the WebView,
+    // which makes the independently translucent xterm background appear
+    // almost solid. Use the neutral blur backdrop and let CSS/xterm own
+    // every color and alpha value. Clear both effects first because DWM can
+    // reset them when the window enters or exits fullscreen.
+    let _ = window_vibrancy::clear_acrylic(window);
+    let _ = window_vibrancy::clear_blur(window);
+    let backdrop_configured = match window_vibrancy::apply_blur(window, Some((0, 0, 0, 1))) {
+        Ok(()) => {
+            println!("OwnTerm: native backdrop configured");
+            true
         }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = window;
-        WindowAppearance {
-            custom_titlebar: false,
-            backdrop_configured: false,
+        Err(error) => {
+            eprintln!("OwnTerm: native backdrop failed: {error}");
+            false
         }
+    };
+    WindowAppearance {
+        custom_titlebar: true,
+        backdrop_configured,
     }
 }
 
@@ -1055,49 +1055,12 @@ fn prepare_window_chrome(
     }
 }
 
-#[tauri::command]
-fn refresh_window_material(
-    window: tauri::WebviewWindow,
-    state: State<'_, DesktopState>,
-) -> WindowAppearance {
-    // Maximizing/fullscreen can reset DWM material. Clear any legacy layered
-    // alpha and then reapply the neutral Windows backdrop without changing
-    // terminal composition.
-    if let Ok((settings, _)) = appearance_settings_from_store(&state) {
-        let catalog = appearance_catalog_from_store(&state, settings).ok();
-        let profile = catalog
-            .as_ref()
-            .and_then(|catalog| active_profile(catalog).ok());
-        reset_native_window_opacity(&window, &state);
-        let use_acrylic = profile.map(|profile| profile.use_acrylic).unwrap_or(true);
-        let backdrop_configured = apply_profile_material(&window, use_acrylic);
-        return WindowAppearance {
-            custom_titlebar: cfg!(target_os = "windows"),
-            backdrop_configured,
-        };
-    }
-    window_material(&window)
-}
-
-#[tauri::command]
-fn show_custom_chrome(window: tauri::WebviewWindow) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    window
-        .set_decorations(false)
-        .map_err(|error| error.to_string())?;
-    #[cfg(not(target_os = "windows"))]
-    let _ = window;
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(DesktopState::open().expect("could not initialize OwnTerm storage"))
         .invoke_handler(tauri::generate_handler![
             prepare_window_chrome,
-            refresh_window_material,
-            show_custom_chrome,
             get_appearance_settings,
             save_appearance_settings,
             list_system_fonts,
@@ -1148,6 +1111,18 @@ mod tests {
         assert_eq!(dto.status, "connected");
         assert!(matches!(dto.kind, SessionKindDto::Local { .. }));
         assert_eq!(status_name(SessionStatus::Disconnected), "disconnected");
+    }
+
+    #[test]
+    fn windows_window_starts_borderless_and_transparent() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.windows.conf.json")).unwrap();
+        let main_window = &config["app"]["windows"][0];
+
+        assert_eq!(main_window["label"], "main");
+        assert_eq!(main_window["decorations"], false);
+        assert_eq!(main_window["transparent"], true);
+        assert_eq!(main_window["shadow"], true);
     }
 }
 

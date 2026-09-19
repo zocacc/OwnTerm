@@ -12,7 +12,7 @@ Execute esta matriz no artefato Windows gerado pelo CI, sem registrar hosts, com
 
 | Cenário | Passos | Evidência esperada | Resultado |
 | --- | --- | --- | --- |
-| Inicial | Abrir app novo | Gaveta fechada; nenhum rail, label ou acionador Connections fora da titlebar | [ ] |
+| Inicial | Abrir app novo e inspecionar o primeiro frame | Gaveta fechada; janela borderless com controles próprios; nenhum rail, label ou acionador Connections fora da titlebar | [ ] |
 | Shell local | Abrir PowerShell e CMD pelo launcher | Uma aba por sessão; I/O e Ctrl+Tab preservam buffer | [ ] |
 | Gaveta/launcher | Abrir e fechar dez vezes com sessão SSH ativa | Overlay não reserva largura; nenhum remount, reconnect, perda de output ou resize persistente | [ ] |
 | SSH | Quick Connect, trust, credencial e falha | Foco no diálogo, segredo não exposto e Reconnect acessível | [ ] |

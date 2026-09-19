@@ -4,6 +4,10 @@ Estado: correção implementada; teste renderer no CI e validação visual Windo
 
 Atualização em `origin/develop` `20dd9b3`: evidência no Windows confirmou que o System Acrylic adiciona uma camada escura mesmo após a correção do xterm. Esta revisão substitui o material por blur neutro e renomeia o controle visual para Interface Opacity; a chave persistida `appearance.windowOpacity` permanece por compatibilidade.
 
+Correção adicional de lifecycle: `tauri.windows.conf.json` cria a janela sem decoração; o comando tardio `show_custom_chrome` e a reaplicação em todo resize foram removidos. O backdrop inicial é solicitado somente após a montagem do WebView.
+
+Dependência: `window-vibrancy 0.8.0` não pode ser adotado isoladamente porque o Tauri 2.11.5 depende de `window-vibrancy ^0.6`; o Cargo rejeita as duas versões desse crate nativo. O upgrade fica condicionado a uma versão do Tauri compatível, sem bloquear esta correção de lifecycle.
+
 ## Escopo e referência
 
 - Pedido: validar por que o terminal permanece sólido e criar um plano de correção.

@@ -27,6 +27,8 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 
 - Windows 10 e Windows 11 são as plataformas formais desta entrega.
 - No Windows, o adapter mantém o alpha nativo da janela em 100% e solicita um backdrop blur neutro; System Acrylic não é usado porque acrescenta tint e luminosidade sob o WebView.
+- A janela Windows nasce com `decorations: false` e `transparent: true`; nenhuma chamada tardia altera o estilo nativo após a configuração do backdrop.
+- `prepare_window_chrome` roda uma vez após a primeira montagem do WebView. Mudanças explícitas do perfil podem reconfigurar ou limpar o backdrop, mas resize e maximize não iniciam outro ciclo.
 - Cor e alfa pertencem ao CSS e ao xterm. Interface Opacity nunca usa `opacity` em ancestral do terminal nem `SetLayeredWindowAttributes` para compor toda a WebView.
 - Se o backdrop não puder ser configurado, a janela recebe uma superfície opaca, a preferência continua persistida e Appearance mostra um aviso não bloqueante.
 - Linux e outras plataformas mantêm fallback sólido até haver um adapter validado; o Terminal Background Opacity continua seguro dentro do App Shell quando suportado pelo frontend.

@@ -10,9 +10,11 @@ type WindowControlsProps = {
 };
 
 export function WindowControls({ onMaterialChange }: WindowControlsProps) {
-  const [customTitlebar, setCustomTitlebar] = useState(false);
+  const [customTitlebar, setCustomTitlebar] = useState(() => isTauri());
   const [error, setError] = useState<string>();
 
+  // React runs this after the WebView has committed its first frame. The Windows
+  // window is already borderless, so no native style changes follow the backdrop.
   useEffect(() => {
     if (!isTauri()) return;
     let mounted = true;
@@ -23,52 +25,12 @@ export function WindowControls({ onMaterialChange }: WindowControlsProps) {
         setCustomTitlebar(appearance.customTitlebar);
       })
       .catch(() => {
-        // Opaque is the CSS default; retain the OS title bar on failure.
+        // Opaque is the CSS default; the configured borderless window keeps its custom controls.
       });
     return () => {
       mounted = false;
     };
   }, [onMaterialChange]);
-
-  useEffect(() => {
-    if (!customTitlebar || !isTauri()) return;
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    let timer: number | undefined;
-    const refreshMaterial = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        void invoke<Appearance>("refresh_window_material")
-          .then((appearance) => {
-            if (disposed) return;
-            onMaterialChange(appearance.backdropConfigured);
-          })
-          .catch(() => {
-            if (!disposed) onMaterialChange(false);
-          });
-      }, 120);
-    };
-    void getCurrentWindow()
-      .onResized(refreshMaterial)
-      .then((nextUnlisten) => {
-        if (disposed) nextUnlisten();
-        else unlisten = nextUnlisten;
-      })
-      .catch(() => {
-        // Keep the existing material; resize listening is a resilience path.
-      });
-    return () => {
-      disposed = true;
-      window.clearTimeout(timer);
-      unlisten?.();
-    };
-  }, [customTitlebar, onMaterialChange]);
-
-  useEffect(() => {
-    if (!customTitlebar) return;
-    // Hide the native title bar only after its replacement has rendered.
-    void invoke("show_custom_chrome").catch(() => setCustomTitlebar(false));
-  }, [customTitlebar]);
 
   if (!customTitlebar) return null;
   const perform = (action: "minimize" | "toggleMaximize" | "close") => {
