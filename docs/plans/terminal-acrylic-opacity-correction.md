@@ -8,6 +8,8 @@ Correção adicional de lifecycle: `tauri.windows.conf.json` cria a janela sem d
 
 Dependência: `window-vibrancy 0.8.0` não pode ser adotado isoladamente porque o Tauri 2.11.5 depende de `window-vibrancy ^0.6`; o Cargo rejeita as duas versões desse crate nativo. O upgrade fica condicionado a uma versão do Tauri compatível, sem bloquear esta correção de lifecycle.
 
+Compatibilidade: `apply_blur` da série 0.6 só é tratado como disponível no Windows 10 1809+ e Windows 11 anterior ao build 22621. Builds 22621+ usam fallback opaco, pois o adapter upstream não consegue confirmar que a API não documentada produziu um backdrop visível.
+
 ## Escopo e referência
 
 - Pedido: validar por que o terminal permanece sólido e criar um plano de correção.

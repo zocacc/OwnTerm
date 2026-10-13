@@ -51,6 +51,7 @@ struct DesktopState {
     vault: SystemVault,
     store: Arc<SqliteStore>,
     window_opacity: Mutex<window_opacity::WindowOpacityState>,
+    backdrop_configured: AtomicBool,
 }
 
 impl DesktopState {
@@ -69,6 +70,7 @@ impl DesktopState {
             vault: SystemVault,
             store,
             window_opacity: Mutex::new(window_opacity::WindowOpacityState::default()),
+            backdrop_configured: AtomicBool::new(false),
         })
     }
 }
@@ -893,7 +895,6 @@ fn list_system_fonts() -> Vec<String> {
 
 #[tauri::command]
 fn get_appearance_settings(
-    window: tauri::WebviewWindow,
     state: State<'_, DesktopState>,
 ) -> Result<AppearanceSettingsDto, String> {
     let (settings, defaults_applied) = appearance_settings_from_store(&state)?;
@@ -904,9 +905,8 @@ fn get_appearance_settings(
     let effective =
         AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
             .map_err(|e| e.to_string())?;
-    reset_native_window_opacity(&window, &state);
     let backdrop_requested = profile.use_acrylic;
-    let backdrop_configured = apply_profile_material(&window, backdrop_requested);
+    let backdrop_configured = state.backdrop_configured.load(Ordering::Acquire);
     Ok(appearance_dto(
         effective,
         defaults_applied,
@@ -926,6 +926,7 @@ fn save_appearance_settings(
         AppearanceSettings::try_new(request.window_opacity, request.terminal_background_opacity)
             .map_err(|e| e.to_string())?;
     let mut catalog = appearance_catalog_from_store(&state, fallback)?;
+    let previous_backdrop_requested = active_profile(&catalog)?.use_acrylic;
     if let (Some(active_profile_id), Some(profiles), Some(color_schemes)) = (
         request.active_profile_id,
         request.profiles,
@@ -981,9 +982,18 @@ fn save_appearance_settings(
             value: settings.terminal_background_opacity.to_string(),
         })
         .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
-    reset_native_window_opacity(&window, &state);
     let backdrop_requested = profile.use_acrylic;
-    let backdrop_configured = apply_profile_material(&window, backdrop_requested);
+    let backdrop_configured =
+        if should_reconfigure_backdrop(previous_backdrop_requested, backdrop_requested) {
+            reset_native_window_opacity(&window, &state);
+            let configured = apply_profile_material(&window, backdrop_requested);
+            state
+                .backdrop_configured
+                .store(configured, Ordering::Release);
+            configured
+        } else {
+            state.backdrop_configured.load(Ordering::Acquire)
+        };
     Ok(appearance_dto(
         settings,
         false,
@@ -993,9 +1003,13 @@ fn save_appearance_settings(
     ))
 }
 
-fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) -> bool {
+const fn should_reconfigure_backdrop(previous: bool, requested: bool) -> bool {
+    previous != requested
+}
+
+fn apply_profile_material(window: &tauri::WebviewWindow, use_backdrop: bool) -> bool {
     #[cfg(target_os = "windows")]
-    return if use_acrylic {
+    return if use_backdrop {
         window_material(window).backdrop_configured
     } else {
         let _ = window_vibrancy::clear_acrylic(window);
@@ -1004,9 +1018,13 @@ fn apply_profile_material(window: &tauri::WebviewWindow, use_acrylic: bool) -> b
     };
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = (window, use_acrylic);
+        let _ = (window, use_backdrop);
         false
     }
+}
+
+const fn neutral_blur_supported(major: u32, minor: u32, build: u32) -> bool {
+    (major == 6 && minor == 1) || (major == 10 && build >= 17_763 && build < 22_621)
 }
 
 #[cfg(target_os = "windows")]
@@ -1018,13 +1036,28 @@ fn window_material(window: &tauri::WebviewWindow) -> WindowAppearance {
     // reset them when the window enters or exits fullscreen.
     let _ = window_vibrancy::clear_acrylic(window);
     let _ = window_vibrancy::clear_blur(window);
+    let windows_version = windows_version::OsVersion::current();
+    if !neutral_blur_supported(
+        windows_version.major,
+        windows_version.minor,
+        windows_version.build,
+    ) {
+        eprintln!(
+            "event=windows_backdrop outcome=opaque_fallback reason=unsupported_blur_build build={}",
+            windows_version.build
+        );
+        return WindowAppearance {
+            custom_titlebar: true,
+            backdrop_configured: false,
+        };
+    }
     let backdrop_configured = match window_vibrancy::apply_blur(window, Some((0, 0, 0, 1))) {
         Ok(()) => {
-            println!("OwnTerm: native backdrop configured");
+            eprintln!("event=windows_backdrop outcome=configured");
             true
         }
         Err(error) => {
-            eprintln!("OwnTerm: native backdrop failed: {error}");
+            eprintln!("event=windows_backdrop outcome=opaque_fallback error={error}");
             false
         }
     };
@@ -1039,7 +1072,7 @@ fn prepare_window_chrome(
     window: tauri::WebviewWindow,
     state: State<'_, DesktopState>,
 ) -> WindowAppearance {
-    let use_acrylic = appearance_settings_from_store(&state)
+    let use_backdrop = appearance_settings_from_store(&state)
         .ok()
         .and_then(|(settings, _)| appearance_catalog_from_store(&state, settings).ok())
         .and_then(|catalog| {
@@ -1048,7 +1081,11 @@ fn prepare_window_chrome(
                 .map(|profile| profile.use_acrylic)
         })
         .unwrap_or(true);
-    let backdrop_configured = apply_profile_material(&window, use_acrylic);
+    reset_native_window_opacity(&window, &state);
+    let backdrop_configured = apply_profile_material(&window, use_backdrop);
+    state
+        .backdrop_configured
+        .store(backdrop_configured, Ordering::Release);
     WindowAppearance {
         custom_titlebar: cfg!(target_os = "windows"),
         backdrop_configured,
@@ -1123,6 +1160,24 @@ mod tests {
         assert_eq!(main_window["decorations"], false);
         assert_eq!(main_window["transparent"], true);
         assert_eq!(main_window["shadow"], true);
+    }
+
+    #[test]
+    fn neutral_blur_is_limited_to_upstream_supported_windows_builds() {
+        assert!(neutral_blur_supported(6, 1, 7_601));
+        assert!(neutral_blur_supported(10, 0, 17_763));
+        assert!(neutral_blur_supported(10, 0, 22_000));
+        assert!(!neutral_blur_supported(6, 2, 9_200));
+        assert!(!neutral_blur_supported(10, 0, 17_762));
+        assert!(!neutral_blur_supported(10, 0, 22_621));
+    }
+
+    #[test]
+    fn backdrop_is_reconfigured_only_when_the_preference_changes() {
+        assert!(!should_reconfigure_backdrop(false, false));
+        assert!(!should_reconfigure_backdrop(true, true));
+        assert!(should_reconfigure_backdrop(false, true));
+        assert!(should_reconfigure_backdrop(true, false));
     }
 }
 

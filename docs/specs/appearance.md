@@ -26,7 +26,7 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 ## Plataforma e fallback
 
 - Windows 10 e Windows 11 são as plataformas formais desta entrega.
-- No Windows, o adapter mantém o alpha nativo da janela em 100% e solicita um backdrop blur neutro; System Acrylic não é usado porque acrescenta tint e luminosidade sob o WebView.
+- No Windows 10 1809+ e Windows 11 anterior ao build 22621, o adapter mantém o alpha nativo da janela em 100% e solicita um backdrop blur neutro; System Acrylic não é usado porque acrescenta tint e luminosidade sob o WebView. Builds 22621+ usam o fallback opaco porque a API de blur não é suportada pelo adapter atual.
 - A janela Windows nasce com `decorations: false` e `transparent: true`; nenhuma chamada tardia altera o estilo nativo após a configuração do backdrop.
 - `prepare_window_chrome` roda uma vez após a primeira montagem do WebView. Mudanças explícitas do perfil podem reconfigurar ou limpar o backdrop, mas resize e maximize não iniciam outro ciclo.
 - Cor e alfa pertencem ao CSS e ao xterm. Interface Opacity nunca usa `opacity` em ancestral do terminal nem `SetLayeredWindowAttributes` para compor toda a WebView.
