@@ -1023,6 +1023,7 @@ fn apply_profile_material(window: &tauri::WebviewWindow, use_backdrop: bool) -> 
     }
 }
 
+#[cfg(any(target_os = "windows", test))]
 const fn neutral_blur_supported(major: u32, minor: u32, build: u32) -> bool {
     (major == 6 && minor == 1) || (major == 10 && build >= 17_763 && build < 22_621)
 }
@@ -1130,7 +1131,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{SessionDescriptorDto, SessionKindDto, status_name};
+    use super::{
+        SessionDescriptorDto, SessionKindDto, neutral_blur_supported, should_reconfigure_backdrop,
+        status_name,
+    };
     use ownterm_domain::{SessionDescriptor, SessionKind, SessionStatus, ShellProfileId};
 
     #[test]
