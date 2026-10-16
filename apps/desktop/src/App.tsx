@@ -152,6 +152,14 @@ export default function App({
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (settingsOpen || closeRequest || closeLock.current) return;
+      if (
+        event.ctrlKey &&
+        (event.key === "Tab" ||
+          (event.shiftKey &&
+            ["t", "w", "c", "v"].includes(event.key.toLowerCase())))
+      ) {
+        event.stopPropagation();
+      }
       if (event.ctrlKey && event.key === "Tab") {
         event.preventDefault();
         terminal.cycle(event.shiftKey ? -1 : 1);
@@ -194,8 +202,9 @@ export default function App({
           .catch(() => terminal.reportError("Could not paste clipboard."));
       }
     };
-    window.addEventListener("keydown", keydown);
-    return () => window.removeEventListener("keydown", keydown);
+    // Capture application shortcuts before xterm consumes them or emits shell input.
+    window.addEventListener("keydown", keydown, true);
+    return () => window.removeEventListener("keydown", keydown, true);
   });
   const closeSettings = () => {
     setSettingsOpen(false);

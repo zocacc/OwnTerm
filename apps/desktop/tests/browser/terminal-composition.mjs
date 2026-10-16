@@ -73,6 +73,20 @@ test("terminal fills the window through resize and tab overflow without remounti
       .getByText("preserved-buffer", { exact: false })
       .waitFor();
     await page.screenshot({ path: "coverage/browser/terminal-first-tabs.png" });
+    await frame.locator(".terminal-surface .xterm-helper-textarea").focus();
+    await page.keyboard.press("Control+Shift+T");
+    await frame.getByRole("tab").nth(13).waitFor({ timeout: 1500 });
+    const selected = await frame
+      .getByRole("tab", { selected: true })
+      .getAttribute("id");
+    await frame.locator(".terminal-surface .xterm-helper-textarea").focus();
+    await page.keyboard.press("Control+Tab");
+    await page.waitForTimeout(100);
+    assert.notEqual(
+      await frame.getByRole("tab", { selected: true }).getAttribute("id"),
+      selected,
+      "Ctrl+Tab reaches the app while xterm is focused",
+    );
   } finally {
     await page.close();
   }
