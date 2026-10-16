@@ -1,44 +1,32 @@
-# Spec — Shell terminal-first em tela cheia e opacidades isoladas
+# Spec — App Shell terminal-first reconstruído
 
-## Objetivo
+Substitui a composição com gaveta. Implementação em duas entregas: [plano](../plans/frontend-terminal-first-rebuild.md), ADR 0012. A segunda entrega aguarda aceite visual Windows.
 
-O OwnTerm deve se comportar como um terminal nativo: a `UnifiedTitleBar` é o único chrome permanente e a sessão ativa ocupa integralmente toda a área abaixo dela. A gaveta de conexões é uma sobreposição temporária. As preferências `windowOpacity` e `terminalBackgroundOpacity` são independentes.
+## Estrutura
 
-## Estrutura obrigatória
+App Shell possui uma barra superior de 40px e TerminalView flexível ocupando integralmente o restante da janela. Nenhum sidebar, drawer, dashboard, tela inicial, card, margem, padding externo ou background próprio envolve o terminal. Overlays são condicionais e não alteram geometria nem identidade das Sessions.
 
-```text
-AppShell (100dvh, overflow hidden)
-├── UnifiedTitleBar (40px; SidebarToggle é o único controle da gaveta)
-├── TerminalWorkspace (flex: 1; min-height: 0)
-│   └── TerminalSurface (.xterm ocupa 100% da área)
-└── ConnectionDrawer (overlay condicional)
-```
+TitleBar contém nome discreto, abas reais em uma única linha com rolagem horizontal, +, seletor de destino, região vazia de drag, configurações e controles Windows. Cada Session mantém seu xterm e processo ao ficar inativa; ativação ajusta dimensões/foco. Nenhuma feature reconecta por mudança puramente visual.
 
-`AppShell`, `TerminalWorkspace`, `TerminalSurface` e o contêiner de `.xterm` usam largura e altura disponíveis, `min-width: 0` e `min-height: 0`. Não há header secundário, statusbar, card, borda, margem ou padding estrutural entre titlebar e terminal.
+## Fundação atual
 
-## Gaveta
+Ao abrir, instalar assinaturas de eventos antes de iniciar uma Session local. Preferir PowerShell, depois CMD e primeiro perfil detectado; nenhuma sessão duplicada em StrictMode. + abre perfil padrão; menu escolhe CMD/PowerShell/WSL disponível.
+Fechar Session ativa ou janela com Sessions ativas exige confirmação. Cancelar não encerra processos; última aba fecha janela; erro de encerramento mantém aba e mostra erro.
+Ajustes mínimos de Appearance não eliminam perfis existentes. Configurações avançadas e gestão de Hosts retornam em overlays centrais após o gate, sem nova tela permanente.
 
-`SidebarToggle`, no canto superior esquerdo da titlebar, é a única fonte de verdade para `drawerOpen`. `Esc`, backdrop e seleção de conexão fecham a gaveta. A gaveta usa overlay absoluto/fixo acima do workspace e, fechada, não reserva largura nem deixa rail, label ou área clicável residual. O título interno da própria gaveta pode permanecer.
+## Composição e resize
 
-O `FitAddon.fit()` roda após montagem, troca de aba, resize da janela, troca de fonte e alteração de estado da gaveta. Abrir ou fechar a gaveta não recria xterm nem PTY.
-
-## Opacidades
-
-| Preferência | Intervalo | Responsabilidade | Não afeta |
-| --- | --- | --- | --- |
-| `windowOpacity` | 0–100 | composição CSS do chrome: titlebar, gaveta, menus, diálogos e feedback | `terminal.options.theme.background`, texto e cursor xterm |
-| `terminalBackgroundOpacity` | 55–100 | alfa RGBA exclusivo de `terminal.options.theme.background` | chrome, controles e backdrop do shell |
-
-A opacidade de janela não pode usar `opacity` em ancestral de `.xterm` nem alpha nativo em janela layered, pois ambos compõem o canvas, texto e cursor. Para compatibilidade com versões anteriores, a aplicação restaura alpha nativo a 100%; a preferência de janela é aplicada por `--window-opacity` exclusivamente aos elementos de chrome. O xterm recebe `background: rgba(...)` derivado apenas de `terminalBackgroundOpacity`.
-
-As duas preferências são persistidas separadamente e devem atualizar sessões existentes e futuras sem reiniciar PTY ou perder scrollback.
+Containers principais e WebView são transparentes com backdrop configurado. Única superfície sólida estrutural permitida é o fallback identificado quando Acrylic está desabilitado, ainda não configurado ou falhou.
+Interface Opacity e Terminal Background Opacity aceitam 0–100% independentemente. Padrões novos/reset são 92/0 e Acrylic ativo; valores persistidos não mudam. Sem alpha global da janela ou opacity em ancestral do terminal.
+ResizeObserver ajusta xterm/PTY; resize, maximizar/restaurar, troca de aba e alteração visual não recriam o processo nem reconfiguram Acrylic.
+Desktop Acrylic permanece nativo. A chamada aceita não prova o resultado visual; o Windows pode substituir material por política.
 
 ## Aceite
 
-1. Com a gaveta fechada, não há moldura visual entre titlebar e terminal.
-2. Após abrir/fechar a gaveta dez vezes com SSH ativo, a sessão não reconecta e mantém a área útil.
-3. Não existe `Connections` fora da gaveta nem segundo acionador dela.
-4. Janela 100% e terminal 55% mantém o fundo do terminal a 55%.
-5. Janela 55% e terminal 100% mantém o terminal sólido e legível.
-6. Mudar um slider não muda o valor persistido nem o efeito do outro.
-7. Alternar abas, redimensionar, maximizar e reiniciar preserva valores e preenchimento da área útil.
+1. Shell real disponível automaticamente, sem launcher intermediário.
+2. Barra 40px; terminal usa exatamente altura restante em 800×600, 1120×720 e resize.
+3. 13 abas não criam segunda linha, sidebar, recorte de controles ou remount dos xterms.
+4. Interface 100/terminal 0 e 0/0 revelam fundo externo; terminal 100 o oculta, com texto opaco.
+5. Appearance aberto não escurece a área externa ao painel.
+6. Minimize, maximize/restore, drag, resize, PTY e fechamento funcionam no instalador Windows.
+7. Só iniciar a segunda entrega após a matriz de fundação E11 ser aceita pelo usuário.

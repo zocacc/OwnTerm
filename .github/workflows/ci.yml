@@ -43,6 +43,15 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm --filter @ownterm/desktop exec playwright install --with-deps chromium
+      - run: pnpm --filter @ownterm/desktop test:browser
+      - name: Upload terminal composition evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-composition-chromium
+          path: apps/desktop/coverage/browser/*.png
+          if-no-files-found: ignore
       - run: pnpm build
       - run: pnpm format:check
 
@@ -156,3 +165,45 @@ jobs:
           Start-Sleep -Seconds 5
           if ($process.HasExited) { throw "Installed OwnTerm executable exited before completing the launch smoke" }
           Stop-Process -Id $process.Id -Force
+      - name: Stage isolated transparency diagnostic
+        shell: pwsh
+        run: |
+          $diagnosticDir = Join-Path $env:RUNNER_TEMP "ownterm-transparency"
+          New-Item -ItemType Directory -Path $diagnosticDir -Force | Out-Null
+          Copy-Item target/release/ownterm-desktop.exe (Join-Path $diagnosticDir "ownterm-desktop.exe")
+          Copy-Item scripts/windows/Start-TransparencyTest.cmd (Join-Path $diagnosticDir "Start-TransparencyTest.cmd")
+      - name: Validate native diagnostic without xterm or shell processes
+        shell: pwsh
+        run: |
+          $diagnosticDir = Join-Path $env:RUNNER_TEMP "ownterm-transparency"
+          $stderrPath = Join-Path $diagnosticDir "ci-diagnostic-stderr.log"
+          $diagnostic = Start-Process -FilePath (Join-Path $diagnosticDir "ownterm-desktop.exe") -ArgumentList "--transparency-test" -RedirectStandardError $stderrPath -PassThru
+          try {
+            $reportLine = $null
+            for ($attempt = 0; $attempt -lt 40; $attempt++) {
+              if ($diagnostic.HasExited) { throw "Diagnostic exited before producing a native report" }
+              $reportLine = Get-Content $stderrPath -ErrorAction SilentlyContinue | Where-Object { $_.StartsWith("[COMPOSITION-DIAG]") } | Select-Object -First 1
+              if ($reportLine) { break }
+              Start-Sleep -Milliseconds 500
+            }
+            if (-not $reportLine) { throw "No native diagnostic report was produced within 20 seconds" }
+            $report = $reportLine.Substring("[COMPOSITION-DIAG]".Length) | ConvertFrom-Json
+            if ($report.runtimeDecorations -ne $false) { throw "Diagnostic window is not undecorated" }
+            if ($report.tauriWindowCount -ne 1) { throw "Expected exactly one Tauri window" }
+            if (-not $report.configuredTransparent) { throw "Window is not configured transparent" }
+            if ($null -eq $report.windows.webviewBackgroundRgba -or $report.windows.webviewBackgroundRgba[3] -ne 0) { throw "Native WebView2 background is not alpha zero" }
+            $shellChildren = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($diagnostic.Id)" |
+              Where-Object { $_.Name -match "^(powershell|pwsh|cmd|wsl)\.exe$" }
+            if ($shellChildren) { throw "No-xterm diagnostic unexpectedly started a shell" }
+            $report | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $diagnosticDir "ci-native-probe.json")
+            Write-Host "Native configuration verified; this does not prove visually rendered Acrylic."
+          } finally {
+            if (-not $diagnostic.HasExited) { Stop-Process -Id $diagnostic.Id -Force }
+          }
+      - name: Upload isolated transparency diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: ownterm-transparency-diagnostic
+          path: ${{ runner.temp }}/ownterm-transparency/
+          if-no-files-found: error
+          retention-days: 14

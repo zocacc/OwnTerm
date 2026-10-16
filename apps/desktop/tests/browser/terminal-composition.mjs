@@ -1,0 +1,284 @@
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { after, before, test } from "node:test";
+import { chromium } from "playwright";
+import { createServer } from "vite";
+
+let server;
+let browser;
+let origin;
+
+test("transparency diagnostic isolates App and xterm before adding React chrome", async () => {
+  for (const stage of [1, 2, 3]) {
+    const page = await browser.newPage({
+      viewport: { width: 800, height: 600 },
+    });
+    try {
+      const requests = [];
+      page.on("request", (request) => requests.push(request.url()));
+      await page.setContent(
+        `<body style="margin:0;color-scheme:normal;background:rgb(240,180,80)"><iframe id="diagnostic" src="${origin}/?transparency-test=${stage}" style="border:0;width:800px;height:600px"></iframe></body>`,
+      );
+      const frame = page.frameLocator("#diagnostic");
+      await frame
+        .getByRole("heading", { name: "Transparency Test", exact: true })
+        .waitFor({ timeout: 1500 });
+      assert.equal(await frame.locator(".xterm").count(), 0);
+      assert.equal(
+        await frame.locator(".diagnostic-titlebar").count(),
+        stage === 3 ? 1 : 0,
+      );
+      assert.ok(
+        !requests.some((url) =>
+          /\/src\/App\.tsx|@xterm_xterm|\/src\/terminal\//.test(url),
+        ),
+        "diagnostic must not load the application or xterm module",
+      );
+      if (stage === 1)
+        assert.ok(
+          !requests.some((url) =>
+            /react-dom_client|\/diagnostics\/react-stages/.test(url),
+          ),
+          "native/DOM pass does not load React",
+        );
+      const actual = await pixels(
+        page,
+        await page.screenshot({
+          path: `coverage/browser/transparency-stage-${stage}.png`,
+        }),
+        { x: 740, y: 300 },
+      );
+      assert.deepEqual(actual.background, [240, 180, 80]);
+    } finally {
+      await page.close();
+    }
+  }
+});
+
+before(async () => {
+  await mkdir("coverage/browser", { recursive: true });
+  server = await createServer({
+    server: { host: "127.0.0.1", port: 0, strictPort: false },
+  });
+  await server.listen();
+  origin = `http://127.0.0.1:${server.httpServer.address().port}`;
+  browser = await chromium.launch();
+});
+
+test("terminal fills the window through resize and tab overflow without remounting", async () => {
+  const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+  try {
+    await page.setContent(
+      `<body style="margin:0;color-scheme:dark;background:rgb(240,180,80)"><iframe id="application" src="${origin}/tests/browser/fixture.html" style="border:0;width:100vw;height:100vh"></iframe></body>`,
+    );
+    const frame = page.frameLocator("#application");
+    await frame.locator(".xterm").waitFor();
+    const first = await frame.locator(".xterm").elementHandle();
+    for (let index = 0; index < 12; index++)
+      await frame.getByRole("button", { name: "New tab", exact: true }).click();
+    assert.equal(await frame.getByRole("tab").count(), 13);
+    for (const [width, height] of [
+      [800, 600],
+      [1120, 720],
+      [1500, 900],
+      [800, 600],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await frame.locator(".terminal-view").evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+      });
+      const titlebar = await frame.locator(".titlebar").boundingBox();
+      const terminal = await frame.locator(".terminal-surface").boundingBox();
+      assert.equal(titlebar.height, 40);
+      assert.deepEqual(terminal, { x: 0, y: 40, width, height: height - 40 });
+      assert.ok(
+        await frame
+          .locator(".titlebar-drag")
+          .evaluate((element) => element.getBoundingClientRect().width >= 32),
+      );
+      assert.ok(
+        await first.evaluate((element) => element.isConnected),
+        "opening tabs never recreates the first terminal",
+      );
+    }
+    const tabs = frame.getByRole("tab");
+    await tabs.first().click();
+    await frame.locator(".terminal-surface .xterm-helper-textarea").focus();
+    await page.keyboard.insertText("preserved-buffer");
+    await frame
+      .locator(".terminal-surface .xterm-rows")
+      .getByText("preserved-buffer", { exact: false })
+      .waitFor();
+    await tabs.last().click();
+    await tabs.first().click();
+    assert.ok(await first.evaluate((element) => element.isConnected));
+    await frame
+      .locator(".terminal-surface .xterm-rows")
+      .getByText("preserved-buffer", { exact: false })
+      .waitFor();
+    await page.screenshot({ path: "coverage/browser/terminal-first-tabs.png" });
+    await frame.locator(".terminal-surface .xterm-helper-textarea").focus();
+    await page.keyboard.press("Control+Shift+T");
+    await frame.getByRole("tab").nth(13).waitFor({ timeout: 1500 });
+    const selected = await frame
+      .getByRole("tab", { selected: true })
+      .getAttribute("id");
+    await frame.locator(".terminal-surface .xterm-helper-textarea").focus();
+    await page.keyboard.press("Control+Tab");
+    await page.waitForTimeout(100);
+    assert.notEqual(
+      await frame.getByRole("tab", { selected: true }).getAttribute("id"),
+      selected,
+      "Ctrl+Tab reaches the app while xterm is focused",
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+after(async () => {
+  await browser?.close();
+  await server?.close();
+});
+
+async function setSlider(frame, label, value) {
+  await frame.getByRole("slider", { name: label }).evaluate((slider, next) => {
+    // Use the native setter so React observes the same change as user input.
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    ).set.call(slider, next);
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+    slider.dispatchEvent(new Event("change", { bubbles: true }));
+  }, String(value));
+}
+
+async function pixels(page, image, point = { x: 400, y: 300 }) {
+  return page.evaluate(
+    async ({ base64, point }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`);
+      const bitmap = await createImageBitmap(await response.blob());
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d");
+      context.drawImage(bitmap, 0, 0);
+      const background = [
+        ...context.getImageData(point.x, point.y, 1, 1).data,
+      ].slice(0, 3);
+      const text = context.getImageData(0, 40, 150, 50).data;
+      let brightestTextPixel = 0;
+      for (let i = 0; i < text.length; i += 4) {
+        brightestTextPixel = Math.max(
+          brightestTextPixel,
+          Math.min(text[i], text[i + 1], text[i + 2]),
+        );
+      }
+      return { background, brightestTextPixel };
+    },
+    { base64: image.toString("base64"), point },
+  );
+}
+
+test("terminal pixels reveal external color independently of chrome opacity", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 800, height: 600 },
+    deviceScaleFactor: 1,
+  });
+  try {
+    // An outer document represents the native backdrop: no application CSS is
+    // overridden, so an opaque html/body or xterm layer really fails the test.
+    await page.setContent(
+      `<body style="margin:0;color-scheme:dark;background:rgb(240,180,80)"><iframe id="application" src="${origin}/tests/browser/fixture.html" style="border:0;width:800px;height:600px"></iframe></body>`,
+    );
+    const frame = page.frameLocator("#application");
+    await frame
+      .locator(".xterm-helper-textarea")
+      .waitFor({ state: "attached" });
+    await frame.locator(".xterm-helper-textarea").focus();
+    await page.keyboard.insertText("████████");
+    await frame
+      .locator(".xterm-rows")
+      .getByText("████████", { exact: false })
+      .waitFor();
+    const terminalElement = await frame.locator(".xterm").elementHandle();
+
+    for (const [chrome, terminal, expected] of [
+      [100, 55, [115, 89, 48]],
+      [55, 100, [12, 15, 21]],
+      [55, 55, [115, 89, 48]],
+      [100, 100, [12, 15, 21]],
+      [100, 0, [240, 180, 80]],
+      [0, 0, [240, 180, 80]],
+    ]) {
+      await frame.getByRole("button", { name: "Appearance settings" }).click();
+      await setSlider(frame, /Interface opacity/, chrome);
+      await setSlider(frame, /Terminal background opacity/, terminal);
+      await frame
+        .getByRole("button", { name: "Close appearance settings" })
+        .click();
+      await frame.locator(".xterm-scrollable-element").evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+      });
+      const actual = await pixels(
+        page,
+        await page.screenshot({
+          path: `coverage/browser/opacity-${chrome}-${terminal}.png`,
+        }),
+      );
+      for (let channel = 0; channel < 3; channel++) {
+        assert.ok(
+          Math.abs(actual.background[channel] - expected[channel]) <= 2,
+          `chrome=${chrome}, terminal=${terminal}: got ${actual.background}, expected ${expected}`,
+        );
+      }
+      assert.ok(actual.brightestTextPixel > 235, "glyphs must stay opaque");
+      assert.ok(
+        await terminalElement.evaluate((element) => element.isConnected),
+        "same terminal survives slider updates",
+      );
+    }
+
+    await frame.getByRole("button", { name: "Appearance settings" }).click();
+    const preview = await pixels(
+      page,
+      await page.screenshot({
+        path: "coverage/browser/appearance-preview-0-0.png",
+      }),
+      { x: 760, y: 300 },
+    );
+    assert.deepEqual(
+      preview.background,
+      [240, 180, 80],
+      "Appearance preview must not darken the terminal behind the dialog",
+    );
+    await setSlider(frame, /Terminal background opacity/, 55);
+    await frame.getByRole("checkbox", { name: /Use Windows/ }).uncheck();
+    await frame
+      .getByRole("button", { name: "Close appearance settings" })
+      .click();
+    const opaque = await pixels(
+      page,
+      await page.screenshot({ path: "coverage/browser/opaque-fallback.png" }),
+    );
+    assert.deepEqual(
+      opaque.background,
+      [16, 19, 24],
+      "disabled material composes on the solid application fallback",
+    );
+  } catch (error) {
+    await page.screenshot({ path: "coverage/browser/composition-failure.png" });
+    console.error(
+      await page.frameLocator("#application").locator("body").innerText(),
+    );
+    throw error;
+  } finally {
+    await page.close();
+  }
+});

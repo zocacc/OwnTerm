@@ -6,7 +6,7 @@
 
 ## Escopo
 
-Auditar persistência, CSS variables e `Terminal.options.theme`. Aplicar `windowOpacity` somente a materiais CSS do chrome e `terminalBackgroundOpacity` somente ao RGBA de fundo xterm. Remover uso de alpha native/layered que compõe toda a WebView. Cobrir serialização, migração e atualização independente com testes.
+Auditar persistência, CSS variables e `Terminal.options.theme`. Aplicar `windowOpacity` (exibida como Interface Opacity) somente a materiais CSS do chrome e `terminalBackgroundOpacity` somente ao RGBA de fundo xterm. Remover uso de alpha native/layered que compõe toda a WebView. Cobrir serialização, migração e atualização independente com testes.
 
 ## Aceite
 

@@ -9,8 +9,8 @@ pub const ACTIVE_TERMINAL_APPEARANCE_PROFILE_KEY: &str = "appearance.activeTermi
 pub const DEFAULT_WINDOW_OPACITY: u8 = 92;
 pub const MIN_WINDOW_OPACITY: u8 = 0;
 pub const MAX_WINDOW_OPACITY: u8 = 100;
-pub const DEFAULT_TERMINAL_BACKGROUND_OPACITY: u8 = 82;
-pub const MIN_TERMINAL_BACKGROUND_OPACITY: u8 = 55;
+pub const DEFAULT_TERMINAL_BACKGROUND_OPACITY: u8 = 0;
+pub const MIN_TERMINAL_BACKGROUND_OPACITY: u8 = 0;
 pub const MAX_TERMINAL_BACKGROUND_OPACITY: u8 = 100;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,7 +36,7 @@ impl std::fmt::Display for AppearanceSettingsError {
         f.write_str(match self {
             Self::WindowOpacityOutOfRange => "window opacity must be between 0 and 100",
             Self::TerminalBackgroundOpacityOutOfRange => {
-                "terminal background opacity must be between 55 and 100"
+                "terminal background opacity must be between 0 and 100"
             }
         })
     }
@@ -258,10 +258,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn fully_transparent_preferences_survive_storage_and_profile_round_trip() {
+        let loaded = AppearanceSettings::from_storage(Some("0"), Some("0"));
+        assert!(!loaded.defaults_applied);
+        assert_eq!(AppearanceSettings::try_new(0, 0).unwrap(), loaded.settings);
+        let catalog = default_terminal_appearance_catalog(loaded.settings);
+        let serialized = serde_json::to_string(&catalog).unwrap();
+        let restored: super::TerminalAppearanceCatalog = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(restored.profiles[0].window_opacity, 0);
+        assert_eq!(restored.profiles[0].terminal_background_opacity, 0);
+    }
+
+    #[test]
     fn validates_ranges_and_defaults() {
         assert_eq!(AppearanceSettings::default().window_opacity, 92);
+        assert_eq!(AppearanceSettings::default().terminal_background_opacity, 0);
+        assert_eq!(
+            AppearanceSettings::from_storage(Some("92"), Some("82"))
+                .settings
+                .terminal_background_opacity,
+            82
+        );
         assert!(AppearanceSettings::try_new(101, 82).is_err());
-        assert!(AppearanceSettings::try_new(92, 54).is_err());
+        assert!(AppearanceSettings::try_new(92, 101).is_err());
         assert!(AppearanceSettings::try_new(0, 55).is_ok());
     }
 

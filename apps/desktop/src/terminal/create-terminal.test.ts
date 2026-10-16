@@ -14,6 +14,7 @@ const scheme = {
 
 describe("terminalTheme", () => {
   it("derives the xterm background alpha only from terminal opacity", () => {
+    expect(terminalTheme(scheme, 0).background).toBe("rgba(30, 31, 41, 0)");
     expect(terminalTheme(scheme, 55).background).toBe("rgba(30, 31, 41, 0.55)");
     expect(terminalTheme(scheme, 100).background).toBe("rgba(30, 31, 41, 1)");
   });
