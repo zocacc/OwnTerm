@@ -1,11 +1,10 @@
 #![deny(unsafe_code)]
 
-#[allow(dead_code)]
-#[cfg_attr(windows, allow(unsafe_code))]
-mod window_opacity;
-
 #[cfg_attr(windows, allow(unsafe_code))]
 mod backdrop;
+
+#[cfg_attr(windows, allow(unsafe_code))]
+mod composition_diagnostics;
 
 use ownterm_application::OwnTermApplication;
 use ownterm_application::appearance::{
@@ -53,7 +52,6 @@ struct DesktopState {
     ssh: SshSessionBackend,
     vault: SystemVault,
     store: Arc<SqliteStore>,
-    window_opacity: Mutex<window_opacity::WindowOpacityState>,
     backdrop: Mutex<backdrop::BackdropState>,
 }
 
@@ -72,7 +70,6 @@ impl DesktopState {
             ssh: SshSessionBackend::default(),
             vault: SystemVault,
             store,
-            window_opacity: Mutex::new(window_opacity::WindowOpacityState::default()),
             backdrop: Mutex::new(backdrop::BackdropState::default()),
         })
     }
@@ -826,18 +823,6 @@ fn active_profile(
         .ok_or_else(|| "active appearance profile is missing".into())
 }
 
-/// The terminal canvas is deliberately never placed under a layered native
-/// window. Layered opacity affects every WebView pixel and would couple the
-/// shell slider to xterm's independently configured background alpha.
-fn reset_native_window_opacity(window: &tauri::WebviewWindow, state: &DesktopState) {
-    let Ok(mut adapter_state) = state.window_opacity.lock() else {
-        return;
-    };
-    // Restore the style when upgrading from a version that used native alpha.
-    // The preference is now composed by CSS only on chrome surfaces.
-    let _ = window_opacity::apply(window, 100, &mut adapter_state);
-}
-
 fn appearance_dto(
     settings: AppearanceSettings,
     defaults_applied: bool,
@@ -915,7 +900,7 @@ async fn get_appearance_settings(
         AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
             .map_err(|e| e.to_string())?;
     let backdrop_requested = profile.use_acrylic;
-    let material = configure_backdrop(&window, &state, &mut backdrop, backdrop_requested);
+    let material = configure_backdrop(&window, &mut backdrop, backdrop_requested);
     Ok(appearance_dto(
         effective,
         defaults_applied,
@@ -995,7 +980,7 @@ async fn save_appearance_settings(
         })
         .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
     let backdrop_requested = profile.use_acrylic;
-    let material = configure_backdrop(&window, &state, &mut backdrop, backdrop_requested);
+    let material = configure_backdrop(&window, &mut backdrop, backdrop_requested);
     Ok(appearance_dto(
         settings,
         false,
@@ -1007,13 +992,11 @@ async fn save_appearance_settings(
 
 fn configure_backdrop(
     window: &tauri::WebviewWindow,
-    state: &DesktopState,
     backdrop: &mut backdrop::BackdropState,
     requested: bool,
 ) -> backdrop::MaterialSnapshot {
     let native = backdrop.native();
     backdrop.configure(requested, |enabled| {
-        reset_native_window_opacity(window, state);
         let result = backdrop::apply(window, enabled, native);
         eprintln!(
             "{}",
@@ -1034,12 +1017,45 @@ fn prepare_window_chrome() -> WindowAppearance {
     }
 }
 
+#[tauri::command]
+fn get_launch_mode() -> &'static str {
+    if std::env::args().any(|argument| argument == "--transparency-test") {
+        "transparency-test"
+    } else {
+        "terminal"
+    }
+}
+
+#[tauri::command]
+async fn prepare_transparency_test(
+    window: tauri::WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> Result<composition_diagnostics::CompositionReport, String> {
+    // Diagnostic-only runtime setup: no preference read/write and no PTY.
+    let material = {
+        let mut backdrop = state
+            .backdrop
+            .lock()
+            .map_err(|_| "could not lock backdrop")?;
+        configure_backdrop(&window, &mut backdrop, true)
+    };
+    let report = composition_diagnostics::inspect(&window, material)?;
+    // Temporary allowlisted probe, emitted only in the explicit diagnostic mode.
+    eprintln!(
+        "[COMPOSITION-DIAG]{}",
+        serde_json::to_string(&report).map_err(|error| error.to_string())?
+    );
+    Ok(report)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(DesktopState::open().expect("could not initialize OwnTerm storage"))
         .invoke_handler(tauri::generate_handler![
             prepare_window_chrome,
+            get_launch_mode,
+            prepare_transparency_test,
             get_appearance_settings,
             save_appearance_settings,
             list_system_fonts,

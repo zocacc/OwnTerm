@@ -1,0 +1,103 @@
+/* Deliberately isolated from all application/xterm styles and fallback rules. */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent !important;
+}
+body {
+  overflow: hidden;
+  color: white;
+  font:
+    14px Consolas,
+    monospace;
+}
+#root > h1 {
+  margin: 24px;
+  font: inherit;
+  font-size: 24px;
+}
+.diagnostic-titlebar {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  background: transparent;
+}
+.diagnostic-titlebar > span {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+.diagnostic-drag {
+  flex: 1;
+  min-width: 32px;
+}
+.window-controls {
+  display: flex;
+  flex: 0 0 auto;
+}
+.window-controls button {
+  width: 46px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  color: white;
+  background: transparent;
+  cursor: pointer;
+}
+.window-controls button:hover {
+  background: rgb(255 255 255 / 15%);
+}
+.window-controls .window-close:hover {
+  background: #c42b1c;
+}
+.window-error {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  color: white;
+  background: #262626;
+  padding: 8px;
+}
+.diagnostic-tools {
+  position: fixed;
+  box-sizing: border-box;
+  bottom: 12px;
+  left: 12px;
+  width: min(520px, calc(100% - 24px));
+  max-height: 42vh;
+  overflow: auto;
+  padding: 12px;
+  color: #eee;
+  background: #202126;
+  border: 1px solid #747680;
+  font:
+    12px/1.5 Consolas,
+    monospace;
+}
+.diagnostic-tools p {
+  margin: 6px 0;
+}
+.diagnostic-tools nav {
+  display: flex;
+  gap: 16px;
+}
+.diagnostic-tools a {
+  color: #c8bcff;
+}
+.diagnostic-tools button {
+  color: white;
+  background: #34353c;
+  border: 1px solid #747680;
+  padding: 6px;
+  margin: 6px 0;
+  cursor: pointer;
+}
+.diagnostic-tools pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}

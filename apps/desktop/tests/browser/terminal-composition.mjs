@@ -8,6 +8,53 @@ let server;
 let browser;
 let origin;
 
+test("transparency diagnostic isolates App and xterm before adding React chrome", async () => {
+  for (const stage of [1, 2, 3]) {
+    const page = await browser.newPage({
+      viewport: { width: 800, height: 600 },
+    });
+    try {
+      const requests = [];
+      page.on("request", (request) => requests.push(request.url()));
+      await page.setContent(
+        `<body style="margin:0;color-scheme:normal;background:rgb(240,180,80)"><iframe id="diagnostic" src="${origin}/?transparency-test=${stage}" style="border:0;width:800px;height:600px"></iframe></body>`,
+      );
+      const frame = page.frameLocator("#diagnostic");
+      await frame
+        .getByRole("heading", { name: "Transparency Test", exact: true })
+        .waitFor({ timeout: 1500 });
+      assert.equal(await frame.locator(".xterm").count(), 0);
+      assert.equal(
+        await frame.locator(".diagnostic-titlebar").count(),
+        stage === 3 ? 1 : 0,
+      );
+      assert.ok(
+        !requests.some((url) =>
+          /\/src\/App\.tsx|@xterm_xterm|\/src\/terminal\//.test(url),
+        ),
+        "diagnostic must not load the application or xterm module",
+      );
+      if (stage === 1)
+        assert.ok(
+          !requests.some((url) =>
+            /react-dom_client|\/diagnostics\/react-stages/.test(url),
+          ),
+          "native/DOM pass does not load React",
+        );
+      const actual = await pixels(
+        page,
+        await page.screenshot({
+          path: `coverage/browser/transparency-stage-${stage}.png`,
+        }),
+        { x: 740, y: 300 },
+      );
+      assert.deepEqual(actual.background, [240, 180, 80]);
+    } finally {
+      await page.close();
+    }
+  }
+});
+
 before(async () => {
   await mkdir("coverage/browser", { recursive: true });
   server = await createServer({
