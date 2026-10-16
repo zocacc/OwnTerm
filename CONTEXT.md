@@ -61,7 +61,7 @@ Um arquivo JSON versionado que transporta configurações permitidas do OwnTerm.
 _Avoid_: backup de credenciais, clonagem completa
 
 **Terminal Appearance Profile**:
-Uma configuração visual local e global para as Sessions: fonte, esquema de cores, opacidade da janela, opacidade do fundo do terminal e Acrylic. Não é um **Shell Profile** e não define comando algum.
+Uma configuração visual local e global para as Sessions: fonte, esquema de cores, Interface Opacity, Terminal Background Opacity e Acrylic. Não é um **Shell Profile** e não define comando algum.
 _Avoid_: shell profile, conexão, tema de Host
 
 **Terminal Color Scheme**:
@@ -69,5 +69,17 @@ Uma paleta reutilizável de fundo, foreground, cursor, seleção e 16 cores ANSI
 _Avoid_: perfil de shell, credencial
 
 **Appearance Preference**:
-Uma preferência visual local que controla a opacidade da janela do OwnTerm ou do fundo das Sessions. Ela pertence à instalação em uso e não acompanha um Workspace Export.
+Uma preferência visual local que controla a aparência da interface ou do fundo das Sessions. Ela pertence à instalação em uso e não acompanha um Workspace Export.
 _Avoid_: tema, configuração de Host, transparência de credencial
+
+**Interface Opacity**:
+A opacidade das superfícies da interface, como barra superior, gaveta e diálogos. É independente do fundo do terminal e da legibilidade de seu texto.
+_Avoid_: opacidade da janela inteira, transparência do texto
+
+**Terminal Background Opacity**:
+A opacidade do fundo padrão das Sessions: reduzida, permite ver o material atrás do terminal; em 100%, torna esse fundo sólido. Não altera a opacidade de texto e cursor nem elimina fundos explícitos de aplicações de terminal.
+_Avoid_: opacidade da CLI inteira, opacidade da Session
+
+**Acrylic**:
+O material visual do Windows que mostra o conteúdo real atrás do OwnTerm com desfoque e tonalidade do sistema. Inclui o desktop e outras janelas, em vez de apenas o papel de parede.
+_Avoid_: Mica, screenshot do desktop, blur CSS

@@ -3,25 +3,19 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type Appearance = { customTitlebar: boolean; backdropConfigured: boolean };
+type WindowChrome = { customTitlebar: boolean };
 
-type WindowControlsProps = {
-  onMaterialChange(backdropConfigured: boolean): void;
-};
-
-export function WindowControls({ onMaterialChange }: WindowControlsProps) {
+export function WindowControls() {
   const [customTitlebar, setCustomTitlebar] = useState(() => isTauri());
   const [error, setError] = useState<string>();
 
-  // React runs this after the WebView has committed its first frame. The Windows
-  // window is already borderless, so no native style changes follow the backdrop.
+  // Chrome metadata never configures or overwrites the Appearance material.
   useEffect(() => {
     if (!isTauri()) return;
     let mounted = true;
-    void invoke<Appearance>("prepare_window_chrome")
+    void invoke<WindowChrome>("prepare_window_chrome")
       .then((appearance) => {
         if (!mounted) return;
-        onMaterialChange(appearance.backdropConfigured);
         setCustomTitlebar(appearance.customTitlebar);
       })
       .catch(() => {
@@ -30,7 +24,7 @@ export function WindowControls({ onMaterialChange }: WindowControlsProps) {
     return () => {
       mounted = false;
     };
-  }, [onMaterialChange]);
+  }, []);
 
   if (!customTitlebar) return null;
   const perform = (action: "minimize" | "toggleMaximize" | "close") => {

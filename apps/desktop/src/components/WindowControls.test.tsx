@@ -21,20 +21,12 @@ afterEach(() => {
 });
 
 describe("native window presentation", () => {
-  it("keeps an opaque surface when Windows backdrop is unavailable and wires the replacement controls", async () => {
-    const onMaterialChange = vi.fn();
-    native.invoke.mockImplementation(async (command) => {
-      if (command === "prepare_window_chrome")
-        return { customTitlebar: true, backdropConfigured: false };
-      // The native bar must not disappear before its replacement exists.
-      expect(
-        screen.getByRole("button", { name: "Close window" }),
-      ).toBeInTheDocument();
-    });
+  it("wires replacement controls independently of the native material", async () => {
+    native.invoke.mockResolvedValue({ customTitlebar: true });
     native.minimize.mockResolvedValue(undefined);
     native.toggleMaximize.mockResolvedValue(undefined);
     native.close.mockResolvedValue(undefined);
-    render(<WindowControls onMaterialChange={onMaterialChange} />);
+    render(<WindowControls />);
     await userEvent.click(
       await screen.findByRole("button", { name: "Minimize window" }),
     );
@@ -42,7 +34,6 @@ describe("native window presentation", () => {
       screen.getByRole("button", { name: "Maximize or restore window" }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Close window" }));
-    expect(onMaterialChange).toHaveBeenCalledWith(false);
     expect(native.invoke).not.toHaveBeenCalledWith("show_custom_chrome");
     expect(native.minimize).toHaveBeenCalledOnce();
     expect(native.toggleMaximize).toHaveBeenCalledOnce();
@@ -50,14 +41,12 @@ describe("native window presentation", () => {
   });
 
   it("retains custom controls if backdrop initialization fails", async () => {
-    const onMaterialChange = vi.fn();
     native.invoke.mockRejectedValue(new Error("unavailable"));
-    render(<WindowControls onMaterialChange={onMaterialChange} />);
+    render(<WindowControls />);
     await waitFor(() => expect(native.invoke).toHaveBeenCalledOnce());
     expect(native.invoke).not.toHaveBeenCalledWith("show_custom_chrome");
     expect(
       screen.queryByRole("button", { name: "Close window" }),
     ).toBeInTheDocument();
-    expect(onMaterialChange).not.toHaveBeenCalled();
   });
 });

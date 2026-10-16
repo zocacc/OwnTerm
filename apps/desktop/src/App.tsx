@@ -154,13 +154,6 @@ function App({ backend = defaultBackend }: AppProps) {
   );
 
   const reportError = useCallback((message: string) => setError(message), []);
-  const handleMaterialChange = useCallback((backdropConfigured: boolean) => {
-    setAppearance((current) =>
-      current.backdropConfigured === backdropConfigured
-        ? current
-        : { ...current, backdropConfigured },
-    );
-  }, []);
 
   const registerTerminal = useCallback(
     (sessionId: string, handle?: TerminalHandle) => {
@@ -714,7 +707,6 @@ function App({ backend = defaultBackend }: AppProps) {
         connectionsTriggerRef={connectionsTrigger}
         launcherOpen={launcherOpen}
         onCloseSession={closeSession}
-        onMaterialChange={handleMaterialChange}
         onOpenAppearance={() => setAppearanceOpen(true)}
         onOpenSession={(profileId) => void openSession(profileId)}
         onSelectSession={(sessionId) => {
@@ -1017,7 +1009,7 @@ function App({ backend = defaultBackend }: AppProps) {
                       }
                       type="checkbox"
                     />
-                    Use Windows transparent backdrop when available
+                    Use Windows Acrylic when available
                   </label>
                   <div className="appearance-colors">
                     <div>

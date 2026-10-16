@@ -19,7 +19,6 @@ type UnifiedTitleBarProps = {
   connectionsTriggerRef?: RefObject<HTMLButtonElement | null>;
   launcherOpen: boolean;
   onCloseSession(sessionId: string): void;
-  onMaterialChange(acrylic: boolean): void;
   onOpenAppearance(): void;
   onOpenSession(profileId?: string): void;
   onSelectSession(sessionId: string): void;
@@ -351,7 +350,7 @@ export function UnifiedTitleBar(props: UnifiedTitleBarProps) {
         appearanceTriggerRef={props.appearanceTriggerRef}
         onOpenAppearance={props.onOpenAppearance}
       />
-      <WindowControls onMaterialChange={props.onMaterialChange} />
+      <WindowControls />
     </header>
   );
 }

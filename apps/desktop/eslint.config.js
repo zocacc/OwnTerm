@@ -8,7 +8,7 @@ export default tseslint.config(
   { ignores: ["dist", "node_modules", "src-tauri", "coverage"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ["src/**/*.{ts,tsx}", "*.{ts,js}"],
+    files: ["src/**/*.{ts,tsx}", "tests/browser/**/*.tsx", "*.{ts,js}"],
     languageOptions: {
       ecmaVersion: 2023,
       globals: globals.browser,

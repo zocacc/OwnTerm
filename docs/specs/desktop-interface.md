@@ -35,7 +35,7 @@ O resultado deve:
 3. **Uma única hierarquia:** abas, criação de sessão e controles da janela coexistem na barra superior.
 4. **Estado sem ruído:** status aparece na aba, em feedback temporário ou em diálogo quando requer decisão.
 5. **Lifecycle independente do layout:** abrir gaveta, menus ou diálogos nunca desmonta `TerminalSurface` nem encerra PTY/SSH.
-6. **Material progressivo:** O backdrop blur neutro melhora a aparência no Windows, mas o fallback opaco é funcional e legível.
+6. **Material progressivo:** Desktop Acrylic revela o conteúdo atrás do OwnTerm no Windows; o fallback opaco é funcional e legível.
 
 ## Arquitetura de informação
 
@@ -152,7 +152,7 @@ Atalhos não devem capturar eventos destinados ao terminal quando a combinação
 ## Aparência e materiais
 
 - Terminal usa fundo mais sólido que a barra e a gaveta para preservar contraste.
-- Barra superior e gaveta podem usar o backdrop blur neutro quando `prepare_window_chrome` confirmar suporte.
+- Barra superior, gaveta e fundo padrão do terminal podem revelar Desktop Acrylic quando Appearance confirmar que a configuração nativa foi aceita.
 - Fallback opaco mantém mesma hierarquia, medidas e contraste.
 - Não há cartões translúcidos aninhados no workspace do terminal.
 - Verde representa somente conexão/sucesso; vermelho somente falha ou ação destrutiva; âmbar representa estados que aguardam interação.
@@ -218,7 +218,7 @@ A migração pode ocorrer em PRs separados, mas cada PR integrado deve deixar a 
 - [ ] Busca, Quick Connect, CRUD, importação e exportação continuam alcançáveis.
 - [ ] Todos os estados de sessão são identificáveis sem depender apenas de cor.
 - [ ] Atalhos definidos nesta spec funcionam sem bloquear entrada normal do terminal.
-- [ ] Backdrop blur neutro e fallback opaco são legíveis no Windows 11.
+- [ ] Desktop Acrylic e fallback opaco são legíveis no Windows 11; terminal 55% revela conteúdo externo com interface em 100%.
 - [ ] A janela mínima `800×600` não sobrepõe abas, launcher e controles da janela.
 
 ## Testes e evidências
@@ -233,7 +233,7 @@ A migração pode ocorrer em PRs separados, mas cada PR integrado deve deixar a 
 ### Manuais no Windows 11
 
 - Janela normal, maximizada, restaurada e tamanho mínimo.
-- Backdrop blur neutro habilitado, reduced transparency e fallback opaco.
+- Desktop Acrylic habilitado, reduced transparency e fallback opaco.
 - PowerShell, CMD, WSL disponível e sessão SSH.
 - Duas ou mais sessões com saída contínua durante abertura repetida da gaveta.
 - DPI `100%`, `125%`, `150%` e zoom de texto relevante.

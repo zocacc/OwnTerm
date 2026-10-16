@@ -20,6 +20,12 @@ import type {
 } from "./services/backend";
 
 const terminalSurfaceMocks = vi.hoisted(() => ({ focus: vi.fn() }));
+const nativeChrome = vi.hoisted(() => ({
+  isTauri: vi.fn(() => false),
+  invoke: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/api/core", () => nativeChrome);
 
 vi.mock("./terminal/TerminalSurface", () => ({
   TerminalSurface: ({
@@ -245,6 +251,29 @@ describe("local terminal workspace", () => {
 
   afterEach(() => {
     cleanup();
+    nativeChrome.isTauri.mockReturnValue(false);
+    nativeChrome.invoke.mockReset();
+  });
+
+  it("keeps the loaded material when window controls finish preparing later", async () => {
+    let resolveChrome!: (value: unknown) => void;
+    nativeChrome.isTauri.mockReturnValue(true);
+    nativeChrome.invoke.mockReturnValue(
+      new Promise((resolve) => {
+        resolveChrome = resolve;
+      }),
+    );
+    render(<App backend={backend} />);
+    await waitFor(() =>
+      expect(document.documentElement.dataset.material).toBe("backdrop"),
+    );
+    await act(async () => {
+      resolveChrome({ customTitlebar: true, backdropConfigured: false });
+    });
+    expect(document.documentElement.dataset.material).toBe("backdrop");
+    expect(
+      screen.getByRole("button", { name: "Close window" }),
+    ).toBeInTheDocument();
   });
 
   it("loads core information and detected shell profiles", async () => {
