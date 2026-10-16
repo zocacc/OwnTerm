@@ -73,7 +73,7 @@ const defaultProfile: TerminalAppearanceProfile = {
 };
 const appearanceBounds = {
   windowOpacity: { min: 0, max: 100 },
-  terminalBackgroundOpacity: { min: 55, max: 100 },
+  terminalBackgroundOpacity: { min: 0, max: 100 },
 } as const;
 const defaultAppearance: AppearanceSettings = {
   ...defaultProfile,
@@ -831,7 +831,10 @@ function App({ backend = defaultBackend }: AppProps) {
             const profile = activeAppearanceProfile(appearance);
             const scheme = schemeForProfile(appearance, profile);
             return (
-              <div className="dialog-backdrop" role="presentation">
+              <div
+                className="dialog-backdrop appearance-backdrop"
+                role="presentation"
+              >
                 <section
                   aria-describedby="appearance-description"
                   aria-labelledby="appearance-title"

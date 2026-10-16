@@ -35,29 +35,31 @@ async function setSlider(frame, label, value) {
   }, String(value));
 }
 
-async function pixels(page, image) {
-  return page.evaluate(async (base64) => {
-    const response = await fetch(`data:image/png;base64,${base64}`);
-    const bitmap = await createImageBitmap(await response.blob());
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const context = canvas.getContext("2d");
-    context.drawImage(bitmap, 0, 0);
-    const background = [...context.getImageData(400, 300, 1, 1).data].slice(
-      0,
-      3,
-    );
-    const text = context.getImageData(0, 40, 150, 50).data;
-    let brightestTextPixel = 0;
-    for (let i = 0; i < text.length; i += 4) {
-      brightestTextPixel = Math.max(
-        brightestTextPixel,
-        Math.min(text[i], text[i + 1], text[i + 2]),
-      );
-    }
-    return { background, brightestTextPixel };
-  }, image.toString("base64"));
+async function pixels(page, image, point = { x: 400, y: 300 }) {
+  return page.evaluate(
+    async ({ base64, point }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`);
+      const bitmap = await createImageBitmap(await response.blob());
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d");
+      context.drawImage(bitmap, 0, 0);
+      const background = [
+        ...context.getImageData(point.x, point.y, 1, 1).data,
+      ].slice(0, 3);
+      const text = context.getImageData(0, 40, 150, 50).data;
+      let brightestTextPixel = 0;
+      for (let i = 0; i < text.length; i += 4) {
+        brightestTextPixel = Math.max(
+          brightestTextPixel,
+          Math.min(text[i], text[i + 1], text[i + 2]),
+        );
+      }
+      return { background, brightestTextPixel };
+    },
+    { base64: image.toString("base64"), point },
+  );
 }
 
 test("terminal pixels reveal external color independently of chrome opacity", async () => {
@@ -86,6 +88,8 @@ test("terminal pixels reveal external color independently of chrome opacity", as
       [55, 100, [12, 15, 21]],
       [55, 55, [115, 89, 48]],
       [100, 100, [12, 15, 21]],
+      [100, 0, [240, 180, 80]],
+      [0, 0, [240, 180, 80]],
     ]) {
       await frame.getByRole("button", { name: "Appearance settings" }).click();
       await setSlider(frame, /Interface opacity/, chrome);
@@ -119,6 +123,18 @@ test("terminal pixels reveal external color independently of chrome opacity", as
     }
 
     await frame.getByRole("button", { name: "Appearance settings" }).click();
+    const preview = await pixels(
+      page,
+      await page.screenshot({
+        path: "coverage/browser/appearance-preview-0-0.png",
+      }),
+      { x: 760, y: 300 },
+    );
+    assert.deepEqual(
+      preview.background,
+      [240, 180, 80],
+      "Appearance preview must not darken the terminal behind the dialog",
+    );
     await setSlider(frame, /Terminal background opacity/, 55);
     await frame.getByRole("checkbox", { name: /Use Windows/ }).uncheck();
     await frame

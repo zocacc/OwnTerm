@@ -27,7 +27,7 @@ O `FitAddon.fit()` roda após montagem, troca de aba, resize da janela, troca de
 | Preferência | Intervalo | Responsabilidade | Não afeta |
 | --- | --- | --- | --- |
 | `windowOpacity` | 0–100 | composição CSS do chrome: titlebar, gaveta, menus, diálogos e feedback | `terminal.options.theme.background`, texto e cursor xterm |
-| `terminalBackgroundOpacity` | 55–100 | alfa RGBA exclusivo de `terminal.options.theme.background` | chrome, controles e backdrop do shell |
+| `terminalBackgroundOpacity` | 0–100 | alfa RGBA exclusivo de `terminal.options.theme.background` | chrome, controles e backdrop do shell |
 
 A opacidade da interface não pode usar `opacity` em ancestral de `.xterm` nem alpha nativo em janela layered, pois ambos compõem o canvas, texto e cursor. Para compatibilidade com versões anteriores, a aplicação restaura alpha nativo a 100%; a preferência de interface é aplicada por `--window-opacity` exclusivamente aos elementos de chrome. O xterm recebe `background: rgba(...)` derivado apenas de `terminalBackgroundOpacity`.
 

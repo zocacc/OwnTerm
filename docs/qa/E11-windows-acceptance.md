@@ -30,6 +30,7 @@ Estado: **pendente de teste do instalador pelo usuário no Windows real**. CI e 
 - Registrar SHA do instalador, build Windows, versão WebView2, perfil, estado do foco e configuração de transparência/acessibilidade do Windows.
 - Deixar uma janela com grandes áreas coloridas atrás do OwnTerm. Mover essa janela: o material deve acompanhar o conteúdo externo ao vivo, com desfoque.
 - Abrir PowerShell/CMD com células de fundo padrão (sem fundo ANSI explícito). Interface 100% / terminal 55% deve mostrar o conteúdo externo; terminal 100% deve ocultá-lo. Repetir 55/100 e 55/55, sem alterar opacidade de texto ou cursor.
+- Testar também 100/0 e 0/0. Manter Appearance aberto e observar o terminal fora do painel: nenhum véu escuro ou blur CSS adicional deve aparecer. Fechar e reabrir, depois reiniciar: 0% deve continuar salvo. O Acrylic ainda pode ter tonalidade nativa.
 - Repetir normal, maximizada, restaurada e após reiniciar. Trocar perfil, fonte e aba; verificar buffer e identidade da Session.
 - Desativar Acrylic e testar falha nativa/reduced transparency: fallback sólido, preferência preservada e aviso quando a chamada nativa falhar. O Windows pode substituir o material por sua própria política mesmo com HRESULT de sucesso.
 - Anexar capturas sanitizadas e preencher resultados acima. Só encerrar o aceite visual quando essa matriz for executada.

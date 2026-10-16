@@ -202,6 +202,10 @@ select:focus-visible {
   padding: 1rem;
   backdrop-filter: blur(8px);
 }
+.appearance-backdrop {
+  background: transparent;
+  backdrop-filter: none;
+}
 .dialog {
   width: min(30rem, 100%);
   border: 1px solid var(--border);

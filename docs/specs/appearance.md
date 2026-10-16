@@ -16,9 +16,11 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 | Preferência | Faixa | Padrão | Aplicação |
 | --- | ---: | ---: | --- |
 | Interface Opacity | 0–100% | 92% | Superfícies de chrome do frontend |
-| Terminal Background Opacity | 55–100% | 82% | Fundo de todas as Sessions abertas e futuras |
+| Terminal Background Opacity | 0–100% | 82% | Fundo de todas as Sessions abertas e futuras |
 
 - Sliders exibem o percentual atual, têm labels acessíveis e aplicam mudanças imediatamente.
+- O diálogo Appearance não aplica véu escuro nem blur CSS ao terminal atrás dele, permitindo avaliar a composição ao vivo. Outros diálogos mantêm seu overlay.
+- 0% remove o fundo web do terminal; 100% o torna sólido. O material Acrylic e fundos ANSI explícitos não são removidos por esse slider.
 - `Reset defaults` restaura 92% e 82% sem reiniciar o aplicativo.
 - Valores ausentes ou inválidos retornam aos padrões; valores fora das faixas nunca são aplicados.
 - Com Acrylic ativo, o fundo padrão translúcido do terminal revela o desktop e outras janelas atrás do OwnTerm com o material nativo. Foreground, cursor e seleção mantêm tokens de contraste independentes. Fundos ANSI explícitos continuam pertencendo às aplicações de terminal.
@@ -44,6 +46,7 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 - [ ] Appearance abre pela activity bar e funciona por teclado sem perder foco da Session.
 - [ ] Cada slider respeita sua faixa, mostra percentual e aplica ao vivo a Sessions existentes e futuras.
 - [ ] Interface 100% / terminal 55% revela conteúdo externo com Acrylic; terminal 100% fica sólido. Texto/cursor permanecem opacos e a instância da Session é preservada.
+- [ ] Interface e terminal em 0% deixam o fundo externo visível, inclusive fora do painel com Appearance aberto; os valores sobrevivem ao reinício sem voltar aos padrões. O fallback sólido permanece em caso de falha nativa.
 - [ ] Reset restaura os padrões; preferências sobrevivem ao reinício.
 - [ ] Falha/indisponibilidade nativa deixa a janela sólida, preserva a preferência e informa o usuário.
 - [ ] Texto, cursor, seleção e estados operacionais continuam distinguíveis em toda a faixa suportada.

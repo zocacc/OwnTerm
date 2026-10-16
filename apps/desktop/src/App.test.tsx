@@ -726,6 +726,35 @@ describe("local terminal workspace", () => {
     await waitFor(() => expect(terminalSurfaceMocks.focus).toHaveBeenCalled());
   });
 
+  it("saves fully transparent interface and terminal backgrounds without resetting the session", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await user.click(await screen.findByRole("button", { name: "New tab" }));
+    await user.click(
+      screen.getByRole("button", { name: "Appearance settings" }),
+    );
+    const terminal = screen.getByRole("slider", {
+      name: /Terminal background opacity/,
+    });
+    expect(terminal).toHaveAttribute("min", "0");
+    fireEvent.change(
+      screen.getByRole("slider", { name: /Interface opacity/ }),
+      { target: { value: "0" } },
+    );
+    fireEvent.change(terminal, { target: { value: "0" } });
+    await waitFor(() =>
+      expect(backend.appearanceSaves.at(-1)).toMatchObject({
+        windowOpacity: 0,
+        terminalBackgroundOpacity: 0,
+      }),
+    );
+    expect(screen.getByTestId("terminal-session-1")).toHaveAttribute(
+      "data-opacity",
+      "0",
+    );
+    expect(document.documentElement.dataset.material).toBe("backdrop");
+  });
+
   it("uses a chrome-only CSS variable for window opacity", async () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
