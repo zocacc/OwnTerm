@@ -60,11 +60,14 @@ describe("terminal transparency composition", () => {
   });
 
   it("paints a solid application fallback when native Windows backdrop is unavailable", () => {
-    expect(applicationCss).toMatch(
-      /:root\[data-material="opaque"\][\s\S]*?background:\s*var\(--background\)/,
-    );
-    expect(applicationCss).toMatch(
-      /:root\[data-material="opaque"\]\s+body[\s\S]*?background:\s*var\(--background\)/,
-    );
+    const styles = document.createElement("style");
+    styles.textContent = applicationCss.replace(/@import[^;]+;/g, "");
+    document.head.append(styles);
+    document.documentElement.dataset.material = "opaque";
+    expect(getComputedStyle(document.body).backgroundColor).toBe("#15171c");
+    document.documentElement.dataset.material = "backdrop";
+    expect(getComputedStyle(document.body).backgroundColor).toBe("transparent");
+    delete document.documentElement.dataset.material;
+    styles.remove();
   });
 });

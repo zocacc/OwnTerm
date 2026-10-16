@@ -18,6 +18,66 @@ before(async () => {
   browser = await chromium.launch();
 });
 
+test("terminal fills the window through resize and tab overflow without remounting", async () => {
+  const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+  try {
+    await page.setContent(
+      `<body style="margin:0;color-scheme:dark;background:rgb(240,180,80)"><iframe id="application" src="${origin}/tests/browser/fixture.html" style="border:0;width:100vw;height:100vh"></iframe></body>`,
+    );
+    const frame = page.frameLocator("#application");
+    await frame.locator(".xterm").waitFor();
+    const first = await frame.locator(".xterm").elementHandle();
+    for (let index = 0; index < 12; index++)
+      await frame.getByRole("button", { name: "New tab", exact: true }).click();
+    assert.equal(await frame.getByRole("tab").count(), 13);
+    for (const [width, height] of [
+      [800, 600],
+      [1120, 720],
+      [1500, 900],
+      [800, 600],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await frame.locator(".terminal-view").evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+      });
+      const titlebar = await frame.locator(".titlebar").boundingBox();
+      const terminal = await frame.locator(".terminal-surface").boundingBox();
+      assert.equal(titlebar.height, 40);
+      assert.deepEqual(terminal, { x: 0, y: 40, width, height: height - 40 });
+      assert.ok(
+        await frame
+          .locator(".titlebar-drag")
+          .evaluate((element) => element.getBoundingClientRect().width >= 32),
+      );
+      assert.ok(
+        await first.evaluate((element) => element.isConnected),
+        "opening tabs never recreates the first terminal",
+      );
+    }
+    const tabs = frame.getByRole("tab");
+    await tabs.first().click();
+    await frame.locator(".terminal-surface .xterm-helper-textarea").focus();
+    await page.keyboard.insertText("preserved-buffer");
+    await frame
+      .locator(".terminal-surface .xterm-rows")
+      .getByText("preserved-buffer", { exact: false })
+      .waitFor();
+    await tabs.last().click();
+    await tabs.first().click();
+    assert.ok(await first.evaluate((element) => element.isConnected));
+    await frame
+      .locator(".terminal-surface .xterm-rows")
+      .getByText("preserved-buffer", { exact: false })
+      .waitFor();
+    await page.screenshot({ path: "coverage/browser/terminal-first-tabs.png" });
+  } finally {
+    await page.close();
+  }
+});
+
 after(async () => {
   await browser?.close();
   await server?.close();
@@ -74,7 +134,9 @@ test("terminal pixels reveal external color independently of chrome opacity", as
       `<body style="margin:0;color-scheme:dark;background:rgb(240,180,80)"><iframe id="application" src="${origin}/tests/browser/fixture.html" style="border:0;width:800px;height:600px"></iframe></body>`,
     );
     const frame = page.frameLocator("#application");
-    await frame.getByRole("button", { name: "Open default shell" }).click();
+    await frame
+      .locator(".xterm-helper-textarea")
+      .waitFor({ state: "attached" });
     await frame.locator(".xterm-helper-textarea").focus();
     await page.keyboard.insertText("████████");
     await frame
@@ -146,9 +208,15 @@ test("terminal pixels reveal external color independently of chrome opacity", as
     );
     assert.deepEqual(
       opaque.background,
-      [18, 21, 29],
+      [16, 19, 24],
       "disabled material composes on the solid application fallback",
     );
+  } catch (error) {
+    await page.screenshot({ path: "coverage/browser/composition-failure.png" });
+    console.error(
+      await page.frameLocator("#application").locator("body").innerText(),
+    );
+    throw error;
   } finally {
     await page.close();
   }

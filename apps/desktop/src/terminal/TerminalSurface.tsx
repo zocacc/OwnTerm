@@ -72,7 +72,7 @@ export function TerminalSurface({
     fontFamily: "JetBrains Mono, Cascadia Mono, Consolas, monospace",
     fontSize: 14,
     windowOpacity: 92,
-    terminalBackgroundOpacity: terminalBackgroundOpacity ?? 82,
+    terminalBackgroundOpacity: terminalBackgroundOpacity ?? 0,
     useAcrylic: true,
     builtIn: true,
   };

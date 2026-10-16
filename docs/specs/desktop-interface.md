@@ -1,5 +1,7 @@
 # Spec — Interface desktop terminal-first
 
+> A composição com gaveta descrita abaixo é histórica. O redesign aprovado substitui essa apresentação conforme [reconstrução terminal-first](../plans/frontend-terminal-first-rebuild.md) e ADR 0012. A entrega atual é a fundação local; recursos de gestão aguardam aceite nativo.
+
 ## Status e rastreabilidade
 
 - **Status:** proposed

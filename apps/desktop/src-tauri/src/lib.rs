@@ -726,6 +726,7 @@ struct AppearanceSettingsDto {
     window_opacity_applied: bool,
     window_opacity_warning: Option<&'static str>,
     backdrop_configured: bool,
+    backdrop_revision: u64,
     backdrop_warning: Option<&'static str>,
     defaults_applied: bool,
     active_profile_id: String,
@@ -841,7 +842,7 @@ fn appearance_dto(
     settings: AppearanceSettings,
     defaults_applied: bool,
     backdrop_requested: bool,
-    backdrop_configured: bool,
+    material: backdrop::MaterialSnapshot,
     catalog: TerminalAppearanceCatalog,
 ) -> AppearanceSettingsDto {
     AppearanceSettingsDto {
@@ -852,8 +853,9 @@ fn appearance_dto(
         window_opacity_support: "supported",
         window_opacity_applied: true,
         window_opacity_warning: None,
-        backdrop_configured,
-        backdrop_warning: (backdrop_requested && !backdrop_configured)
+        backdrop_configured: material.configured,
+        backdrop_revision: material.revision,
+        backdrop_warning: (backdrop_requested && !material.configured)
             .then_some("Windows backdrop is unavailable; using the opaque material fallback."),
         defaults_applied,
         active_profile_id: catalog.active_profile_id,
@@ -896,7 +898,7 @@ fn list_system_fonts() -> Vec<String> {
 }
 
 #[tauri::command]
-fn get_appearance_settings(
+async fn get_appearance_settings(
     window: tauri::WebviewWindow,
     state: State<'_, DesktopState>,
 ) -> Result<AppearanceSettingsDto, String> {
@@ -913,19 +915,18 @@ fn get_appearance_settings(
         AppearanceSettings::try_new(profile.window_opacity, profile.terminal_background_opacity)
             .map_err(|e| e.to_string())?;
     let backdrop_requested = profile.use_acrylic;
-    let backdrop_configured =
-        configure_backdrop(&window, &state, &mut backdrop, backdrop_requested);
+    let material = configure_backdrop(&window, &state, &mut backdrop, backdrop_requested);
     Ok(appearance_dto(
         effective,
         defaults_applied,
         backdrop_requested,
-        backdrop_configured,
+        material,
         catalog,
     ))
 }
 
 #[tauri::command]
-fn save_appearance_settings(
+async fn save_appearance_settings(
     window: tauri::WebviewWindow,
     state: State<'_, DesktopState>,
     request: SaveAppearanceSettingsRequest,
@@ -994,13 +995,12 @@ fn save_appearance_settings(
         })
         .map_err(|e| format!("could not save appearance settings: {e:?}"))?;
     let backdrop_requested = profile.use_acrylic;
-    let backdrop_configured =
-        configure_backdrop(&window, &state, &mut backdrop, backdrop_requested);
+    let material = configure_backdrop(&window, &state, &mut backdrop, backdrop_requested);
     Ok(appearance_dto(
         settings,
         false,
         backdrop_requested,
-        backdrop_configured,
+        material,
         catalog,
     ))
 }
@@ -1010,10 +1010,11 @@ fn configure_backdrop(
     state: &DesktopState,
     backdrop: &mut backdrop::BackdropState,
     requested: bool,
-) -> bool {
+) -> backdrop::MaterialSnapshot {
+    let native = backdrop.native();
     backdrop.configure(requested, |enabled| {
         reset_native_window_opacity(window, state);
-        let result = backdrop::apply(window, enabled);
+        let result = backdrop::apply(window, enabled, native);
         eprintln!(
             "{}",
             serde_json::json!({
@@ -1022,7 +1023,8 @@ fn configure_backdrop(
             })
         );
         result
-    })
+    });
+    backdrop.snapshot()
 }
 
 #[tauri::command]

@@ -135,6 +135,7 @@ export type AppearanceSettings = {
   windowOpacityApplied: boolean;
   windowOpacityWarning: string | null;
   backdropConfigured: boolean;
+  backdropRevision?: number;
   backdropWarning: string | null;
   defaultsApplied: boolean;
   activeProfileId: string;

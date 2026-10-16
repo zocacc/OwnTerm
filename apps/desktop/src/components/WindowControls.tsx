@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 type WindowChrome = { customTitlebar: boolean };
 
-export function WindowControls() {
+export function WindowControls({ onClose }: { onClose?: () => void }) {
   const [customTitlebar, setCustomTitlebar] = useState(() => isTauri());
   const [error, setError] = useState<string>();
 
@@ -28,6 +28,10 @@ export function WindowControls() {
 
   if (!customTitlebar) return null;
   const perform = (action: "minimize" | "toggleMaximize" | "close") => {
+    if (action === "close" && onClose) {
+      onClose();
+      return;
+    }
     setError(undefined);
     const appWindow = getCurrentWindow();
     void appWindow[action]().catch(() =>

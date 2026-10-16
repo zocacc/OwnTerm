@@ -16,12 +16,12 @@ Permitir que cada instalação ajuste o efeito visual do OwnTerm sem comprometer
 | Preferência | Faixa | Padrão | Aplicação |
 | --- | ---: | ---: | --- |
 | Interface Opacity | 0–100% | 92% | Superfícies de chrome do frontend |
-| Terminal Background Opacity | 0–100% | 82% | Fundo de todas as Sessions abertas e futuras |
+| Terminal Background Opacity | 0–100% | 0% | Fundo de todas as Sessions abertas e futuras |
 
 - Sliders exibem o percentual atual, têm labels acessíveis e aplicam mudanças imediatamente.
 - O diálogo Appearance não aplica véu escuro nem blur CSS ao terminal atrás dele, permitindo avaliar a composição ao vivo. Outros diálogos mantêm seu overlay.
 - 0% remove o fundo web do terminal; 100% o torna sólido. O material Acrylic e fundos ANSI explícitos não são removidos por esse slider.
-- `Reset defaults` restaura 92% e 82% sem reiniciar o aplicativo.
+- `Reset defaults` restaura 92% e 0% sem reiniciar o aplicativo. Perfis já persistidos não são redefinidos pela atualização.
 - Valores ausentes ou inválidos retornam aos padrões; valores fora das faixas nunca são aplicados.
 - Com Acrylic ativo, o fundo padrão translúcido do terminal revela o desktop e outras janelas atrás do OwnTerm com o material nativo. Foreground, cursor e seleção mantêm tokens de contraste independentes. Fundos ANSI explícitos continuam pertencendo às aplicações de terminal.
 

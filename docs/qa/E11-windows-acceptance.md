@@ -1,5 +1,19 @@
 # E11 — Evidência de aceitação Windows 11
 
+## Gate 1 — Fundação reconstruída
+
+Esta entrega não expõe gestão de Hosts/SSH nem configurações avançadas. Dados e backend permanecem preservados; a segunda entrega só começa após aceite visual desta base. Os cenários históricos abaixo que envolvem SSH/gestão continuam pendentes, não são resultados aprovados da fundação.
+
+1. Registrar SHA do instalador, versão/build Windows, WebView2 e DPI. Testar com foco na janela e efeitos de transparência do Windows habilitados.
+2. Abrir: um shell local deve iniciar sem dashboard/launcher intermediário. Escolher CMD/PowerShell/WSL disponível no menu da seta; + abre outro shell padrão.
+3. Ajustar terminal 0% e Acrylic ativo. Mover uma janela colorida atrás do OwnTerm; conteúdo deve mudar ao vivo com blur, sem véu adicional ao abrir Appearance. Repetir 100/0, 0/0, 100/55 e 100/100.
+4. Minimizar/restaurar, maximizar/restaurar, arrastar pelo espaço vazio, redimensionar repetidamente, trocar foco e testar DPI 100/150/200%. Confirmar fundo externo, texto opaco e PTY corretamente dimensionado.
+5. Abrir pelo menos 13 abas: barra continua com 40px e overflow horizontal; terminal ocupa o restante, buffers preservados ao alternar e com Ctrl+Tab.
+6. Testar fechamento de aba ativa, Cancelar, confirmação da última aba e Alt+F4 com várias sessões. Falha ao encerrar processo deve manter a aba e o erro.
+7. Desativar Acrylic: fallback sólido identificado. Reativar; reiniciar e verificar preservação dos sliders e perfis anteriores. Testar mudança dos efeitos de transparência do Windows; registrar quando o sistema substituir material apesar de chamada aceita.
+
+Anexar capturas/vídeo sanitizados de janela colorida em movimento e dos estados normal/maximizado, sem comandos, hosts ou segredos. **Se continuar cinza em 0%, não liberar o gate nem iniciar a entrega 2.**
+
 Execute esta matriz no artefato Windows gerado pelo CI, sem registrar hosts, comandos, saída de terminal, senhas ou chaves nos screenshots.
 
 ## Pré-condições
